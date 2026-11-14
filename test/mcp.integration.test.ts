@@ -1,0 +1,221 @@
+import { describe, expect, it } from "vitest";
+import { ComputeDeadlinesOutputSchema } from "../src/core/deadlines.js";
+import { ListHolidaysOutputSchema } from "../src/core/holidays.js";
+import { ComputeInterest1619OutputSchema } from "../src/core/interest1619.js";
+import worker, { Env } from "../src/index.js";
+
+const dummyCtx = {
+  waitUntil: () => {},
+  passThroughOnException: () => {},
+  props: {},
+} as unknown as ExecutionContext;
+
+interface JsonRpcResponseBody {
+  jsonrpc: string;
+  id: number | string | null;
+  result?: Record<string, unknown>;
+  error?: { code: number; message: string };
+}
+
+async function parseMcpResponse(response: Response): Promise<JsonRpcResponseBody> {
+  const contentType = response.headers.get("content-type") ?? "";
+  const raw = await response.text();
+  if (contentType.includes("application/json")) {
+    return JSON.parse(raw) as JsonRpcResponseBody;
+  }
+  const dataLine = raw
+    .split(/\r?\n/)
+    .find((line) => line.startsWith("data: "));
+  if (!dataLine) {
+    throw new Error(`Réponse MCP inattendue (${contentType}) : ${raw}`);
+  }
+  return JSON.parse(dataLine.slice(6)) as JsonRpcResponseBody;
+}
+
+async function mcpPost(
+  method: string,
+  params: Record<string, unknown>,
+  id = 1,
+  url = "https://outils.poirierlavoie.ca/mcp",
+  env: Env = {}
+): Promise<{ status: number; body: JsonRpcResponseBody }> {
+  const host = new URL(url).host;
+  const req = new Request(url, {
+    method: "POST",
+    headers: {
+      Host: host,
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id,
+      method,
+      params,
+    }),
+  });
+  const res = await worker.fetch(req, env, dummyCtx);
+  const body = await parseMcpResponse(res);
+  return { status: res.status, body };
+}
+
+describe("Worker HTTP & intégration MCP", () => {
+  it("répond sur GET /healthz, GET / et renvoie 404 hors route", async () => {
+    const health = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/healthz"),
+      {},
+      dummyCtx
+    );
+    expect(health.status).toBe(200);
+    const healthJson = (await health.json()) as Record<string, unknown>;
+    expect(healthJson.status).toBe("ok");
+    expect(healthJson.request_payload_logging).toBe(false);
+    expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
+
+    const landing = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/"),
+      {},
+      dummyCtx
+    );
+    expect(landing.status).toBe(200);
+
+    const notFound = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/inconnu"),
+      {},
+      dummyCtx
+    );
+    expect(notFound.status).toBe(404);
+  });
+
+  it("valide Host header (accepte outils.poirierlavoie.ca et ALLOWED_HOSTNAMES, rejette un hôte tiers)", async () => {
+    const missingHost = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      }),
+      {},
+      dummyCtx
+    );
+    expect(missingHost.status).toBe(403);
+
+    const rejected = await worker.fetch(
+      new Request("https://evil.example.com/mcp", {
+        method: "POST",
+        headers: {
+          Host: "evil.example.com",
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      }),
+      {},
+      dummyCtx
+    );
+    expect(rejected.status).toBe(403);
+
+    const customAllowed = await mcpPost(
+      "tools/list",
+      {},
+      1,
+      "https://staging.example.com/mcp",
+      { ALLOWED_HOSTNAMES: "staging.example.com" }
+    );
+    expect(customAllowed.status).toBe(200);
+  });
+
+  it("applique la limite de débit (HTTP 429) par CF-Connecting-IP", async () => {
+    const seenKeys: string[] = [];
+    const env: Env = {
+      RATE_LIMITER: {
+        limit: async ({ key }) => {
+          seenKeys.push(key);
+          return { success: false };
+        },
+      },
+    };
+    const res = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "POST",
+        headers: {
+          "CF-Connecting-IP": "198.51.100.42",
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: "{}",
+      }),
+      env,
+      dummyCtx
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("60");
+    expect(seenKeys).toEqual(["198.51.100.42"]);
+  });
+
+  it("expose les 3 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
+    const listRes = await mcpPost("tools/list", {});
+    expect(listRes.status).toBe(200);
+    const tools = (listRes.body.result?.tools as Array<{ name: string }>) ?? [];
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "calendrier_compute_deadlines",
+      "calendrier_list_holidays",
+      "interets_compute_1619",
+    ]);
+
+    const holidaysCall = await mcpPost("tools/call", {
+      name: "calendrier_list_holidays",
+      arguments: { year: 2026, regime: "qc_cpc" },
+    });
+    expect(holidaysCall.status).toBe(200);
+    expect(holidaysCall.body.result?.isError).not.toBe(true);
+    const hStructured = ListHolidaysOutputSchema.parse(
+      holidaysCall.body.result?.structuredContent
+    );
+    expect(hStructured.count).toBe(11);
+
+    const deadlinesCall = await mcpPost("tools/call", {
+      name: "calendrier_compute_deadlines",
+      arguments: {
+        event_date: "2026-07-03",
+        event_time: "17:40",
+        notification_mode: "technological",
+        regime: "qc_cpc",
+        deadlines: [{ label: "Réponse", amount: 15, unit: "days" }],
+      },
+    });
+    expect(deadlinesCall.status).toBe(200);
+    const dStructured = ComputeDeadlinesOutputSchema.parse(
+      deadlinesCall.body.result?.structuredContent
+    );
+    expect(dStructured.results[0]!.effective_anchor_date).toBe("2026-07-06");
+    expect(dStructured.results[0]!.effective_date).toBe("2026-07-21");
+
+    const interestCall = await mcpPost("tools/call", {
+      name: "interets_compute_1619",
+      arguments: {
+        mode: "legal_plus_1619",
+        end_date: "2025-12-31",
+        tranches: [{ principal_cents: 10_000_000, start_date: "2024-12-31" }],
+      },
+    });
+    expect(interestCall.status).toBe(200);
+    const iStructured = ComputeInterest1619OutputSchema.parse(
+      interestCall.body.result?.structuredContent
+    );
+    expect(iStructured.total_interest_cents).toBe(824_658);
+
+    // Date invalide via MCP -> isError: true sans plantage HTTP 500
+    const badDateCall = await mcpPost("tools/call", {
+      name: "calendrier_compute_deadlines",
+      arguments: {
+        event_date: "2025-02-29",
+        deadlines: [{ amount: 10, unit: "days" }],
+      },
+    });
+    expect(badDateCall.status).toBe(200);
+    expect(badDateCall.body.result?.isError).toBe(true);
+  });
+});

@@ -1,0 +1,28 @@
+{
+  "name": "pratique-civile-outils",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Serveur MCP public et sans état (Cloudflare Workers) fournissant des outils déterministes de calcul de délais procéduraux québécois/fédéraux et d'intérêts légaux (art. 1619 C.c.Q.).",
+  "license": "CC0-1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "cf dev",
+    "build": "cf build",
+    "deploy": "cf deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "agents": "^0.33.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^2.0.0-beta.v.17",
+    "@cloudflare/workers-types": "^5.20261114.1",
+    "cf": "^0.15.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.0.0",
+    "vitest": "^5.1.0"
+  }
+}

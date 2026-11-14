@@ -1,0 +1,10 @@
+node_modules/
+.cloudflare/
+.cf/
+.wrangler/
+.vite/
+dist/
+coverage/
+.dev.vars*
+.env*
+*.log
