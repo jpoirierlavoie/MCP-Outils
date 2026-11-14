@@ -28,7 +28,7 @@ export const InterestModeSchema = z.enum([
 ]);
 export type InterestMode = z.infer<typeof InterestModeSchema>;
 
-export const RateOverrideSchema = z.object({
+export const RateOverrideSchema = z.strictObject({
   quarter: z
     .string()
     .regex(QUARTER_RE)
@@ -44,7 +44,7 @@ export const RateOverrideSchema = z.object({
 });
 export type RateOverride = z.infer<typeof RateOverrideSchema>;
 
-export const CapitalTrancheInputSchema = z.object({
+export const CapitalTrancheInputSchema = z.strictObject({
   label: z
     .string()
     .min(1)
@@ -78,7 +78,7 @@ export const CapitalTrancheInputSchema = z.object({
 });
 export type CapitalTrancheInput = z.infer<typeof CapitalTrancheInputSchema>;
 
-export const ComputeInterest1619InputSchema = z.object({
+export const ComputeInterest1619InputSchema = z.strictObject({
   mode: InterestModeSchema
     .optional()
     .describe(

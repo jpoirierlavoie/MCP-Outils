@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  GARDE_DOSSIER,
+  GARDE_PALAIS,
+  GARDE_SANS_ADRESSE,
+  SANS_PLUMITIF,
+} from "../qc/format.js";
 
 export const GARDE_CODES = [
   "SAMEDI_CONGE_LOI_INTERPRETATION_QC",
@@ -9,6 +15,11 @@ export const GARDE_CODES = [
   "DEPOT_GREFFE_HEURES_OUVERTURE",
   "TAUX_LAF_TRIMESTRE_MANQUANT",
   "INTERET_SIMPLE_ART_1620_CCQ",
+  "DOSSIER_NOMENCLATURE_SEULEMENT",
+  "GREFFE_SANS_PLUMITIF",
+  "GREFFE_SANS_ADRESSE_PUBLIEE",
+  "PALAIS_RELEVE_MJQ_DATE",
+  "PALAIS_COORDONNEES_NON_PUBLIEES",
 ] as const;
 
 export const GardeCodeSchema = z.enum(GARDE_CODES);
@@ -47,6 +58,12 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "La période demandée dépasse les trimestres publiés et vérifiés dans la table embarquée de l'art. 28 L.A.F. Aucune extrapolation n'est effectuée : le calcul a été arrêté à la fin du dernier trimestre couvert (sauf fourniture explicite de rate_overrides).",
   INTERET_SIMPLE_ART_1620_CCQ:
     "En vertu de l'art. 1620 C.c.Q., les intérêts légaux et l'indemnité additionnelle de l'art. 1619 C.c.Q. sont des intérêts simples (sans capitalisation), sauf disposition législative particulière, convention écrite valable ou ordonnance judiciaire contraire.",
+  DOSSIER_NOMENCLATURE_SEULEMENT: GARDE_DOSSIER,
+  GREFFE_SANS_PLUMITIF: SANS_PLUMITIF,
+  GREFFE_SANS_ADRESSE_PUBLIEE: GARDE_SANS_ADRESSE,
+  PALAIS_RELEVE_MJQ_DATE: GARDE_PALAIS,
+  PALAIS_COORDONNEES_NON_PUBLIEES:
+    "Coordonnées : ce connecteur n'en porte AUCUNE (ni téléphone, ni courriel, ni heures d'ouverture). Les obtenir auprès du ministère de la Justice du Québec.",
 };
 
 export function makeGarde(code: GardeCode, detail?: string): Garde {

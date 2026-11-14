@@ -30,7 +30,7 @@ export const HolidayEntrySchema = z.object({
 });
 export type HolidayEntry = z.infer<typeof HolidayEntrySchema>;
 
-export const ListHolidaysInputSchema = z.object({
+export const ListHolidaysInputSchema = z.strictObject({
   year: z
     .number()
     .int()

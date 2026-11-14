@@ -1,6 +1,6 @@
 {
   "name": "pratique-civile-outils",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Serveur MCP public et sans état (Cloudflare Workers) fournissant des outils déterministes de calcul de délais procéduraux québécois/fédéraux et d'intérêts légaux (art. 1619 C.c.Q.).",
   "license": "CC0-1.0",

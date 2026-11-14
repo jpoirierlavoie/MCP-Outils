@@ -29,7 +29,7 @@ export type DeadlineUnit = z.infer<typeof DeadlineUnitSchema>;
 export const DeadlineDirectionSchema = z.enum(["forward", "backward"]);
 export type DeadlineDirection = z.infer<typeof DeadlineDirectionSchema>;
 
-export const DeadlineStepInputSchema = z.object({
+export const DeadlineStepInputSchema = z.strictObject({
   label: z
     .string()
     .min(1)
@@ -75,7 +75,7 @@ export const DeadlineStepInputSchema = z.object({
 });
 export type DeadlineStepInput = z.infer<typeof DeadlineStepInputSchema>;
 
-export const ComputeDeadlinesInputSchema = z.object({
+export const ComputeDeadlinesInputSchema = z.strictObject({
   event_date: z
     .string()
     .regex(ISO_DATE_FORMAT_RE)

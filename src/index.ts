@@ -5,7 +5,9 @@ import {
   SERVER_NAME,
   SERVER_VERSION,
   createOutilsMcpServer,
+  listToolDescriptors,
 } from "./mcp/server.js";
+import { pagePubliqueHtml } from "./site.js";
 
 export interface Env {
   RATE_LIMITER?: RateLimit;
@@ -62,11 +64,7 @@ function healthzResponse(): Response {
       stateless: true,
       request_payload_logging: false,
       laf_table_last_quarter: lafRatesJson.metadata.last_quarter,
-      tools: [
-        "calendrier_list_holidays",
-        "calendrier_compute_deadlines",
-        "interets_compute_1619",
-      ],
+      tools: listToolDescriptors().map((t) => t.name),
     },
     {
       status: 200,
@@ -77,30 +75,20 @@ function healthzResponse(): Response {
   );
 }
 
-function landingResponse(): Response {
-  return Response.json(
-    {
-      service: SERVER_NAME,
-      version: SERVER_VERSION,
-      description:
-        "Serveur MCP public, sans état et sans journalisation des charges utiles pour le litige civil québécois (délais procéduraux C.p.c./L.I. et intérêts art. 1619 C.c.Q.).",
-      mcp_endpoint: "/mcp",
-      health_endpoint: "/healthz",
-      tools: [
-        "calendrier_list_holidays",
-        "calendrier_compute_deadlines",
-        "interets_compute_1619",
-      ],
-      privacy: "Aucune journalisation ni conservation des requêtes, dates ou montants.",
-      source: "https://github.com/jpoirierlavoie/pratique-civile-outils",
-    },
-    {
-      status: 200,
-      headers: {
-        "Cache-Control": "public, max-age=300",
-      },
-    }
-  );
+function pagePublique(request: Request): Response {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Security-Policy":
+      "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+      "img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Cache-Control": "public, max-age=600",
+  };
+  const html = pagePubliqueHtml();
+  return request.method === "HEAD"
+    ? new Response(null, { status: 200, headers })
+    : new Response(html, { status: 200, headers });
 }
 
 export default {
@@ -125,11 +113,14 @@ export default {
     ) {
       return healthzResponse();
     }
-    if (
-      url.pathname === "/" &&
-      (request.method === "GET" || request.method === "HEAD")
-    ) {
-      return landingResponse();
+    if (url.pathname === "/") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: { Allow: "GET, HEAD" },
+        });
+      }
+      return pagePublique(request);
     }
     if (url.pathname === "/mcp") {
       const handler = env.ALLOWED_HOSTNAMES

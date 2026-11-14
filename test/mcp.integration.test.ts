@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { ComputeDeadlinesOutputSchema } from "../src/core/deadlines.js";
 import { ListHolidaysOutputSchema } from "../src/core/holidays.js";
 import { ComputeInterest1619OutputSchema } from "../src/core/interest1619.js";
+import {
+  PalaisGetOutputSchema,
+  PalaisListOutputSchema,
+  ParseCourtFileOutputSchema,
+} from "../src/core/qcTools.js";
 import worker, { Env } from "../src/index.js";
 
 const dummyCtx = {
@@ -60,7 +65,7 @@ async function mcpPost(
 }
 
 describe("Worker HTTP & intégration MCP", () => {
-  it("répond sur GET /healthz, GET / et renvoie 404 hors route", async () => {
+  it("répond sur GET /healthz, GET /, HEAD /, rejette POST / en 405 et renvoie 404 hors route", async () => {
     const health = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/healthz"),
       {},
@@ -69,8 +74,17 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(health.status).toBe(200);
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
+    expect(healthJson.version).toBe("0.2.0");
     expect(healthJson.request_payload_logging).toBe(false);
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
+    expect(healthJson.tools).toEqual([
+      "calendrier_list_holidays",
+      "calendrier_compute_deadlines",
+      "interets_compute_1619",
+      "greffe_parse_court_file_number",
+      "palais_list",
+      "palais_get",
+    ]);
 
     const landing = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/"),
@@ -78,6 +92,27 @@ describe("Worker HTTP & intégration MCP", () => {
       dummyCtx
     );
     expect(landing.status).toBe(200);
+    expect(landing.headers.get("content-type")).toContain("text/html");
+    expect(landing.headers.get("access-control-allow-origin")).toBeNull();
+    const html = await landing.text();
+    expect(html).toContain("pratique-civile-outils");
+    expect(html).toContain("greffe_parse_court_file_number");
+
+    const headLanding = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/", { method: "HEAD" }),
+      {},
+      dummyCtx
+    );
+    expect(headLanding.status).toBe(200);
+    expect(await headLanding.text()).toBe("");
+
+    const postLanding = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/", { method: "POST" }),
+      {},
+      dummyCtx
+    );
+    expect(postLanding.status).toBe(405);
+    expect(postLanding.headers.get("allow")).toBe("GET, HEAD");
 
     const notFound = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/inconnu"),
@@ -155,14 +190,17 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(seenKeys).toEqual(["198.51.100.42"]);
   });
 
-  it("expose les 3 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
+  it("expose les 6 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
     const listRes = await mcpPost("tools/list", {});
     expect(listRes.status).toBe(200);
     const tools = (listRes.body.result?.tools as Array<{ name: string }>) ?? [];
     expect(tools.map((t) => t.name).sort()).toEqual([
       "calendrier_compute_deadlines",
       "calendrier_list_holidays",
+      "greffe_parse_court_file_number",
       "interets_compute_1619",
+      "palais_get",
+      "palais_list",
     ]);
 
     const holidaysCall = await mcpPost("tools/call", {
@@ -217,5 +255,47 @@ describe("Worker HTTP & intégration MCP", () => {
     });
     expect(badDateCall.status).toBe(200);
     expect(badDateCall.body.result?.isError).toBe(true);
+
+    const dossierCall = await mcpPost("tools/call", {
+      name: "greffe_parse_court_file_number",
+      arguments: { court_file_number: "500-05-123456-241" },
+    });
+    expect(dossierCall.status).toBe(200);
+    expect(dossierCall.body.result?.isError).not.toBe(true);
+    const dossierStructured = ParseCourtFileOutputSchema.parse(
+      dossierCall.body.result?.structuredContent
+    );
+    expect(dossierStructured.outcome).toBe("judicial");
+    expect(dossierStructured.greffe_number).toBe("500");
+
+    const palaisListCall = await mcpPost("tools/call", {
+      name: "palais_list",
+      arguments: { district: "Montréal" },
+    });
+    expect(palaisListCall.status).toBe(200);
+    expect(palaisListCall.body.result?.isError).not.toBe(true);
+    const palaisListStructured = PalaisListOutputSchema.parse(
+      palaisListCall.body.result?.structuredContent
+    );
+    expect(palaisListStructured.count).toBe(1);
+
+    const palaisGetCall = await mcpPost("tools/call", {
+      name: "palais_get",
+      arguments: { greffe_number: "500" },
+    });
+    expect(palaisGetCall.status).toBe(200);
+    expect(palaisGetCall.body.result?.isError).not.toBe(true);
+    const palaisGetStructured = PalaisGetOutputSchema.parse(
+      palaisGetCall.body.result?.structuredContent
+    );
+    expect(palaisGetStructured.palais?.name).toBe("Montréal");
+
+    const palaisGetXor = await mcpPost("tools/call", {
+      name: "palais_get",
+      arguments: { greffe_number: "500", palais: "Montréal" },
+    });
+    expect(palaisGetXor.status).toBe(200);
+    expect(palaisGetXor.body.result?.isError).toBe(true);
+    expect(palaisGetXor.body.result?.structuredContent).toBeUndefined();
   });
 });
