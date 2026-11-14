@@ -98,7 +98,11 @@ npx cf dev
 
 Pour tester temporairement sur un domaine `*.workers.dev` ou un hôte de prévisualisation, ajoutez la variable d'environnement `ALLOWED_HOSTNAMES` (séparée par des virgules).
 
-Déploiement :
+### Déploiement
+
+Le déploiement en production sur `outils.poirierlavoie.ca` est automatisé à chaque push sur `main` (ou déclenchement manuel `workflow_dispatch`) par [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) via l'environnement GitHub `production` et le secret `CLOUDFLARE_API_TOKEN`. Aucun secret applicatif n'est requis dans le Worker.
+
+Pour un déploiement manuel local :
 
 ```bash
 npx cf auth login
@@ -109,7 +113,7 @@ npx cf deploy
 
 1. Consultez les taux publiés par Revenu Québec (`Metadata.source_url` dans [`src/data/laf_art28_rates.json`](src/data/laf_art28_rates.json)). Le workflow [`.github/workflows/check-laf-rates.yml`](.github/workflows/check-laf-rates.yml) ouvre automatiquement un billet de rappel à la mi-mars, mi-juin, mi-septembre et mi-décembre lorsque le trimestre suivant manque.
 2. Ajoutez le nouveau trimestre dans `src/data/laf_art28_rates.json` et mettez à jour `metadata.last_quarter`, `metadata.table_version` et `metadata.verified_at`.
-3. Exécutez `npm run typecheck && npm test && npx cf deploy`.
+3. Exécutez `npm run typecheck && npm test && npx cf deploy --dry-run`, puis committez et poussez sur `main` (le workflow `deploy.yml` déploiera automatiquement), ou exécutez `npx cf deploy` manuellement.
 
 ## Licence
 
