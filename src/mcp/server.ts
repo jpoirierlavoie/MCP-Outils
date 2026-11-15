@@ -1,6 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
+  AdresseVerifyInputSchema,
+  AdresseVerifyOutputSchema,
+  adresseVerify,
+} from "../core/adresses.js";
+import {
   ComputeDeadlinesInputSchema,
   type ComputeDeadlinesOutput,
   ComputeDeadlinesOutputSchema,
@@ -30,21 +35,39 @@ import {
   palaisList,
   parseCourtFile,
 } from "../core/qcTools.js";
+import {
+  RegistreGetEntityInputSchema,
+  RegistreGetEntityOutputSchema,
+  RegistreSearchEntitiesInputSchema,
+  RegistreSearchEntitiesOutputSchema,
+  registreGetEntity,
+  registreSearchEntities,
+} from "../core/registres.js";
+import {
+  TerminologieAttestationsInputSchema,
+  TerminologieAttestationsOutputSchema,
+  TerminologieLookupInputSchema,
+  TerminologieLookupOutputSchema,
+  TerminologieScanTextInputSchema,
+  TerminologieScanTextOutputSchema,
+  terminologieAttestations,
+  terminologieLookup,
+  terminologieScanText,
+} from "../core/terminologie.js";
 
 export const SERVER_NAME = "pratique-civile-outils";
 export const SERVER_TITLE = "Pratique civile — outils déterministes (Québec)";
-export const SERVER_VERSION = "0.2.0";
+export const SERVER_VERSION = "0.3.0";
 export const SERVER_DESCRIPTION =
-  "Serveur MCP public, sans état et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), décomposition de numéros de dossier de cour et répertoire des palais de justice du Québec (relevé MJQ).";
+  "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
 
 export const INSTRUCTIONS =
-  "Serveur MCP public sans état, sans base de données ni journalisation des charges utiles. " +
-  "Tous les outils s'exécutent localement à partir de règles arithmétiques ou de tables statiques compilées " +
-  "(openWorldHint: false, readOnlyHint: true) : " +
+  "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de trois bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
   "1) Calculs — calendrier_list_holidays, calendrier_compute_deadlines et interets_compute_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
-  "2) Greffes et palais du Québec — greffe_parse_court_file_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses relevées le 2026-07-15, table des lieux 2026-07-22). " +
-  "Ils ne consultent AUCUN registre de dossiers (aucun plumitif), ne portent AUCUNE coordonnée téléphonique ni courriel et n'établissent jamais qu'un dossier existe : vérifier les adresses et coordonnées officielles auprès du Ministère avant toute signification ou tout dépôt. " +
-  "Pour vérifier l'existence d'une décision de jurisprudence ou d'une cour fédérale, employer le connecteur distinct « Jurisprudence » ; pour le texte officiel des lois et règlements, employer « Legislation » (lois et règlements du Québec et du fédéral).";
+  "2) Greffes et palais du Québec — greffe_parse_court_file_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses relevées le 2026-07-15, table des lieux 2026-07-22) sans consulter aucun plumitif ni porter de coordonnées téléphoniques ou courriels. " +
+  "3) Registres d'entreprises — registre_search_entities et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1) : consulter le portail officiel du Registraire avant toute signification ou désignation finale d'une partie. " +
+  "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
+  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, terminologie_attestations et terminologie_scan_text assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « Legislation » ; pour la jurisprudence, employer « Jurisprudence »).";
 
 const READ_ONLY_LOCAL_ANNOTATIONS = {
   readOnlyHint: true,
@@ -53,11 +76,19 @@ const READ_ONLY_LOCAL_ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 
+export type ToolFamily = "calcul" | "greffe" | "registre" | "adresse" | "terminologie";
+
+export interface OutilsBindings {
+  DB_TERMINOLOGIE?: D1Database;
+  DB_REGISTRES?: D1Database;
+  DB_ADRESSES?: D1Database;
+}
+
 export interface ToolDescriptor {
   readonly name: string;
   readonly title: string;
   readonly description: string;
-  readonly family: "calcul" | "greffe";
+  readonly family: ToolFamily;
   readonly inputSchemaJson: Record<string, unknown>;
   readonly annotations: typeof READ_ONLY_LOCAL_ANNOTATIONS;
 }
@@ -66,7 +97,7 @@ const TOOL_SPECS: ReadonlyArray<{
   readonly name: string;
   readonly title: string;
   readonly description: string;
-  readonly family: "calcul" | "greffe";
+  readonly family: ToolFamily;
   readonly inputSchema: z.ZodType;
 }> = [
   {
@@ -117,6 +148,54 @@ const TOOL_SPECS: ReadonlyArray<{
     family: "greffe",
     inputSchema: PalaisGetInputSchema,
   },
+  {
+    name: "registre_search_entities",
+    title: "Registres d'entreprises (QC / Canada) — recherche",
+    description:
+      "Recherche hors ligne dans les instantanés locaux de données ouvertes du Registraire des entreprises du Québec (REQ, enrichi des licences RBQ actives, permis OPC et inscriptions RENA) et de Corporations Canada (sociétés fédérales). Trouve une entité par dénomination sociale, autre nom utilisé, numéro de société à numéro (p. ex. '9123-4567 Québec inc.'), NEQ ou numéro fédéral. Exclut les dirigeants et actionnaires personnes physiques (restriction légale du jeu ouvert REQ) : vérifier l'état officiel à jour auprès du Registraire avant toute signification ou désignation d'une partie.",
+    family: "registre",
+    inputSchema: RegistreSearchEntitiesInputSchema,
+  },
+  {
+    name: "registre_get_entity",
+    title: "Registres d'entreprises (QC / Canada) — fiche complète",
+    description:
+      "Récupère la fiche détaillée d'une entreprise par NEQ à 10 chiffres (Québec : statut d'immatriculation, forme et régime juridiques, dates clés, domicile élu ou dispense d'adresse, autres noms en vigueur et antérieurs, établissements, fusions/scissions, continuations, licences RBQ, permis OPC et inscriptions RENA) ou par numéro de société fédérale / NE à 9 chiffres (Corporations Canada : statut, loi constitutive, siège social, dernier dépôt annuel). Instantanés locaux en lecture seule sans valeur de certificat ni d'attestation officielle.",
+    family: "registre",
+    inputSchema: RegistreGetEntityInputSchema,
+  },
+  {
+    name: "adresse_verify",
+    title: "Référentiel québécois des adresses (RQA) — vérification et normalisation",
+    description:
+      "Vérifie l'existence municipale d'une adresse québécoise et la normalise selon le Référentiel québécois des adresses (RQA, MRNF) et Odonymes et renvois. Corrige les fautes de frappe et abréviations courantes ('boul', 'Mtl', 'St-', anciens odonymes), distingue les unités confirmées des bureaux non subdivisés, indique la plage civique d'une rue, le code postal, les lots cadastraux et matricules indicatifs ainsi que le district judiciaire probable par municipalité. N'établit jamais le domicile ou l'établissement d'une partie ni la propriété foncière.",
+    family: "adresse",
+    inputSchema: AdresseVerifyInputSchema,
+  },
+  {
+    name: "terminologie_lookup",
+    title: "Terminologie juridique bilingue et bijuridique — recherche",
+    description:
+      "Recherche bilingue FR/EN dans la base terminologique juridique hiérarchisée (rang 1 : glossaire curé de pratique civile et commerciale québécoise ; rang 2 : concordancier législatif et doublets bijuridiques fédéraux ; rang 3 : TERMIUM Plus — Droit et justice ; rang 4 : OQLF — domaines du droit). Signale les calques et faux amis de common law ou de droit français (p. ex. 'mortgage' vs 'hypothec', 'joint and several' vs 'solidary', 'assignation' vs 'demande introductive d'instance').",
+    family: "terminologie",
+    inputSchema: TerminologieLookupInputSchema,
+  },
+  {
+    name: "terminologie_attestations",
+    title: "Terminologie juridique — attestations statutaires bilingues (QC / CA)",
+    description:
+      "Compte les occurrences exactes d'un terme ou syntagme juridique dans le concordancier législatif bilingue aligné (Code civil du Québec, Code de procédure civile, lois québécoises et lois fédérales dont les art. 8.1-8.2 L.I.) et retourne les extraits FR et EN côte à côte par loi et article afin d'ancrer un choix rédactionnel dans l'usage législatif attesté.",
+    family: "terminologie",
+    inputSchema: TerminologieAttestationsInputSchema,
+  },
+  {
+    name: "terminologie_scan_text",
+    title: "Terminologie juridique — détection des contaminations dans un projet d'acte",
+    description:
+      "Analyse en lecture seule un extrait de projet d'acte, contrat, correspondance ou note (jusqu'à 32 000 caractères, FR ou EN) pour repérer les francismes de droit français ('assignation' au sens d'acte introductif, 'référé', 'garde à vue'), les anglicismes et faux amis de common law en droit civil québécois ('mortgage', 'statute of limitations', 'joint and several', 'consideration', 'easement') et les archaïsmes procéduraux d'avant 2016 ('bref', 'comparution', 'défense et demande reconventionnelle'). Signale chaque occurrence avec motif, remplacement suggéré et base légale sans jamais réécrire le texte.",
+    family: "terminologie",
+    inputSchema: TerminologieScanTextInputSchema,
+  },
 ];
 
 let cachedDescriptors: ToolDescriptor[] | null = null;
@@ -152,6 +231,18 @@ function toolConfig<TOutput extends z.ZodType>(name: string, outputSchema: TOutp
     description: spec.description,
     outputSchema,
     annotations: { ...READ_ONLY_LOCAL_ANNOTATIONS },
+  };
+}
+
+function missingDatabaseError(bindingName: string, domainLabel: string) {
+  return {
+    isError: true as const,
+    content: [
+      {
+        type: "text" as const,
+        text: `Base D1 en lecture seule (${bindingName} — ${domainLabel}) non liée dans cet environnement d'exécution.`,
+      },
+    ],
   };
 }
 
@@ -224,7 +315,7 @@ function formatInterestText(out: ComputeInterest1619Output): string {
     .join("\n");
 }
 
-export function createOutilsMcpServer(): McpServer {
+export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   const server = new McpServer(
     {
       name: SERVER_NAME,
@@ -379,6 +470,174 @@ export function createOutilsMcpServer(): McpServer {
         return {
           isError: true,
           content: [{ type: "text", text: `Erreur de consultation de palais : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "registre_search_entities",
+    {
+      ...toolConfig("registre_search_entities", RegistreSearchEntitiesOutputSchema),
+      inputSchema: RegistreSearchEntitiesInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_REGISTRES) {
+        return missingDatabaseError("DB_REGISTRES", "registres d'entreprises");
+      }
+      try {
+        const { structured, text } = await registreSearchEntities(env.DB_REGISTRES, args);
+        return {
+          structuredContent: structured,
+          content: [{ type: "text", text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de recherche aux registres : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "registre_get_entity",
+    {
+      ...toolConfig("registre_get_entity", RegistreGetEntityOutputSchema),
+      inputSchema: RegistreGetEntityInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_REGISTRES) {
+        return missingDatabaseError("DB_REGISTRES", "registres d'entreprises");
+      }
+      try {
+        const result = await registreGetEntity(env.DB_REGISTRES, args);
+        if (!result.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: result.text }],
+          };
+        }
+        return {
+          structuredContent: result.structured,
+          content: [{ type: "text", text: result.text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de consultation aux registres : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "adresse_verify",
+    {
+      ...toolConfig("adresse_verify", AdresseVerifyOutputSchema),
+      inputSchema: AdresseVerifyInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_ADRESSES) {
+        return missingDatabaseError("DB_ADRESSES", "référentiel québécois des adresses");
+      }
+      try {
+        const result = await adresseVerify(env.DB_ADRESSES, args);
+        if (!result.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: result.text }],
+          };
+        }
+        return {
+          structuredContent: result.structured,
+          content: [{ type: "text", text: result.text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de vérification d'adresse : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "terminologie_lookup",
+    {
+      ...toolConfig("terminologie_lookup", TerminologieLookupOutputSchema),
+      inputSchema: TerminologieLookupInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_TERMINOLOGIE) {
+        return missingDatabaseError("DB_TERMINOLOGIE", "terminologie juridique");
+      }
+      try {
+        const { structured, text } = await terminologieLookup(env.DB_TERMINOLOGIE, args);
+        return {
+          structuredContent: structured,
+          content: [{ type: "text", text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de recherche terminologique : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "terminologie_attestations",
+    {
+      ...toolConfig("terminologie_attestations", TerminologieAttestationsOutputSchema),
+      inputSchema: TerminologieAttestationsInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_TERMINOLOGIE) {
+        return missingDatabaseError("DB_TERMINOLOGIE", "terminologie juridique");
+      }
+      try {
+        const { structured, text } = await terminologieAttestations(env.DB_TERMINOLOGIE, args);
+        return {
+          structuredContent: structured,
+          content: [{ type: "text", text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur d'attestations statutaires : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "terminologie_scan_text",
+    {
+      ...toolConfig("terminologie_scan_text", TerminologieScanTextOutputSchema),
+      inputSchema: TerminologieScanTextInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_TERMINOLOGIE) {
+        return missingDatabaseError("DB_TERMINOLOGIE", "terminologie juridique");
+      }
+      try {
+        const { structured, text } = await terminologieScanText(env.DB_TERMINOLOGIE, args);
+        return {
+          structuredContent: structured,
+          content: [{ type: "text", text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur d'analyse terminologique : ${msg}` }],
         };
       }
     },

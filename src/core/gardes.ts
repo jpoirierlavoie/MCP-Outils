@@ -16,6 +16,14 @@ export const GARDE_CODES = [
   "GREFFE_SANS_ADRESSE_PUBLIEE",
   "PALAIS_RELEVE_MJQ_DATE",
   "PALAIS_COORDONNEES_NON_PUBLIEES",
+  "REGISTRE_ABSENCE_PERSONNES_PHYSIQUES",
+  "REGISTRE_FRAICHEUR_ET_OPPOSABILITE_LPLE",
+  "REGISTRE_ABSENCE_NON_PROBANTE_ANCILLAIRES",
+  "LICENCE_DONNEES_OUVERTES_NC_SA",
+  "ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE",
+  "ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE",
+  "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+  "TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE",
 ] as const;
 
 export const GardeCodeSchema = z.enum(GARDE_CODES);
@@ -66,6 +74,22 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
   PALAIS_RELEVE_MJQ_DATE: GARDE_PALAIS,
   PALAIS_COORDONNEES_NON_PUBLIEES:
     "Coordonnées : ce connecteur n'en porte AUCUNE (ni téléphone, ni courriel, ni heures d'ouverture). Les obtenir auprès du ministère de la Justice du Québec.",
+  REGISTRE_ABSENCE_PERSONNES_PHYSIQUES:
+    "Le fichier ouvert du Registraire des entreprises et les CSV ouverts de Corporations Canada excluent les noms et adresses des personnes physiques (administrateurs, actionnaires principaux, bénéficiaires ultimes, fondés de pouvoir). Cet outil ne permet NI la recherche de conflits d'intérêts sur les dirigeants/actionnaires, NI la vérification de l'identité d'une société au sens des art. 20 et 23 al. 2 du Règlement sur la comptabilité et les normes d'exercice professionnel des avocats (RLRQ, c. B-1, r. 5), qui exigent la confirmation des administrateurs et des détenteurs de 25 % et plus. Consulter le portail officiel du Registraire ou de Corporations Canada à cette fin.",
+  REGISTRE_FRAICHEUR_ET_OPPOSABILITE_LPLE:
+    "Données issues d'instantanés périodiques (bimensuel pour le REQ, quotidien/mensuel pour les registres complémentaires) et non de l'état des informations en direct ayant valeur probante en vertu de l'art. 98 de la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1). Vérifier l'état des informations à jour avant toute désignation finale d'une partie (art. 99–100 C.p.c.) ou signification au siège/établissement (art. 125 C.p.c.).",
+  REGISTRE_ABSENCE_NON_PROBANTE_ANCILLAIRES:
+    "L'absence de correspondance jointe aux fichiers ouverts RBQ, OPC ou RENA (appariés sur le NEQ déclaré) ne constitue jamais une attestation officielle de conformité, d'absence de licence/permis ou d'admissibilité aux contrats publics.",
+  LICENCE_DONNEES_OUVERTES_NC_SA:
+    "Certaines sources intégrées (fichier ouvert du REQ ; données linguistiques de l'OQLF) sont diffusées sous licence CC BY-NC-SA 4.0 (Attribution – Pas d'utilisation commerciale – Partage dans les mêmes conditions) ; l'usage commercial ou en cabinet est assujetti aux conditions du diffuseur ou à son autorisation écrite.",
+  ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE:
+    "Le Référentiel québécois des adresses (RQA) confirme uniquement l'existence géographique et municipale d'un point d'adresse civique à la date de diffusion indiquée ; il n'établit JAMAIS qu'une personne physique ou morale y a son domicile, sa résidence ou un établissement aux fins de signification ou de compétence territoriale (art. 41 s., 100, 125 C.p.c.).",
+  ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE:
+    "Les numéros de lot cadastral (numero_lot, pouvant en outre omettre les parties privatives en copropriété divise ou refléter une jointure de bâtiment sur plusieurs lots) et le matricule d'évaluation municipale issus du RQA sont fournis à titre purement indicatif et n'ont AUCUNE valeur légale (art. 3030 al. 2 et 3032 C.c.Q.). Toujours vérifier l'index des immeubles au Registre foncier du Québec avant toute désignation cadastrale dans un acte ou une réquisition d'inscription.",
+  ADRESSE_CORRESPONDANCE_APPROXIMATIVE:
+    "La correspondance d'adresse retournée n'est pas un appariement civique exact (correction orthographique d'odonyme, unité d'appartement ou de bureau non confirmée dans le RQA, ou rue repérée sans ce numéro civique) : revérifier minutieusement chaque composante auprès de la municipalité ou de Postes Canada avant toute signification.",
+  TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE:
+    "Les équivalents terminologiques (hors attestations textuelles tirées des lois consolidées) constituent une aide à la rédaction bijuridique ; en droit québécois, les versions française et anglaise des lois ont la même valeur juridique sous réserve de la préséance du texte français en cas de divergence que les règles ordinaires d'interprétation ne permettent pas de résoudre (art. 7 par. 3° et 7.1 de la Charte de la langue française).",
 };
 
 export function makeGarde(code: GardeCode, detail?: string): Garde {

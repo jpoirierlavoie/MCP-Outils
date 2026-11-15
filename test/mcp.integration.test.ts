@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { AdresseVerifyOutputSchema, computeConsonantKey } from "../src/core/adresses.js";
 import { ComputeDeadlinesOutputSchema } from "../src/core/deadlines.js";
 import { ListHolidaysOutputSchema } from "../src/core/holidays.js";
 import { ComputeInterest1619OutputSchema } from "../src/core/interest1619.js";
@@ -7,7 +10,17 @@ import {
   PalaisListOutputSchema,
   ParseCourtFileOutputSchema,
 } from "../src/core/qcTools.js";
+import {
+  RegistreGetEntityOutputSchema,
+  RegistreSearchEntitiesOutputSchema,
+} from "../src/core/registres.js";
+import {
+  TerminologieAttestationsOutputSchema,
+  TerminologieLookupOutputSchema,
+  TerminologieScanTextOutputSchema,
+} from "../src/core/terminologie.js";
 import worker, { Env } from "../src/index.js";
+import { createSqliteD1Harness } from "./helpers/sqliteD1.js";
 
 const dummyCtx = {
   waitUntil: () => {},
@@ -72,9 +85,14 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(health.status).toBe(200);
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
-    expect(healthJson.version).toBe("0.2.0");
+    expect(healthJson.version).toBe("0.3.0");
     expect(healthJson.request_payload_logging).toBe(false);
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
+    expect(healthJson.databases).toEqual({
+      terminologie: false,
+      registres: false,
+      adresses: false,
+    });
     expect(healthJson.tools).toEqual([
       "calendrier_list_holidays",
       "calendrier_compute_deadlines",
@@ -82,6 +100,12 @@ describe("Worker HTTP & intégration MCP", () => {
       "greffe_parse_court_file_number",
       "palais_list",
       "palais_get",
+      "registre_search_entities",
+      "registre_get_entity",
+      "adresse_verify",
+      "terminologie_lookup",
+      "terminologie_attestations",
+      "terminologie_scan_text",
     ]);
 
     const landing = await worker.fetch(
@@ -184,18 +208,32 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(seenKeys).toEqual(["198.51.100.42"]);
   });
 
-  it("expose les 6 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
+  it("expose les 12 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
     const listRes = await mcpPost("tools/list", {});
     expect(listRes.status).toBe(200);
-    const tools = (listRes.body.result?.tools as Array<{ name: string }>) ?? [];
+    const tools =
+      (listRes.body.result?.tools as Array<{
+        name: string;
+        annotations?: { openWorldHint?: boolean; readOnlyHint?: boolean };
+      }>) ?? [];
     expect(tools.map((t) => t.name).sort()).toEqual([
+      "adresse_verify",
       "calendrier_compute_deadlines",
       "calendrier_list_holidays",
       "greffe_parse_court_file_number",
       "interets_compute_1619",
       "palais_get",
       "palais_list",
+      "registre_get_entity",
+      "registre_search_entities",
+      "terminologie_attestations",
+      "terminologie_lookup",
+      "terminologie_scan_text",
     ]);
+    for (const t of tools) {
+      expect(t.annotations?.openWorldHint).toBe(false);
+      expect(t.annotations?.readOnlyHint).toBe(true);
+    }
 
     const holidaysCall = await mcpPost("tools/call", {
       name: "calendrier_list_holidays",
@@ -289,6 +327,197 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(palaisGetXor.status).toBe(200);
     expect(palaisGetXor.body.result?.isError).toBe(true);
     expect(palaisGetXor.body.result?.structuredContent).toBeUndefined();
+  });
+
+  it("renvoie isError: true (jamais HTTP 500 ni -32602 fatal) si un binding D1 est absent ou si une clé inconnue est fournie", async () => {
+    for (const [toolName, args] of [
+      ["registre_search_entities", { query: "Québec" }],
+      ["registre_get_entity", { neq: "1170123456" }],
+      ["adresse_verify", { address: "1 rue Notre-Dame Est, Montréal" }],
+      ["terminologie_lookup", { query: "hypothèque" }],
+      ["terminologie_attestations", { term: "hypothec", lang: "en" }],
+      ["terminologie_scan_text", { text: "A mortgage on land.", lang: "en" }],
+    ] as const) {
+      const missingRes = await mcpPost("tools/call", { name: toolName, arguments: args });
+      expect(missingRes.status).toBe(200);
+      expect(missingRes.body.error).toBeUndefined();
+      expect(missingRes.body.result?.isError).toBe(true);
+    }
+
+    const extraKeyRes = await mcpPost("tools/call", {
+      name: "terminologie_lookup",
+      arguments: { query: "hypothèque", cle_inconnue_interdite: true },
+    });
+    expect(extraKeyRes.status).toBe(200);
+    expect(extraKeyRes.body.error).toBeUndefined();
+    expect(extraKeyRes.body.result?.isError).toBe(true);
+  });
+
+  it("exécute de bout en bout les 6 outils D1 en lecture seule via /mcp et valide leurs schémas de sortie", async () => {
+    const termHarness = createSqliteD1Harness({
+      seedSql: [
+        readFileSync(resolve(process.cwd(), "pipeline/terminologie/schema.sql"), "utf-8"),
+        readFileSync(resolve(process.cwd(), "pipeline/terminologie/indexes.sql"), "utf-8"),
+        `
+          INSERT INTO meta_sources VALUES ('glossaire_curated', 'Glossaire curé', 1, 'CC-BY-NC-SA-4.0', '2026-11-15', 1);
+          INSERT INTO meta_sources VALUES ('concordancier_legislatif', 'Concordancier', 2, 'Domaine public', '2026-11-15', 1);
+          INSERT INTO fiches_terminologiques VALUES (
+            1, 'hypotheque', 1, 'Glossaire bijuridique QC', 'CC-BY-NC-SA-4.0',
+            'hypothèque', 'hypothec', 'hypotheque', 'hypothec', '[]', '[]',
+            '[{"terme":"mortgage","langue":"en","origine":"common_law","motif":"Faux ami de common law"}]',
+            'hypotheque hypothec mortgage',
+            'droit_civil_qc', 'sûretés', 'Droit réel sur un bien affecté à l''exécution d''une obligation.', 'art. 2660 C.c.Q.', NULL, '2026-11-15'
+          );
+          INSERT INTO fiches_fts(rowid, terme_fr, terme_en, termes_recherche, domaine)
+            SELECT id, terme_fr, terme_en, termes_recherche, domaine FROM fiches_terminologiques;
+          INSERT INTO lois_bilingues VALUES ('ccq', 'qc', 'Code civil du Québec', 'Civil Code of Québec', 'RLRQ, c. CCQ-1991', 'CQLR, c. CCQ-1991', '2026-10-01', '2026-10-01');
+          INSERT INTO articles_bilingues VALUES (1, 'ccq', '2660', 2660000, 'L''hypothèque est un droit réel.', 'A hypothec is a real right.');
+          INSERT INTO articles_fr_fts(rowid, text_fr) VALUES (1, 'L''hypothèque est un droit réel.');
+          INSERT INTO articles_en_fts(rowid, text_en) VALUES (1, 'A hypothec is a real right.');
+          INSERT INTO regles_contamination VALUES (
+            1, 'en-mortgage', 'en', 'mortgage', 'mortgage', 0, 'anglicisme_ou_common_law', 'hypothec',
+            'En droit civil québécois, employer hypothec et non mortgage.', 'hypothec', 'art. 2660 C.c.Q.'
+          );
+        `,
+      ],
+    });
+
+    const regHarness = createSqliteD1Harness({
+      seedSql: [
+        readFileSync(resolve(process.cwd(), "pipeline/registres/schema.sql"), "utf-8"),
+        readFileSync(resolve(process.cwd(), "pipeline/registres/indexes.sql"), "utf-8"),
+        `
+          INSERT INTO meta_sources VALUES ('req', 'REQ', 'CC-BY-NC-SA-4.0', '2026-11-01', 1);
+          INSERT INTO domaine_valeur VALUES ('STAT_IMMAT', 'IM', 'Immatriculée'), ('FORM_JURI', 'CIE', 'Société par actions');
+          INSERT INTO entites VALUES (
+            1, 'qc', '1170123456', NULL, 1, '9123-4567 QUÉBEC INC.', '91234567 constructions tremblay',
+            '["Constructions Tremblay"]', 'CIE', 'IM', '2018-04-12', 'Montréal', 0, '{"im":"2018-04-12"}'
+          );
+          INSERT INTO entites_fts(rowid, nom_officiel, nom_recherche)
+            SELECT id, nom_officiel, nom_recherche FROM entites;
+        `,
+      ],
+    });
+
+    const adrHarness = createSqliteD1Harness({
+      seedSql: [
+        readFileSync(resolve(process.cwd(), "pipeline/adresses/schema.sql"), "utf-8"),
+        readFileSync(resolve(process.cwd(), "pipeline/adresses/indexes.sql"), "utf-8"),
+        `
+          INSERT INTO meta_sources VALUES ('rqa', 'RQA', 'CC-BY-4.0', '2026-09-01', 1);
+          INSERT INTO municipalites VALUES ('66023', 'Montréal', 'montreal', 'mtl', 'Montréal', 'Montréal');
+          INSERT INTO odonymes VALUES (
+            1, '66023', '10001', 'rue', NULL, 'Notre-Dame', 'Est',
+            'rue Notre-Dame Est', 'rue Notre-Dame Est', 'notre dame', '${computeConsonantKey("Notre-Dame")}', ''
+          );
+          INSERT INTO adresses_civiques VALUES (1, 1, 1, '', '', NULL, 'H2Y1B6', 'C', 'Principal', '2359285', '9891-44-1234', 45.508841, -73.554012);
+          INSERT INTO odonymes_fts(rowid, specifique, odonyme_normal, renvois_recherche)
+            SELECT id, specifique, odonyme_normal, renvois_recherche FROM odonymes;
+          INSERT INTO odonymes_trigram(rowid, specifique_norm)
+            SELECT id, specifique_norm FROM odonymes;
+        `,
+      ],
+    });
+
+    try {
+      const boundEnv: Env = {
+        DB_TERMINOLOGIE: termHarness.d1,
+        DB_REGISTRES: regHarness.d1,
+        DB_ADRESSES: adrHarness.d1,
+      };
+
+      const healthBound = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/healthz"),
+        boundEnv,
+        dummyCtx,
+      );
+      const hJson = (await healthBound.json()) as { databases: Record<string, boolean> };
+      expect(hJson.databases).toEqual({
+        terminologie: true,
+        registres: true,
+        adresses: true,
+      });
+
+      const rSearch = await mcpPost(
+        "tools/call",
+        { name: "registre_search_entities", arguments: { query: "9123 4567" } },
+        10,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(rSearch.body.result?.isError).not.toBe(true);
+      expect(
+        RegistreSearchEntitiesOutputSchema.parse(rSearch.body.result?.structuredContent).count,
+      ).toBe(1);
+
+      const rGet = await mcpPost(
+        "tools/call",
+        { name: "registre_get_entity", arguments: { neq: "1170123456" } },
+        11,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(rGet.body.result?.isError).not.toBe(true);
+      expect(
+        RegistreGetEntityOutputSchema.parse(rGet.body.result?.structuredContent).quebec?.neq,
+      ).toBe("1170123456");
+
+      const aVer = await mcpPost(
+        "tools/call",
+        { name: "adresse_verify", arguments: { address: "1, rue Notre-Dame Est, Montréal" } },
+        12,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(aVer.body.result?.isError).not.toBe(true);
+      expect(AdresseVerifyOutputSchema.parse(aVer.body.result?.structuredContent).status).toBe(
+        "exact_civic",
+      );
+
+      const tLook = await mcpPost(
+        "tools/call",
+        { name: "terminologie_lookup", arguments: { query: "mortgage" } },
+        13,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(tLook.body.result?.isError).not.toBe(true);
+      expect(TerminologieLookupOutputSchema.parse(tLook.body.result?.structuredContent).count).toBe(
+        1,
+      );
+
+      const tAtt = await mcpPost(
+        "tools/call",
+        { name: "terminologie_attestations", arguments: { term: "hypothec", lang: "en" } },
+        14,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(tAtt.body.result?.isError).not.toBe(true);
+      expect(
+        TerminologieAttestationsOutputSchema.parse(tAtt.body.result?.structuredContent)
+          .total_matching_articles,
+      ).toBe(1);
+
+      const tScan = await mcpPost(
+        "tools/call",
+        {
+          name: "terminologie_scan_text",
+          arguments: { text: "The debtor grants a mortgage on the immovable.", lang: "en" },
+        },
+        15,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(tScan.body.result?.isError).not.toBe(true);
+      expect(
+        TerminologieScanTextOutputSchema.parse(tScan.body.result?.structuredContent).flagged_count,
+      ).toBe(1);
+    } finally {
+      termHarness.close();
+      regHarness.close();
+      adrHarness.close();
+    }
   });
 
   it("gère la négociation de contenu HTTP Accept (application/json, sans Accept, */*, SSE)", async () => {

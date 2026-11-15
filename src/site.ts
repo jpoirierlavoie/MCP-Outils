@@ -295,23 +295,26 @@ function entete(): string {
 </div>
 ${biP(
   [
-    `Serveur MCP public, sans état et déterministe (${SERVER_NAME} v${SERVER_VERSION}). ` +
+    `Serveur MCP public, sans journalisation et déterministe (${SERVER_NAME} v${SERVER_VERSION}). ` +
       "Il calcule les jours fériés, les délais procéduraux, les intérêts légaux et l'indemnité " +
-      "additionnelle (art. 1619 C.c.Q.), et lit la nomenclature judiciaire québécoise — numéros de " +
-      "dossier, greffes et palais de justice.",
+      "additionnelle (art. 1619 C.c.Q.), lit la nomenclature judiciaire québécoise (numéros de " +
+      "dossier, greffes et palais), et consulte des instantanés locaux en lecture seule pour les " +
+      "registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), les adresses civiques " +
+      "(RQA) et la terminologie juridique bilingue et bijuridique.",
   ],
   EN.intro,
 )}
 <div class="avert">
 ${biP(
   [
-    "Chaque calcul et chaque consultation s'exécute hors ligne et sans état : aucune base de " +
-      "données, aucun appel HTTP sortant, aucune journalisation des charges utiles, dates, montants " +
-      "ou numéros de dossier.",
-    "Cet outil applique des règles arithmétiques et lit des tables datées : il n'établit jamais " +
-      "l'existence d'un dossier, n'effectue aucune qualification juridique et ne porte aucune " +
-      "coordonnée téléphonique ni horaire de greffe. Vérifier aux sources officielles avant toute " +
-      "signification ou tout dépôt.",
+    "Chaque calcul et chaque consultation s'exécute localement sans appel HTTP sortant, sans écriture " +
+      "à la requête (bases D1 strictement en lecture seule) et sans journalisation des charges utiles, " +
+      "noms de parties, adresses, extraits d'actes, dates, montants ou numéros de dossier.",
+    "Cet outil applique des règles arithmétiques et lit des instantanés datés : il n'établit jamais " +
+      "l'existence d'un dossier, ne remplace ni le portail officiel du Registraire des entreprises ni " +
+      "le Registre foncier du Québec, n'établit pas le domicile d'une partie et n'effectue aucune " +
+      "qualification juridique automatique. Vérifier aux sources officielles avant toute signification " +
+      "ou tout dépôt.",
   ],
   EN.avertissement,
 )}
@@ -321,8 +324,8 @@ ${biP(
 
 function marqueurAppel(d: ToolDescriptor): string {
   return `<p class="m"><code>openWorldHint: ${d.annotations.openWorldHint}</code> · <code>readOnlyHint: ${d.annotations.readOnlyHint}</code> — ${bi(
-    "aucun appel sortant : calcul pur ou lecture de tables compilées dans le Worker.",
-    "no outbound call: pure computation or lookup in tables compiled into the Worker.",
+    "aucun appel sortant : calcul pur, table compilée ou base D1 locale en lecture seule.",
+    "no outbound call: pure computation, compiled table, or read-only local D1 snapshot.",
   )}</p>`;
 }
 
@@ -340,6 +343,9 @@ ${marqueurAppel(d)}
   const tous = listToolDescriptors();
   const calculs = tous.filter((d) => d.family === "calcul");
   const greffe = tous.filter((d) => d.family === "greffe");
+  const registre = tous.filter((d) => d.family === "registre");
+  const adresse = tous.filter((d) => d.family === "adresse");
+  const terminologie = tous.filter((d) => d.family === "terminologie");
 
   return `<section id="outils">
 ${h2("outils")}
@@ -363,6 +369,37 @@ ${biP(
   EN.familleGreffeTexte,
 )}
 ${greffe.map(carte).join("\n")}
+<h3>${bi("Registres d'entreprises (QC / Canada) — REQ, RBQ, OPC, RENA et Corporations Canada", EN.familleRegistre)}</h3>
+${biP(
+  [
+    "Deux outils adossés à une base D1 en lecture seule regroupant les jeux de données ouvertes " +
+      "corporatifs. Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus " +
+      "du fichier ouvert du REQ conformément à la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1).",
+  ],
+  EN.familleRegistreTexte,
+)}
+${registre.map(carte).join("\n")}
+<h3>${bi("Adresses civiques du Québec — Référentiel québécois des adresses (RQA)", EN.familleAdresse)}</h3>
+${biP(
+  [
+    "Un outil adossé à une base D1 normalisée en lecture seule du Référentiel québécois des adresses " +
+      "(MRNF, ~5 millions d'adresses) et d'Odonymes et renvois. Confirme l'existence municipale d'une " +
+      "adresse civique sans jamais établir le domicile d'une partie ni la propriété foncière.",
+  ],
+  EN.familleAdresseTexte,
+)}
+${adresse.map(carte).join("\n")}
+<h3>${bi("Terminologie juridique bilingue et bijuridique (FR / EN)", EN.familleTerminologie)}</h3>
+${biP(
+  [
+    "Trois outils adossés à une base D1 terminologique en lecture seule croisant un glossaire curé " +
+      "de droit civil québécois, les concordances statutaires bilingues alignées, TERMIUM Plus® " +
+      "(Droit et justice) et les fiches juridiques de l'OQLF afin de prévenir les contaminations " +
+      "de common law et de droit français.",
+  ],
+  EN.familleTerminologieTexte,
+)}
+${terminologie.map(carte).join("\n")}
 </section>`;
 }
 
@@ -663,8 +700,10 @@ function pied(): string {
   return `<footer>
 ${biP(
   [
-    "Jason Poirier Lavoie, avocat (Québec). Taux de l'indemnité additionnelle : Revenu Québec " +
-      "(art. 28 L.A.F.). Données des greffes et palais : ministère de la Justice du Québec.",
+    "Jason Poirier Lavoie, avocat (Québec). Sources de données ouvertes : Revenu Québec " +
+      "(art. 28 L.A.F.), ministère de la Justice du Québec, Registraire des entreprises " +
+      "(CC BY-NC-SA 4.0), RBQ / OPC / AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada " +
+      "et TERMIUM Plus® (OGL-Canada), Office québécois de la langue française (CC BY-NC-SA 4.0).",
     "Aucun conseil juridique. Cet outil ne remplace ni la vérification à la source, ni le " +
       "jugement professionnel.",
   ],
@@ -681,8 +720,8 @@ export function renderSite(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pratique-civile-outils — délais, intérêts art. 1619 C.c.Q. et greffes du Québec</title>
-<meta name="description" content="Serveur MCP public et sans état : jours fériés, délais procéduraux (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.), numéros de dossier et palais de justice du Québec.">
+<title>pratique-civile-outils — délais, intérêts art. 1619 C.c.Q., greffes, registres, adresses et terminologie</title>
+<meta name="description" content="Serveur MCP public et sans journalisation : jours fériés, délais procéduraux (C.p.c. / L.I.), intérêts art. 1619 C.c.Q., greffes et palais, registres d'entreprises, adresses RQA et terminologie juridique bilingue.">
 <style>${CSS}</style>
 <script>${BOOT}</script>
 </head>

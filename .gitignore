@@ -8,3 +8,14 @@ coverage/
 .dev.vars*
 .env*
 *.log
+cf.token
+pipeline/.venv/
+pipeline/**/__pycache__/
+pipeline/sources/
+pipeline/work/
+pipeline/batches/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+

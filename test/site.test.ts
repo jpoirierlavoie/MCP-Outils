@@ -93,7 +93,10 @@ describe("page publique GET /", () => {
   it("couvre 1:1 les outils du serveur, les traductions anglaises et les sections", () => {
     const html = pagePubliqueHtml();
     const descripteurs = listToolDescriptors();
-    expect(descripteurs).toHaveLength(6);
+    expect(descripteurs).toHaveLength(12);
+    expect(new Set(descripteurs.map((d) => d.family))).toEqual(
+      new Set(["calcul", "greffe", "registre", "adresse", "terminologie"]),
+    );
 
     expect(Object.keys(OUTILS_EN).sort()).toEqual(descripteurs.map((d) => d.name).sort());
 
