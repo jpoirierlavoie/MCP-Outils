@@ -13,8 +13,8 @@ jobs:
   check-laf-rates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
       - name: Vérifier la couverture du trimestre à venir
@@ -39,7 +39,7 @@ jobs:
           '
       - name: Ouvrir un billet de rappel si le prochain trimestre manque
         if: steps.check.outputs.covered == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const nextQuarter = "${{ steps.check.outputs.next_quarter }}";
