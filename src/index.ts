@@ -14,9 +14,31 @@ export interface Env {
   ALLOWED_HOSTNAMES?: string;
 }
 
+const MAX_MCP_BODY_BYTES = 65_536;
+
 const DEFAULT_ALLOWED_HOSTNAMES = Array.from(
   new Set(["outils.poirierlavoie.ca", ...localhostAllowedHostnames()]),
 );
+
+function extractHostname(hostHeader: string | null): string | null {
+  if (!hostHeader) return null;
+  const trimmed = hostHeader.trim().toLowerCase();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("[")) {
+    const closeIdx = trimmed.indexOf("]");
+    if (closeIdx === -1) return null;
+    const remainder = trimmed.slice(closeIdx + 1);
+    if (remainder && !/^:\d+$/.test(remainder)) return null;
+    return trimmed.slice(0, closeIdx + 1);
+  }
+  const colonIdx = trimmed.indexOf(":");
+  if (colonIdx !== -1) {
+    if (!/^:\d+$/.test(trimmed.slice(colonIdx))) return null;
+    const host = trimmed.slice(0, colonIdx);
+    return host || null;
+  }
+  return trimmed;
+}
 
 function buildAllowedHostnames(extraCsv?: string): string[] {
   if (!extraCsv) return DEFAULT_ALLOWED_HOSTNAMES;
@@ -115,18 +137,91 @@ export default {
       return pagePublique(request);
     }
     if (url.pathname === "/mcp") {
-      const handler = env.ALLOWED_HOSTNAMES
-        ? buildHandler(buildAllowedHostnames(env.ALLOWED_HOSTNAMES))
-        : defaultMcpHandler;
+      const allowedHostnames = env.ALLOWED_HOSTNAMES
+        ? buildAllowedHostnames(env.ALLOWED_HOSTNAMES)
+        : DEFAULT_ALLOWED_HOSTNAMES;
+
+      const reqHost = extractHostname(request.headers.get("host"));
+      if (!reqHost || !allowedHostnames.some((h) => h.toLowerCase() === reqHost)) {
+        return Response.json(
+          { error: "Forbidden host" },
+          { status: 403, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
+      if (request.method === "OPTIONS") {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers":
+              "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id, Accept",
+            "Access-Control-Max-Age": "86400",
+          },
+        });
+      }
+
+      const handler = env.ALLOWED_HOSTNAMES ? buildHandler(allowedHostnames) : defaultMcpHandler;
 
       const rawAccept = request.headers.get("accept");
       const wantsSse = Boolean(rawAccept?.includes("text/event-stream"));
 
       let mcpRequest = request;
-      if (request.method === "POST" && (!wantsSse || !rawAccept?.includes("application/json"))) {
+      if (request.method === "POST") {
+        const declaredLength = Number(request.headers.get("content-length") ?? "0");
+        if (Number.isFinite(declaredLength) && declaredLength > MAX_MCP_BODY_BYTES) {
+          return Response.json(
+            { error: "Payload Too Large (max 64 KiB)" },
+            { status: 413, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+
+        const rawBytes = new Uint8Array(await request.arrayBuffer());
+        if (rawBytes.byteLength > MAX_MCP_BODY_BYTES) {
+          return Response.json(
+            { error: "Payload Too Large (max 64 KiB)" },
+            { status: 413, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+
+        let parsed: unknown;
+        let isValidJson = false;
+        try {
+          parsed = JSON.parse(new TextDecoder().decode(rawBytes));
+          isValidJson = true;
+        } catch {
+          // Malformed JSON falls through to the MCP handler so JSON-RPC returns -32700.
+        }
+
+        if (
+          isValidJson &&
+          (Array.isArray(parsed) ||
+            (typeof parsed === "object" &&
+              parsed !== null &&
+              "id" in parsed &&
+              (parsed as { id: unknown }).id !== null &&
+              typeof (parsed as { id: unknown }).id === "object"))
+        ) {
+          return Response.json(
+            {
+              jsonrpc: "2.0",
+              id: null,
+              error: { code: -32600, message: "Invalid Request" },
+            },
+            { status: 400, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+
         const headers = new Headers(request.headers);
-        headers.set("accept", "application/json, text/event-stream");
-        mcpRequest = new Request(request, { headers });
+        if (!wantsSse || !rawAccept?.includes("application/json")) {
+          headers.set("accept", "application/json, text/event-stream");
+        }
+        mcpRequest = new Request(request.url, {
+          method: "POST",
+          headers,
+          body: rawBytes,
+        });
       }
 
       const response = await handler(mcpRequest, env, ctx);

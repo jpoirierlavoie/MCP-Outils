@@ -377,4 +377,89 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(parsedSse.id).toBe(42);
     expect(parsedSse.result).toBeDefined();
   });
+
+  it("gère le prévol CORS OPTIONS (204), le plafond 64 Kio (413) et le rejet des lots/id structurés (-32600)", async () => {
+    const preflightOk = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "OPTIONS",
+        headers: {
+          Host: "outils.poirierlavoie.ca",
+          Origin: "https://claude.ai",
+          "Access-Control-Request-Method": "POST",
+        },
+      }),
+      {},
+      dummyCtx,
+    );
+    expect(preflightOk.status).toBe(204);
+    expect(preflightOk.headers.get("access-control-allow-origin")).toBe("*");
+    expect(preflightOk.headers.get("access-control-allow-methods")).toContain("POST, OPTIONS");
+
+    const preflightBadHost = await worker.fetch(
+      new Request("https://evil.example.com/mcp", {
+        method: "OPTIONS",
+        headers: {
+          Host: "evil.example.com",
+          Origin: "https://claude.ai",
+        },
+      }),
+      {},
+      dummyCtx,
+    );
+    expect(preflightBadHost.status).toBe(403);
+
+    const oversized = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "POST",
+        headers: {
+          Host: "outils.poirierlavoie.ca",
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: `{"jsonrpc":"2.0","id":1,"method":"tools/list","padding":"${"A".repeat(70_000)}"}`,
+      }),
+      {},
+      dummyCtx,
+    );
+    expect(oversized.status).toBe(413);
+
+    const batchReq = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "POST",
+        headers: {
+          Host: "outils.poirierlavoie.ca",
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify([
+          { jsonrpc: "2.0", id: 1, method: "tools/list" },
+          { jsonrpc: "2.0", id: 2, method: "tools/list" },
+        ]),
+      }),
+      {},
+      dummyCtx,
+    );
+    expect(batchReq.status).toBe(400);
+    const batchJson = (await batchReq.json()) as JsonRpcResponseBody;
+    expect(batchJson.error?.code).toBe(-32600);
+
+    for (const badId of [{ bad: "object" }, ["bad", "array"]]) {
+      const badIdReq = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp", {
+          method: "POST",
+          headers: {
+            Host: "outils.poirierlavoie.ca",
+            "Content-Type": "application/json",
+            Accept: "application/json, text/event-stream",
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", id: badId, method: "initialize" }),
+        }),
+        {},
+        dummyCtx,
+      );
+      expect(badIdReq.status).toBe(400);
+      const badIdJson = (await badIdReq.json()) as JsonRpcResponseBody;
+      expect(badIdJson.error?.code).toBe(-32600);
+    }
+  });
 });
