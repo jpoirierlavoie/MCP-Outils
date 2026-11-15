@@ -85,6 +85,16 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         '{"n2":["ST. LAWRENCE NORDIC TECHNOLOGIES INC."],"rl":"Loi canadienne sur les sociétés par actions","ds":"Actif","an":"2025","ag":"2025-05-14","ad":"1000 rue De La Gauchetière Ouest","pr":"QC","py":"CA","cp":"H3B 4W5","dmin":1,"dmax":10}'
       );
 
+      -- 5) Société québécoise à initiales d'un caractère (A & W) et ligne d'étage en ville brute
+      INSERT INTO entites VALUES (
+        5, 'qc', '1145648763', NULL, 1,
+        'A & W QUÉBEC INC.',
+        'services alimentaires a w',
+        NULL,
+        'CIE', 'IM', '2001-05-01', '20 IÈME ÉTAGE', 0,
+        '{"im":"2001-05-01","ad":"75, BOUL. RENÉ-LÉVESQUE OUEST, 20 IÈME ÉTAGE, MONTRÉAL QC","cp":"H2Z1A4"}'
+      );
+
       INSERT INTO rbq_licences VALUES (
         '1170123456', '5789-1234-01',
         '{"statut":"Active","type_licence":"Entrepreneur","categorie":"Generale","sous_categories":["1.2","1.3","16"],"restriction":false,"date_delivrance":"2019-03-01","date_paiement_annuel":"2027-03-01","cautionnement_montant":"40000"}'
@@ -206,16 +216,23 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(fullQc.text).toContain("REGISTRE_ABSENCE_PERSONNES_PHYSIQUES");
     }
 
-    // Dispense d'adresse au REQ : l'adresse ne doit jamais être exposée même si présente en brut
+    // Dispense d'adresse au REQ : ni l'adresse, ni la ville, ni le code postal ne doivent être exposés
     const disp = await registreGetEntity(harness.d1, { neq: "3340987654" });
     expect(disp.ok).toBe(true);
     if (disp.ok) {
       expect(disp.structured.quebec?.domicile_declare.dispense_adresse).toBe(true);
       expect(disp.structured.quebec?.domicile_declare.adresse).toBeNull();
+      expect(disp.structured.quebec?.domicile_declare.ville).toBeNull();
       expect(disp.structured.quebec?.domicile_declare.code_postal).toBeNull();
     }
 
-    // Fiche fédérale par numéro de société et par NE (BN)
+    // Fiche fédérale par numéro de société (incluant format avec tirets) et par NE (BN)
+    const fedByHyphen = await registreGetEntity(harness.d1, { corporation_number: "828-408-3" });
+    expect(fedByHyphen.ok).toBe(true);
+    if (fedByHyphen.ok) {
+      expect(fedByHyphen.structured.federal?.corporation_number).toBe("8284083");
+    }
+
     const fed = await registreGetEntity(harness.d1, { bn_ne: "801423500" });
     expect(fed.ok).toBe(true);
     if (fed.ok) {
@@ -225,5 +242,21 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         "ST. LAWRENCE NORDIC TECHNOLOGIES INC.",
       );
     }
+  });
+
+  it("gère les dénominations à initiales courtes ('A&W'), masque la ville sous dispense et redresse une ligne d'étage en municipalité", async () => {
+    const aw = await registreSearchEntities(harness.d1, { query: "A&W" });
+    expect(aw.structured.count).toBe(1);
+    expect(aw.structured.entities[0]?.neq).toBe("1145648763");
+    expect(aw.structured.entities[0]?.ville).toBe("MONTRÉAL");
+
+    const awFiche = await registreGetEntity(harness.d1, { neq: "1145648763" });
+    expect(awFiche.ok).toBe(true);
+    if (awFiche.ok) {
+      expect(awFiche.structured.quebec?.domicile_declare.ville).toBe("MONTRÉAL");
+    }
+
+    const dispSearch = await registreSearchEntities(harness.d1, { query: "Cabinet Belanger" });
+    expect(dispSearch.structured.entities[0]?.ville).toBeNull();
   });
 });

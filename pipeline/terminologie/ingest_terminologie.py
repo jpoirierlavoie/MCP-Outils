@@ -28,6 +28,11 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from pipeline.common.blue_green import (
+    dated_db_name,
+    swap_wrangler_binding,
+    verify_remote_candidate,
+)
 from pipeline.common.d1_batch import (
     ACCOUNT_ID,
     REPO_ROOT,
@@ -1036,9 +1041,15 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
             f"Validation D1 échouée : fiches={rem_fiches}/{n_fiches}, "
             f"articles={rem_arts}/{n_arts}, ccq_hypothec_fts={fts_probe}"
         )
+    verif = verify_remote_candidate(
+        db_id,
+        "SELECT COUNT(*) AS c FROM articles_en_fts f JOIN articles_bilingues a ON a.id = f.rowid "
+        "WHERE a.law_id = 'ccq' AND articles_en_fts MATCH '\"hypothec\"'",
+        min_rows=1,
+    )
     print(
         f"[OK] {db_name} ({db_id}) validée : {rem_fiches} fiches, {rem_arts} articles alignés, "
-        f"{fts_probe} occurrences de 'hypothec' dans le C.c.Q."
+        f"{fts_probe} occurrences de 'hypothec' dans le C.c.Q., info={verif}"
     )
     return db_id
 
@@ -1049,13 +1060,18 @@ def main() -> None:
     parser.add_argument("--sample", action="store_true")
     parser.add_argument("--push-remote", action="store_true")
     parser.add_argument("--db-name", default="outils-terminologie")
+    parser.add_argument("--blue-green", action="store_true")
+    parser.add_argument("--swap", action="store_true")
     parser.add_argument("--location", default="enam")
     args = parser.parse_args()
 
     if args.build_local:
         build_local_sqlite(sample_only=args.sample)
     if args.push_remote:
-        push_to_remote_d1(args.db_name, location=args.location)
+        target_name = dated_db_name("DB_TERMINOLOGIE") if args.blue_green else args.db_name
+        db_id = push_to_remote_d1(target_name, location=args.location)
+        if args.swap:
+            swap_wrangler_binding("DB_TERMINOLOGIE", target_name, db_id)
 
 
 if __name__ == "__main__":

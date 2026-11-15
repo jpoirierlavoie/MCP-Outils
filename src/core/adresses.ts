@@ -187,6 +187,42 @@ const CARDINAL_MAP: Readonly<Record<string, string>> = {
 };
 
 const PARTICLES = ["de la", "de l", "des", "du", "de", "d", "l", "a", "au", "aux"] as const;
+const PARTICLE_SET = new Set<string>(PARTICLES);
+
+const MAJOR_CITIES_WITHOUT_COMMA = new Set([
+  "montreal",
+  "quebec",
+  "laval",
+  "longueuil",
+  "gatineau",
+  "sherbrooke",
+  "levis",
+  "saguenay",
+  "trois rivieres",
+]);
+
+function hasSubstantiveStreetTokens(words: string[], hasExplicitCivic: boolean): boolean {
+  const work = [...words];
+  if (!hasExplicitCivic && work.length > 0 && /^\d+(?:1\/2|[a-z])?$/i.test(work[0]!)) {
+    work.shift();
+    if (work[0] === "1/2") work.shift();
+  }
+  const substantive = work.filter((w) => {
+    const f = foldAddressToken(w);
+    if (!f) return false;
+    if (GENERIC_MAP[f]) return false;
+    if (CARDINAL_MAP[f]) return false;
+    if (PARTICLE_SET.has(f)) return false;
+    return true;
+  });
+  return substantive.length > 0;
+}
+
+function isGisStackingUnitType(raw: string | null | undefined): boolean {
+  if (!raw) return true;
+  const f = foldAddressToken(raw);
+  return !f || f.startsWith("etalement ");
+}
 
 // ── Rattachement prudent au district judiciaire via `src/qc/lieux.ts` ────────
 
@@ -384,29 +420,26 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     } else {
       streetWork = segments.join(" ");
       // Si aucune virgule, détecter un alias municipal en fin de chaîne (p. ex. « 1 Notr-Dame E Mtl »)
+      // uniquement s'il subsiste au moins un jeton d'odonyme spécifique avant la municipalité.
       if (!rawMun) {
         const words = streetWork.split(/\s+/);
+        const hasExplicitCivic = Boolean(input.civic_number);
         if (words.length >= 3) {
           const last1 = foldAddressToken(words[words.length - 1]!);
           const last2 =
             words.length >= 4
               ? foldAddressToken(`${words[words.length - 2]} ${words[words.length - 1]}`)
               : "";
-          if (last2 && MUNICIPALITY_ALIASES[last2]) {
+          if (
+            last2 &&
+            (MUNICIPALITY_ALIASES[last2] || MAJOR_CITIES_WITHOUT_COMMA.has(last2)) &&
+            hasSubstantiveStreetTokens(words.slice(0, -2), hasExplicitCivic)
+          ) {
             rawMun = `${words[words.length - 2]} ${words[words.length - 1]}`;
             streetWork = words.slice(0, -2).join(" ");
           } else if (
-            MUNICIPALITY_ALIASES[last1] ||
-            [
-              "montreal",
-              "quebec",
-              "laval",
-              "longueuil",
-              "gatineau",
-              "sherbrooke",
-              "levis",
-              "saguenay",
-            ].includes(last1)
+            (MUNICIPALITY_ALIASES[last1] || MAJOR_CITIES_WITHOUT_COMMA.has(last1)) &&
+            hasSubstantiveStreetTokens(words.slice(0, -1), hasExplicitCivic)
           ) {
             rawMun = words[words.length - 1]!;
             streetWork = words.slice(0, -1).join(" ");
@@ -443,15 +476,23 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       civicSuffix = (cm[2] ?? "").toUpperCase();
     }
   } else if (streetWork) {
-    const leadCivic = /^\s*(\d+)\s*(1\/2|[A-Za-z])?(?=\s|,|$)\s*,?\s*/.exec(streetWork);
+    const leadCivic =
+      /^\s*(\d+)\s*(1\/2|re|er|ère|ere|ième|ieme|ème|eme|[A-Za-z])?(?=\s|,|$)\s*,?\s*/iu.exec(
+        streetWork,
+      );
     if (leadCivic) {
       const restAfter = streetWork.slice(leadCivic[0].length).trim();
-      // Ne pas confondre « 1re Avenue » (où 're' est collé à 1) avec un numéro civique
+      // Ne pas confondre un odonyme ordinal sans numéro civique (« 1re Avenue », « 3e Rue », « 4e Rang ») avec un numéro civique
+      const restFirstFold = foldAddressToken(restAfter.split(/\s+/)[0] ?? "");
       const isOrdinalStreet =
-        leadCivic[2] &&
-        /^(?:re|er|e|ere|eme)$/i.test(leadCivic[2]) &&
-        /^(?:avenue|av\.?|rue)\b/i.test(restAfter);
-      if (!isOrdinalStreet && restAfter.length > 0) {
+        Boolean(leadCivic[2]) &&
+        /^(?:re|er|e|ere|ère|iere|ière|eme|ème|ieme|ième)$/iu.test(leadCivic[2]!) &&
+        Boolean(GENERIC_MAP[restFirstFold]);
+      if (
+        !isOrdinalStreet &&
+        restAfter.length > 0 &&
+        (!leadCivic[2] || leadCivic[2] === "1/2" || leadCivic[2].length === 1)
+      ) {
         civicNumber = Number.parseInt(leadCivic[1]!, 10);
         civicSuffix = (leadCivic[2] ?? "").toUpperCase();
         streetWork = restAfter;
@@ -479,7 +520,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     }
   }
 
-  // Générique initial (p. ex. « boul », « av », « rue », « ch »)
+  // Générique initial (« boul », « av », « rue », « ch ») ou postposé à un ordinal (« 1re Avenue », « 3e Rue », « 4e Rang »)
   if (stTokens.length >= 2) {
     const firstFold = foldAddressToken(stTokens[0]!);
     // Attention : « St » suivi d'un nom est « Saint- », pas « street »
@@ -491,24 +532,41 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       if (foldAddressToken(rawFirst) !== foldAddressToken(mappedGen)) {
         corrections.push(`Générique d'odonyme '${rawFirst}' normalisé en '${mappedGen}'`);
       }
+    } else {
+      const ordMatch = /^(\d+)(re|er|e|ere|ère|iere|ière|ier|eme|ème|ieme|ième)$/iu.exec(
+        stTokens[0]!,
+      );
+      const secondFold = foldAddressToken(stTokens[1]!);
+      const postMappedGen = ordMatch ? GENERIC_MAP[secondFold] : undefined;
+      if (ordMatch && postMappedGen) {
+        const rawSecond = stTokens.splice(1, 1)[0]!;
+        generique = postMappedGen;
+        if (foldAddressToken(rawSecond) !== foldAddressToken(postMappedGen)) {
+          corrections.push(`Générique d'odonyme '${rawSecond}' normalisé en '${postMappedGen}'`);
+        }
+        const num = Number.parseInt(ordMatch[1]!, 10);
+        const sufLower = ordMatch[2]!.toLowerCase();
+        const canonicalOrd = num === 1 ? (sufLower.endsWith("r") ? "1er" : "1re") : `${num}e`;
+        if (stTokens[0]!.toLowerCase() !== canonicalOrd) {
+          corrections.push(`Ordinal d'odonyme '${stTokens[0]}' normalisé en '${canonicalOrd}'`);
+        }
+        stTokens[0] = canonicalOrd;
+      }
     }
   }
 
   let specificRaw = stTokens.join(" ");
   specificRaw = expandSaintAbbreviations(specificRaw, corrections);
 
-  // Retirer une particule initiale (« de la », « du », « des », « de », « d' ») pour isoler le spécifique
-  let specificCore = specificRaw.replace(/^(?:d['\u2019]|l['\u2019])\s*/i, "");
-  const coreFold = foldAddressToken(specificCore);
-  for (const part of PARTICLES) {
-    if (coreFold.startsWith(`${part} `) && coreFold.length > part.length + 2) {
-      specificCore = specificCore.replace(new RegExp(`^${part.replace(" ", "\\s+")}\\s+`, "i"), "");
-      break;
-    }
-  }
+  // Retirer une particule initiale (« de la », « de l' », « à la », « à l' », « du », « des », « de », « d' », « l' »)
+  const particlePrefixRe =
+    /^(?:de\s+la\s+|de\s+l\s*['\u2018\u2019\u02bc]\s*|à\s+la\s+|a\s+la\s+|à\s+l\s*['\u2018\u2019\u02bc]\s*|a\s+l\s*['\u2018\u2019\u02bc]\s*|des\s+|du\s+|de\s+|aux\s+|au\s+|à\s+|a\s+|d\s*['\u2018\u2019\u02bc]\s*|l\s*['\u2018\u2019\u02bc]\s*)(?=.{2,})/iu;
+  const specificCore = specificRaw.replace(particlePrefixRe, "").trim() || specificRaw;
 
-  const specifiqueNorm = foldAddressToken(specificCore);
-  const consonantKey = computeConsonantKey(specificCore);
+  const rawFoldedSpec = foldAddressToken(specificCore);
+  const specifiqueNorm =
+    GENERIC_MAP[rawFoldedSpec] || PARTICLE_SET.has(rawFoldedSpec) ? "" : rawFoldedSpec;
+  const consonantKey = specifiqueNorm ? computeConsonantKey(specificCore) : "";
 
   return {
     civicNumber,
@@ -814,16 +872,19 @@ export async function adresseVerify(
   }
 
   if (parsed.specifiqueNorm) {
-    // 2A) Correspondance exacte sur `specifique_norm`
+    // 2A) Correspondance exacte sur `specifique_norm` (en priorisant le générique demandé avant LIMIT)
     const exactOdoRes = await db
       .prepare(
         `SELECT id, code_municipalite, seqodo, generique, particule, specifique, cardinal,
                 odonyme_normal, odonyme_long, specifique_norm, cle_consonnes, renvois_recherche
            FROM odonymes
           WHERE specifique_norm = ?${munFilterClause}
-          LIMIT 40`,
+          ORDER BY CASE WHEN ? != '' AND LOWER(COALESCE(generique, '')) = LOWER(?) THEN 0 ELSE 1 END,
+                   CASE WHEN code_municipalite IN ('66023', '23027', '65005', '58227', '81017', '43027', '25213', '94068', '37067') THEN 0 ELSE 1 END,
+                   id ASC
+          LIMIT 60`,
       )
-      .bind(parsed.specifiqueNorm, ...munCodes)
+      .bind(parsed.specifiqueNorm, ...munCodes, parsed.generique ?? "", parsed.generique ?? "")
       .all<RawOdoRow>();
 
     for (const o of exactOdoRes.results) {
@@ -865,8 +926,14 @@ export async function adresseVerify(
         if (odoCandidates.has(Number(o.id))) continue;
         const isRenvoiExact = foldAddressToken(o.renvois_recherche).includes(parsed.specifiqueNorm);
         let sc = isRenvoiExact ? 88 : 80;
-        if (parsed.cardinal && o.cardinal?.toLowerCase() === parsed.cardinal.toLowerCase())
-          sc += 12;
+        if (parsed.cardinal) {
+          if (o.cardinal?.toLowerCase() === parsed.cardinal.toLowerCase()) sc += 12;
+          else sc -= 15;
+        }
+        if (parsed.generique && o.generique) {
+          if (foldAddressToken(o.generique) === foldAddressToken(parsed.generique)) sc += 10;
+          else sc -= 6;
+        }
         odoCandidates.set(Number(o.id), {
           odo: o,
           isFuzzy: o.specifique_norm !== parsed.specifiqueNorm,
@@ -1041,7 +1108,10 @@ export async function adresseVerify(
   }
 
   // 4) Vérifier le numéro civique (et l'unité éventuelle) dans `adresses_civiques`
+  //    Prioriser explicitement l'unité demandée et le point bâtiment principal (`numero_unite = ''`)
+  //    avant le plafond `LIMIT 80` pour ne jamais tronquer les tours à plus de 80 bureaux/logements.
   const odoIds = rankedOdos.map((r) => r.odo.id);
+  const requestedUnitUpper = parsed.unitNumber.toUpperCase();
   const civRes = await db
     .prepare(
       `SELECT id, odo_id, numero_municipal, suffixe, numero_unite, type_unite,
@@ -1049,9 +1119,16 @@ export async function adresseVerify(
          FROM adresses_civiques
         WHERE odo_id IN (${odoIds.map(() => "?").join(",")})
           AND numero_municipal = ?
+        ORDER BY CASE
+                   WHEN ? != '' AND UPPER(numero_unite) = ? THEN 0
+                   WHEN numero_unite = '' THEN 1
+                   ELSE 2
+                 END,
+                 suffixe ASC,
+                 numero_unite ASC
         LIMIT 80`,
     )
-    .bind(...odoIds, parsed.civicNumber)
+    .bind(...odoIds, parsed.civicNumber, requestedUnitUpper, requestedUnitUpper)
     .all<RawCivicRow>();
 
   const odoMetaById = new Map(rankedOdos.map((r) => [r.odo.id, r]));
@@ -1119,7 +1196,7 @@ export async function adresseVerify(
     for (const item of scoredCivics) {
       const key = parsed.unitNumber
         ? `${item.odo.id}:${item.civ.suffixe}:${item.unitConfirmed ? item.civ.numero_unite : "UNCONF"}`
-        : `${item.odo.id}:${item.civ.suffixe}:${item.civ.numero_unite}`;
+        : `${item.odo.id}:${item.civ.suffixe}`;
       if (seenKeys.has(key)) continue;
       seenKeys.add(key);
       deduped.push(item);
@@ -1160,10 +1237,27 @@ export async function adresseVerify(
     const formattedCandidates: z.infer<typeof CandidatAdresseSchema>[] = deduped.map((item) => {
       const mun = munMap.get(item.odo.code_municipalite);
       const munName = mun?.nom_municipalite ?? item.odo.code_municipalite;
-      const effectiveUnit = item.unitConfirmed ? item.civ.numero_unite : parsed.unitNumber;
-      const effectiveUnitLabel = item.unitConfirmed
-        ? (item.civ.type_unite?.toLowerCase() ?? parsed.unitTypeLabel)
-        : parsed.unitTypeLabel;
+      const effectiveUnit = parsed.unitNumber
+        ? item.unitConfirmed
+          ? item.civ.numero_unite
+          : parsed.unitNumber
+        : "";
+      const rqaPostalType = isGisStackingUnitType(item.civ.type_unite)
+        ? null
+        : normalizeUnitLabel(item.civ.type_unite!);
+      const effectiveUnitLabel = effectiveUnit
+        ? item.unitConfirmed
+          ? !parsed.unitTypeLabel || parsed.unitTypeLabel === "unité"
+            ? (rqaPostalType ?? parsed.unitTypeLabel ?? "unité")
+            : parsed.unitTypeLabel
+          : (parsed.unitTypeLabel ?? "unité")
+        : null;
+      const effectiveComponentUnitType =
+        effectiveUnit && item.unitConfirmed
+          ? isGisStackingUnitType(item.civ.type_unite)
+            ? (parsed.unitTypeLabel ?? "unité")
+            : (item.civ.type_unite ?? null)
+          : null;
       const lots = item.civ.numero_lot
         ? item.civ.numero_lot
             .split(/[,;]+/)
@@ -1185,7 +1279,7 @@ export async function adresseVerify(
           numero_municipal: item.civ.numero_municipal,
           suffixe: item.civ.suffixe || null,
           unite: effectiveUnit || null,
-          type_unite: item.unitConfirmed ? (item.civ.type_unite ?? null) : null,
+          type_unite: effectiveComponentUnitType,
           generique_odonyme: item.odo.generique ?? null,
           particule_odonyme: item.odo.particule ?? null,
           specifique_odonyme: item.odo.specifique,

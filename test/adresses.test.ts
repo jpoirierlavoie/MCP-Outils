@@ -31,7 +31,11 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       INSERT INTO odonymes VALUES
         (1, '66023', '10001', 'rue', NULL, 'Notre-Dame', 'Est', 'rue Notre-Dame Est', 'rue Notre-Dame Est', 'notre dame', '${computeConsonantKey("Notre-Dame")}', ''),
         (2, '66023', '10002', 'boulevard', NULL, 'René-Lévesque', 'Ouest', 'boul. René-Lévesque Ouest', 'boulevard René-Lévesque Ouest', 'rene levesque', '${computeConsonantKey("René-Lévesque")}', 'boulevard dorchester ouest dorchester'),
-        (3, '23027', '20001', 'boulevard', NULL, 'Jean-Lesage', NULL, 'boul. Jean-Lesage', 'boulevard Jean-Lesage', 'jean lesage', '${computeConsonantKey("Jean-Lesage")}', '');
+        (3, '23027', '20001', 'boulevard', NULL, 'Jean-Lesage', NULL, 'boul. Jean-Lesage', 'boulevard Jean-Lesage', 'jean lesage', '${computeConsonantKey("Jean-Lesage")}', ''),
+        (4, '66023', '10003', 'boulevard', NULL, 'Saint-Laurent', NULL, 'boul. Saint-Laurent', 'boulevard Saint-Laurent', 'saint laurent', '${computeConsonantKey("Saint-Laurent")}', ''),
+        (5, '66023', '10004', 'rue', 'de l''', 'Église', NULL, 'rue de l''Église', 'rue de l''Église', 'eglise', '${computeConsonantKey("Église")}', ''),
+        (6, '23027', '20002', 'Avenue', NULL, '3e', NULL, '3e Avenue', '3e Avenue', '3e', '${computeConsonantKey("3e")}', ''),
+        (7, '23027', '20003', 'Avenue', NULL, '1re', NULL, '1re Avenue', '1re Avenue', '1re', '${computeConsonantKey("1re")}', '');
 
       INSERT INTO adresses_civiques VALUES
         -- Palais de justice de Montréal (lots multiples séparés par virgule)
@@ -42,7 +46,20 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         (3, 2, 1200, '', '', NULL, 'H3B4W8', 'C', 'Principal', '1850100', '9888-10-0001', 45.497201, -73.571102),
         (4, 2, 1200, '', '402', 'Appartement', 'H3B4W8', 'C', 'Subdivision', '1850402', '9888-10-0402', 45.497201, -73.571102),
         -- Palais de justice de Québec
-        (5, 3, 300, '', '', NULL, 'G1K8K6', 'C', 'Principal', '1214555', '4851-82-9911', 46.817412, -71.213805);
+        (5, 3, 300, '', '', NULL, 'G1K8K6', 'C', 'Principal', '1214555', '4851-82-9911', 46.817412, -71.213805),
+        -- Odonymes supplémentaires (Saint-Laurent, de l'Église, 3e Avenue, 1re Avenue)
+        (6, 4, 3500, '', '', NULL, 'H2X2V2', 'C', 'Principal', '2100100', '9810-00-3500', 45.5131, -73.5709),
+        (7, 5, 4000, '', '', NULL, 'H4G1M4', 'C', 'Principal', '2200400', '9820-00-4000', 45.4621, -73.5671),
+        (8, 6, 500, '', '', NULL, 'G1L2W3', 'C', 'Principal', '1300500', '4852-00-0500', 46.8241, -71.2275),
+        (9, 7, 500, '', '', NULL, 'G1L3J9', 'C', 'Principal', '1300501', '4852-00-0501', 46.8235, -71.2291),
+        -- Tour à bureaux 1250 René-Lévesque Ouest (> 80 unités SIG 'Étalement Vertical')
+        (10, 2, 1250, '', '', NULL, 'H3B4W8', 'C', 'SERV', '1851407', '9939-27-9608', 45.497272, -73.570425),
+        ${Array.from(
+          { length: 85 },
+          (_, i) =>
+            `(${11 + i}, 2, 1250, '', '${100 + i}', 'Étalement Vertical', 'H3B4W8', 'C', 'SERV', '1851407', '9939-27-9608', 45.497272, -73.570425)`,
+        ).join(",\n        ")},
+        (200, 2, 1250, '', '2500', 'Étalement Vertical', 'H3B4Y1', 'C', 'SERV', '1851407', '9939-27-9608', 45.497272, -73.570425);
 
       INSERT INTO odonymes_fts(rowid, specifique, odonyme_normal, renvois_recherche)
         SELECT id, specifique, odonyme_normal, renvois_recherche FROM odonymes;
@@ -212,6 +229,77 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     if (unknown.ok) {
       expect(unknown.structured.status).toBe("not_found");
       expect(unknown.structured.candidates).toEqual([]);
+    }
+  });
+
+  it("ne détache pas un spécifique d'odonyme homonyme d'un arrondissement sans virgule et extrait la particule 'de l\\''", async () => {
+    const stLaurent = await adresseVerify(harness.d1, {
+      address: "3500 boulevard Saint-Laurent",
+    });
+    expect(stLaurent.ok).toBe(true);
+    if (stLaurent.ok) {
+      expect(stLaurent.structured.status).toBe("exact_civic");
+      expect(stLaurent.structured.adresse_normalisee).toBe(
+        "3500, boulevard Saint-Laurent, Montréal (Québec) H2X 2V2",
+      );
+    }
+
+    const eglise = await adresseVerify(harness.d1, {
+      address: "4000 rue de l'Église, Verdun",
+    });
+    expect(eglise.ok).toBe(true);
+    if (eglise.ok) {
+      expect(eglise.structured.status).toBe("exact_civic");
+      expect(eglise.structured.adresse_normalisee).toBe(
+        "4000, rue de l'Église, Montréal (Québec) H4G 1M4",
+      );
+    }
+  });
+
+  it("reconnaît les odonymes ordinaux québécois ('3e Avenue', '1ère Avenue' -> '1re Avenue') en exact_civic", async () => {
+    const av3 = await adresseVerify(harness.d1, {
+      address: "500, 3e Avenue, Québec",
+    });
+    expect(av3.ok).toBe(true);
+    if (av3.ok) {
+      expect(av3.structured.status).toBe("exact_civic");
+      expect(av3.structured.adresse_normalisee).toBe("500, 3e Avenue, Québec (Québec) G1L 2W3");
+    }
+
+    const av1 = await adresseVerify(harness.d1, {
+      address: "500, 1ère Avenue, Québec",
+    });
+    expect(av1.ok).toBe(true);
+    if (av1.ok) {
+      expect(av1.structured.status).toBe("exact_civic");
+      expect(av1.structured.adresse_normalisee).toBe("500, 1re Avenue, Québec (Québec) G1L 3J9");
+    }
+  });
+
+  it("assainit le type SIG 'Étalement Vertical' du RQA et retrouve une unité située au-delà de 80 subdivisions", async () => {
+    const suite2500 = await adresseVerify(harness.d1, {
+      address: "1250 boul. René-Lévesque Ouest, bureau 2500, Montréal (Québec) H3B 4W8",
+    });
+    expect(suite2500.ok).toBe(true);
+    if (suite2500.ok) {
+      expect(suite2500.structured.status).toBe("exact_civic");
+      expect(suite2500.structured.adresse_normalisee).toBe(
+        "1250, boulevard René-Lévesque Ouest, bureau 2500, Montréal (Québec) H3B 4Y1",
+      );
+      expect(suite2500.structured.adresse_normalisee).not.toContain("étalement vertical");
+      expect(suite2500.structured.candidates[0]?.composantes.type_unite).toBe("bureau");
+    }
+
+    const towerBase = await adresseVerify(harness.d1, {
+      address: "1250 boul. René-Lévesque Ouest, Montréal",
+    });
+    expect(towerBase.ok).toBe(true);
+    if (towerBase.ok) {
+      expect(towerBase.structured.status).toBe("exact_civic");
+      expect(towerBase.structured.adresse_normalisee).toBe(
+        "1250, boulevard René-Lévesque Ouest, Montréal (Québec) H3B 4W8",
+      );
+      expect(towerBase.structured.candidates).toHaveLength(1);
     }
   });
 });

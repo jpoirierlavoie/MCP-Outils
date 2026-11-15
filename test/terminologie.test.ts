@@ -369,4 +369,49 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     );
     expect(loneMort?.risk_category).toBe("omission_bijuridique");
   });
+
+  it("gère les formes plurielles dans terminologie_lookup et terminologie_scan_text sans faux positifs sur 'avis d\\'assignation' ou 'bref délai'", async () => {
+    const mortPl = await terminologieLookup(harness.d1, {
+      query: "mortgages",
+      source_lang: "en",
+    });
+    expect(mortPl.structured.fiches[0]?.rang_source).toBe(1);
+    expect(mortPl.structured.fiches[0]?.terme_en).toBe("hypothec");
+
+    const easePl = await terminologieLookup(harness.d1, {
+      query: "easements",
+      source_lang: "en",
+    });
+    expect(easePl.structured.fiches[0]?.rang_source).toBe(1);
+    expect(easePl.structured.fiches[0]?.terme_en).toBe("servitude");
+
+    const fidPl = await terminologieLookup(harness.d1, {
+      query: "fiducies",
+      source_lang: "fr",
+    });
+    expect(fidPl.structured.fiches[0]?.rang_source).toBe(1);
+    expect(fidPl.structured.fiches[0]?.terme_en).toBe("trust");
+
+    const enPlScan = await terminologieScanText(harness.d1, {
+      text: "The borrowers granted two mortgages and three easements, and are jointly and severally liable under the statutes of limitations.",
+      lang: "en",
+    });
+    expect(enPlScan.structured.occurrences.map((o) => o.matched_text.toLowerCase())).toEqual([
+      "mortgages",
+      "easements",
+      "jointly and severally",
+      "statutes of limitations",
+    ]);
+
+    const frPlScan = await terminologieScanText(harness.d1, {
+      text: "Signifié avec avis\n   d'assignation dans un bref délai. Toutefois, les deux assignations en référé et les brefs de saisie invoquent la Cour de cassation.",
+      lang: "fr",
+    });
+    expect(frPlScan.structured.occurrences.map((o) => o.matched_text.toLowerCase())).toEqual([
+      "assignations",
+      "en référé",
+      "brefs de saisie",
+      "cour de cassation",
+    ]);
+  });
 });

@@ -31,11 +31,12 @@ const LEGAL_SUFFIX_TOKENS = new Set([
   "enrg",
 ]);
 
+const DOTTED_ACRONYM_RE =
+  /(?<![\p{L}\p{N}])(?:\p{L}\.){2,}\p{L}?(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])(?:\p{L}\.)+\p{L}(?![\p{L}\p{N}])/gu;
+
 export function normalizeEntitySearch(raw: string): string {
-  // Recomposer les sigles ponctués (p. ex. S.E.N.C.R.L. -> sencrl, C.C.A. -> cca)
-  const collapsedAcronyms = raw.replace(/\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b/g, (m) =>
-    m.replace(/\./g, ""),
-  );
+  // Recomposer les sigles ponctués (p. ex. S.E.N.C.R.L. -> sencrl, S.A. -> sa, C.É.G.E.P. -> cegep)
+  const collapsedAcronyms = raw.replace(DOTTED_ACRONYM_RE, (m) => m.replace(/\./g, ""));
   return collapsedAcronyms
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -47,9 +48,7 @@ export function normalizeEntitySearch(raw: string): string {
 }
 
 function buildRegistreFtsQuery(rawQuery: string): string | null {
-  const collapsed = rawQuery.replace(/\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b/g, (m) =>
-    m.replace(/\./g, ""),
-  );
+  const collapsed = rawQuery.replace(DOTTED_ACRONYM_RE, (m) => m.replace(/\./g, ""));
   const folded = collapsed
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -81,6 +80,13 @@ function buildRegistreFtsQuery(rawQuery: string): string | null {
     } else if (tok.length >= 4) {
       groups.push(`"${tok}"*`);
     } else if (tok.length >= 2) {
+      groups.push(`"${tok}"`);
+    }
+  }
+
+  // Repli si la dénomination est composée uniquement d'initiales d'un caractère (p. ex. « A&W », « H&M »)
+  if (groups.length === 0 && chosenTokens.length > 0) {
+    for (const tok of chosenTokens) {
       groups.push(`"${tok}"`);
     }
   }
@@ -423,6 +429,47 @@ function decodeDv(
   return dv.get(`${typ}:${code}`) ?? code;
 }
 
+const QC_UNIT_OR_FLOOR_FOLDED_RE =
+  /\b(?:etage|etages|bureau|bureaux|bur|suite|ste|appartement|app|apt|local|loc|unite|case postale|succursale|succ)\b|(?:^|\s)c\s*p(?:\s|$)|^\s*\d+\s*$/;
+
+function isUnitOrFloorLine(raw: string): boolean {
+  if (/^\s*#\s*\d+/.test(raw)) return true;
+  const folded = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return !folded || QC_UNIT_OR_FLOOR_FOLDED_RE.test(folded);
+}
+
+function resolveQcVille(rawVille: string | null | undefined, fiche: QcFicheCompact): string | null {
+  if (fiche.da === 1) {
+    return null;
+  }
+  const trimmedVille = rawVille?.trim() ?? "";
+  if (trimmedVille && !isUnitOrFloorLine(trimmedVille)) {
+    return trimmedVille;
+  }
+  if (fiche.ad) {
+    const segments = fiche.ad
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (let i = segments.length - 1; i >= 1; i--) {
+      const cleaned = segments[i]!.replace(/\b[A-Za-z]\d[A-Za-z]\s*-?\s*\d[A-Za-z]\d\b/g, " ")
+        .replace(/\s*\([^)]*\)\s*/g, " ")
+        .replace(/\s+(?:qc|canada)\s*$/iu, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (cleaned.length >= 2 && !/^\d+\b/.test(cleaned) && !isUnitOrFloorLine(cleaned)) {
+        return cleaned;
+      }
+    }
+  }
+  return trimmedVille && !isUnitOrFloorLine(trimmedVille) ? trimmedVille : null;
+}
+
 function parseJsonSafe<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
   try {
@@ -536,6 +583,9 @@ export async function registreSearchEntities(
       : row.statut_code;
     const autresNoms = parseJsonSafe<string[]>(row.autres_noms_appercu, []);
     const flags = Number(row.flags);
+    const qcFiche = isQc ? parseJsonSafe<QcFicheCompact>(row.fiche_json, {}) : null;
+    const effectiveVille =
+      isQc && qcFiche ? resolveQcVille(row.ville, qcFiche) : (row.ville ?? null);
 
     return {
       jurisdiction: row.juridiction,
@@ -549,7 +599,7 @@ export async function registreSearchEntities(
       is_active: row.is_active === 1,
       faillite_declaree: (flags & FLAG_FAILLITE) !== 0,
       date_constitution: row.date_constitution ?? null,
-      ville: row.ville ?? null,
+      ville: effectiveVille,
       has_rbq_licence: (flags & FLAG_RBQ) !== 0,
       has_opc_permit: (flags & FLAG_OPC) !== 0,
       in_rena: (flags & FLAG_RENA) !== 0,
@@ -665,7 +715,9 @@ export async function registreGetEntity(
       .bind(cleanDigits)
       .first<RawEntiteRow>();
   } else if (lookupBy === "corporation_number") {
-    const cleanCorp = rawVal.trim().replace(/^0+(?=\d)/, "");
+    const rawTrim = rawVal.trim();
+    const stripped = rawTrim.replace(/[\s-]+/g, "");
+    const cleanCorp = stripped.replace(/^0+(?=\d)/, "");
     caRow =
       (await db
         .prepare(
@@ -673,10 +725,10 @@ export async function registreGetEntity(
                   nom_recherche, autres_noms_appercu, forme_code, statut_code,
                   date_constitution, ville, flags, fiche_json
              FROM entites
-            WHERE juridiction = 'ca' AND (identifiant_principal = ? OR identifiant_principal = ?)
+            WHERE juridiction = 'ca' AND identifiant_principal IN (?, ?, ?)
             LIMIT 1`,
         )
-        .bind(rawVal.trim(), cleanCorp)
+        .bind(rawTrim, stripped, cleanCorp)
         .first<RawEntiteRow>()) ?? null;
   } else {
     caRow = await db
@@ -812,7 +864,7 @@ export async function registreGetEntity(
       domicile_declare: {
         dispense_adresse: f.da === 1,
         adresse: f.da === 1 ? null : (f.ad ?? null),
-        ville: qcRow?.ville ?? null,
+        ville: resolveQcVille(qcRow?.ville, f),
         code_postal: f.da === 1 ? null : (f.cp ?? null),
       },
       activites_economiques: (f.ac ?? []).map(([code_cae, description]) => ({

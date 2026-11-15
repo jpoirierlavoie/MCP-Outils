@@ -12,6 +12,90 @@ export function normalizeFold(input: string): string {
     .replace(/\s+/g, " ");
 }
 
+const INVARIABLE_WORDS = new Set([
+  "frais",
+  "depens",
+  "recours",
+  "avis",
+  "proces",
+  "succes",
+  "exces",
+  "acces",
+  "deces",
+  "legs",
+  "corps",
+  "temps",
+  "tiers",
+  "status",
+  "corpus",
+  "onus",
+  "nexus",
+  "situs",
+  "vires",
+  "habeas",
+  "mandamus",
+  "plus",
+  "moins",
+  "vers",
+  "dans",
+  "sans",
+  "sous",
+  "hors",
+  "des",
+  "les",
+  "ces",
+  "nos",
+  "vos",
+  "aux",
+]);
+
+function singularizeFoldedTokenVariants(
+  tok: string,
+  lang: "fr" | "en" | "auto" = "auto",
+): string[] {
+  const t = tok.toLowerCase();
+  const out = new Set<string>([tok]);
+  if (t.length < 4 || INVARIABLE_WORDS.has(t) || /^\d/.test(t)) {
+    return Array.from(out);
+  }
+  if (lang !== "en") {
+    if (t === "baux") out.add("bail");
+    else if (t.endsWith("eaux") && t.length >= 6) out.add(tok.slice(0, -1));
+    else if (t.endsWith("aux") && t.length >= 5) out.add(`${tok.slice(0, -3)}al`);
+  }
+  if (lang !== "fr") {
+    if (/[^aeiou]ies$/i.test(t) && t.length >= 5) out.add(`${tok.slice(0, -3)}y`);
+    if (/(?:ches|shes|xes|zes|sses)$/i.test(t) && t.length >= 5) out.add(tok.slice(0, -2));
+  }
+  if (t.endsWith("s") && !/(?:ss|us|is|os|as)$/i.test(t)) {
+    out.add(tok.slice(0, -1));
+  }
+  return Array.from(out).filter((v) => v.length >= 2);
+}
+
+function buildNormalizedQueryVariants(qNorm: string, lang: "fr" | "en" | "auto"): string[] {
+  const words = qNorm.split(" ").filter(Boolean);
+  if (words.length === 0) return [];
+  const primarySingular = words
+    .map((w) => {
+      const vars = singularizeFoldedTokenVariants(w, lang);
+      // En anglais ou auto, préférer -y pour -ies, sinon le premier variant singulier s'il existe
+      return vars.length > 1 ? vars[1]! : vars[0]!;
+    })
+    .join(" ");
+  const lastWordSingular =
+    words.length >= 2
+      ? [
+          ...words.slice(0, -1),
+          singularizeFoldedTokenVariants(words[words.length - 1]!, lang)[1] ??
+            words[words.length - 1]!,
+        ].join(" ")
+      : primarySingular;
+  return Array.from(
+    new Set([qNorm, primarySingular, lastWordSingular].filter((s) => s.length >= 2)),
+  );
+}
+
 export function extractSafeFtsTokens(input: string): string[] {
   const normalized = input.replace(/[\u2018\u2019\u02bc]/g, " ").normalize("NFC");
   const matches = normalized.match(/[\p{L}\p{N}]+/gu);
@@ -24,13 +108,21 @@ export function buildFtsPhraseQuery(input: string): string | null {
   return `"${tokens.map((t) => t.replace(/"/g, "")).join(" ")}"`;
 }
 
-export function buildFtsAndPrefixQuery(input: string): string | null {
+export function buildFtsAndPrefixQuery(
+  input: string,
+  lang: "fr" | "en" | "auto" = "auto",
+): string | null {
   const tokens = extractSafeFtsTokens(input);
   if (tokens.length === 0) return null;
   return tokens
     .map((t) => {
       const clean = t.replace(/"/g, "");
-      return clean.length >= 3 ? `"${clean}"*` : `"${clean}"`;
+      const folded = normalizeFold(clean);
+      const variants = Array.from(
+        new Set([clean, ...singularizeFoldedTokenVariants(folded, lang)].filter(Boolean)),
+      );
+      const clauses = variants.map((v) => (v.length >= 3 ? `"${v}"*` : `"${v}"`));
+      return clauses.length === 1 ? clauses[0]! : `(${clauses.join(" OR ")})`;
     })
     .join(" AND ");
 }
@@ -172,14 +264,16 @@ export async function terminologieLookup(
 
   const byId = new Map<number, { row: RawFicheRow; exactTier: number }>();
 
-  // 1) Correspondances exactes sur termes normalisés
+  // 1) Correspondances exactes sur termes normalisés (incluant la lemmatisation singulière régulière)
+  const qVariants = buildNormalizedQueryVariants(qNorm, sourceLang);
+  const inPlaceholders = qVariants.map(() => "?").join(", ");
   const exactWhere =
     sourceLang === "fr"
-      ? "terme_fr_norm = ?"
+      ? `terme_fr_norm IN (${inPlaceholders})`
       : sourceLang === "en"
-        ? "terme_en_norm = ?"
-        : "(terme_fr_norm = ? OR terme_en_norm = ?)";
-  const exactParams = sourceLang === "auto" ? [qNorm, qNorm] : [qNorm];
+        ? `terme_en_norm IN (${inPlaceholders})`
+        : `(terme_fr_norm IN (${inPlaceholders}) OR terme_en_norm IN (${inPlaceholders}))`;
+  const exactParams = sourceLang === "auto" ? [...qVariants, ...qVariants] : [...qVariants];
   const exactRes = await db
     .prepare(
       `SELECT id, rang_source, source_nom, licence_source, terme_fr, terme_en,
@@ -198,8 +292,9 @@ export async function terminologieLookup(
     byId.set(Number(r.id), { row: r, exactTier: 0 });
   }
 
-  // 2) Recherche plein texte FTS5 (incluant synonymes et faux amis déconseillés)
-  const ftsQuery = buildFtsAndPrefixQuery(input.query);
+  // 2) Recherche plein texte FTS5 (incluant synonymes, pluriels et faux amis déconseillés)
+  const qVariantSet = new Set(qVariants);
+  const ftsQuery = buildFtsAndPrefixQuery(input.query, sourceLang);
   if (ftsQuery) {
     const ftsRes = await db
       .prepare(
@@ -224,18 +319,34 @@ export async function terminologieLookup(
         );
         const synFr = parseJsonArray<string>(r.synonymes_fr_json);
         const synEn = parseJsonArray<string>(r.synonymes_en_json);
-        const isDeconseilleExact = decList.some((d) => normalizeFold(d.terme) === qNorm);
+        const matchesVariant = (s: string) => qVariantSet.has(normalizeFold(s));
+        const isHeadwordExact =
+          sourceLang === "fr"
+            ? qVariantSet.has(r.terme_fr_norm)
+            : sourceLang === "en"
+              ? qVariantSet.has(r.terme_en_norm)
+              : qVariantSet.has(r.terme_fr_norm) || qVariantSet.has(r.terme_en_norm);
+        const isDeconseilleExact = decList.some((d) => matchesVariant(d.terme));
         const isSynExact =
-          synFr.some((s) => normalizeFold(s) === qNorm) ||
-          synEn.some((s) => normalizeFold(s) === qNorm);
+          sourceLang === "fr"
+            ? synFr.some(matchesVariant)
+            : sourceLang === "en"
+              ? synEn.some(matchesVariant)
+              : synFr.some(matchesVariant) || synEn.some(matchesVariant);
         const isLangMatch =
           sourceLang === "fr"
-            ? r.terme_fr_norm.includes(qNorm)
+            ? qVariants.some((v) => r.terme_fr_norm.includes(v))
             : sourceLang === "en"
-              ? r.terme_en_norm.includes(qNorm)
-              : r.terme_fr_norm.includes(qNorm) || r.terme_en_norm.includes(qNorm);
+              ? qVariants.some((v) => r.terme_en_norm.includes(v))
+              : qVariants.some((v) => r.terme_fr_norm.includes(v) || r.terme_en_norm.includes(v));
         const tier =
-          (isDeconseilleExact && r.rang_source === 1) || isSynExact ? 0 : isLangMatch ? 1 : 2;
+          isHeadwordExact || (r.rang_source === 1 && (isDeconseilleExact || isSynExact))
+            ? 0
+            : isSynExact || isDeconseilleExact
+              ? 1
+              : isLangMatch
+                ? 2
+                : 3;
         byId.set(id, { row: r, exactTier: tier });
       }
     }
@@ -395,7 +506,7 @@ function extractAroundMatch(text: string, regex: RegExp, maxLen = 300): string {
   return `${prefix}${clean.slice(start, end).trim()}${suffix}`;
 }
 
-interface RawAttestationRow {
+interface LoiBilingueRow {
   law_id: string;
   jurisdiction: string;
   name_fr: string;
@@ -403,10 +514,14 @@ interface RawAttestationRow {
   official_cite: string;
   consol_date_fr: string | null;
   consol_date_en: string | null;
+}
+
+interface LightAttestationCandidateRow {
+  id: number;
+  law_id: string;
   article_number: string;
   sort_key: number;
-  text_fr: string;
-  text_en: string;
+  target_text: string;
 }
 
 export async function terminologieAttestations(
@@ -420,38 +535,61 @@ export async function terminologieAttestations(
   }
 
   const ftsTable = input.lang === "fr" ? "articles_fr_fts" : "articles_en_fts";
+  const targetCol = input.lang === "fr" ? "text_fr" : "text_en";
   const lawFilter = input.law_filter?.trim() ?? null;
 
-  let sql = `
-    SELECT a.law_id, l.jurisdiction, l.name_fr, l.name_en, l.official_cite,
-           l.consol_date_fr, l.consol_date_en,
-           a.article_number, a.sort_key, a.text_fr, a.text_en
-      FROM ${ftsTable} f
-      JOIN articles_bilingues a ON a.id = f.rowid
-      JOIN lois_bilingues l ON l.law_id = a.law_id
-     WHERE ${ftsTable} MATCH ?
+  // Charger les 97 lois une seule fois afin d'éviter toute répétition de métadonnées et tout plafond arbitraire
+  let lawsSql = `
+    SELECT law_id, jurisdiction, name_fr, name_en, official_cite, consol_date_fr, consol_date_en
+      FROM lois_bilingues
   `;
-  const params: unknown[] = [ftsPhrase];
+  const lawsParams: unknown[] = [];
   if (lawFilter) {
-    sql += " AND (LOWER(a.law_id) = LOWER(?) OR LOWER(l.official_cite) LIKE LOWER(?))";
-    params.push(lawFilter, `%${lawFilter}%`);
+    lawsSql += " WHERE LOWER(law_id) = LOWER(?) OR LOWER(official_cite) LIKE LOWER(?)";
+    lawsParams.push(lawFilter, `%${lawFilter}%`);
   }
-  sql += `
-     ORDER BY CASE a.law_id WHEN 'ccq' THEN 0 WHEN 'cpc' THEN 1 WHEN 'ca-i-21' THEN 2 ELSE 3 END,
-              a.law_id ASC,
-              a.sort_key ASC
-     LIMIT 2500
-  `;
+  const lawsRes = await db
+    .prepare(lawsSql)
+    .bind(...lawsParams)
+    .all<LoiBilingueRow>();
+  const lawMap = new Map<string, LoiBilingueRow>(lawsRes.results.map((l) => [l.law_id, l]));
 
-  const res = await db
-    .prepare(sql)
-    .bind(...params)
-    .all<RawAttestationRow>();
+  let verifiedRows: LightAttestationCandidateRow[] = [];
   const phraseRegex = buildExactPhraseRegex(input.term);
 
-  const verifiedRows = res.results.filter((r) => {
-    const target = input.lang === "fr" ? r.text_fr : r.text_en;
-    return phraseRegex.test(target);
+  if (!lawFilter || lawMap.size > 0) {
+    let sql = `
+      SELECT a.id, a.law_id, a.article_number, a.sort_key, a.${targetCol} AS target_text
+        FROM ${ftsTable} f
+        JOIN articles_bilingues a ON a.id = f.rowid
+       WHERE ${ftsTable} MATCH ?
+    `;
+    const params: unknown[] = [ftsPhrase];
+    if (lawFilter) {
+      const allowedLawIds = Array.from(lawMap.keys());
+      sql += ` AND a.law_id IN (${allowedLawIds.map(() => "?").join(",")})`;
+      params.push(...allowedLawIds);
+    }
+
+    const res = await db
+      .prepare(sql)
+      .bind(...params)
+      .all<LightAttestationCandidateRow>();
+
+    verifiedRows = res.results.filter(
+      (r) => lawMap.has(r.law_id) && phraseRegex.test(r.target_text),
+    );
+  }
+
+  const lawPriority = (lawId: string): number =>
+    lawId === "ccq" ? 0 : lawId === "cpc" ? 1 : lawId === "ca-i-21" ? 2 : 3;
+
+  verifiedRows.sort((a, b) => {
+    const pa = lawPriority(a.law_id);
+    const pb = lawPriority(b.law_id);
+    if (pa !== pb) return pa - pb;
+    if (a.law_id !== b.law_id) return a.law_id.localeCompare(b.law_id);
+    return Number(a.sort_key) - Number(b.sort_key);
   });
 
   const lawCounts = new Map<string, z.infer<typeof AttestationParLoiSchema>>();
@@ -460,37 +598,63 @@ export async function terminologieAttestations(
     if (cur) {
       cur.article_count += 1;
     } else {
+      const l = lawMap.get(r.law_id)!;
       lawCounts.set(r.law_id, {
         law_id: r.law_id,
-        official_cite: r.official_cite,
-        law_title_fr: r.name_fr,
-        law_title_en: r.name_en,
-        jurisdiction: r.jurisdiction,
+        official_cite: l.official_cite,
+        law_title_fr: l.name_fr,
+        law_title_en: l.name_en,
+        jurisdiction: l.jurisdiction,
         article_count: 1,
       });
     }
   }
 
-  const byLaw = Array.from(lawCounts.values()).sort((a, b) => b.article_count - a.article_count);
-  const attestations = verifiedRows.slice(0, limit).map((r) => ({
-    law_id: r.law_id,
-    official_cite: r.official_cite,
-    article_number: r.article_number,
-    snippet_fr:
-      input.lang === "fr"
-        ? extractAroundMatch(r.text_fr, phraseRegex, 300)
-        : r.text_fr.length <= 300
-          ? r.text_fr
-          : `${r.text_fr.slice(0, 299)}…`,
-    snippet_en:
-      input.lang === "en"
-        ? extractAroundMatch(r.text_en, phraseRegex, 300)
-        : r.text_en.length <= 300
-          ? r.text_en
-          : `${r.text_en.slice(0, 299)}…`,
-    consol_date:
-      (input.lang === "fr" ? r.consol_date_fr : r.consol_date_en) ?? r.consol_date_fr ?? null,
-  }));
+  const byLaw = Array.from(lawCounts.values()).sort(
+    (a, b) => b.article_count - a.article_count || a.law_id.localeCompare(b.law_id),
+  );
+
+  // Ne rapatrier les deux colonnes complètes `text_fr` et `text_en` que pour les `limit` (<= 20) extraits retenus
+  const topSlice = verifiedRows.slice(0, limit);
+  const bilingualById = new Map<number, { text_fr: string; text_en: string }>();
+  if (topSlice.length > 0) {
+    const ids = topSlice.map((r) => Number(r.id));
+    const biRes = await db
+      .prepare(
+        `SELECT id, text_fr, text_en
+           FROM articles_bilingues
+          WHERE id IN (${ids.map(() => "?").join(",")})`,
+      )
+      .bind(...ids)
+      .all<{ id: number; text_fr: string; text_en: string }>();
+    for (const b of biRes.results) {
+      bilingualById.set(Number(b.id), { text_fr: b.text_fr, text_en: b.text_en });
+    }
+  }
+
+  const attestations = topSlice.map((r) => {
+    const l = lawMap.get(r.law_id)!;
+    const bi = bilingualById.get(Number(r.id)) ?? { text_fr: "", text_en: "" };
+    return {
+      law_id: r.law_id,
+      official_cite: l.official_cite,
+      article_number: r.article_number,
+      snippet_fr:
+        input.lang === "fr"
+          ? extractAroundMatch(bi.text_fr, phraseRegex, 300)
+          : bi.text_fr.length <= 300
+            ? bi.text_fr
+            : `${bi.text_fr.slice(0, 299)}…`,
+      snippet_en:
+        input.lang === "en"
+          ? extractAroundMatch(bi.text_en, phraseRegex, 300)
+          : bi.text_en.length <= 300
+            ? bi.text_en
+            : `${bi.text_en.slice(0, 299)}…`,
+      consol_date:
+        (input.lang === "fr" ? l.consol_date_fr : l.consol_date_en) ?? l.consol_date_fr ?? null,
+    };
+  });
 
   const metaRow = await db
     .prepare("SELECT version_date FROM meta_sources WHERE source_key = 'concordancier_legislatif'")
@@ -504,7 +668,7 @@ export async function terminologieAttestations(
     lang: input.lang,
     law_filter: lawFilter,
     total_matching_articles: verifiedRows.length,
-    by_law: byLaw.slice(0, 25),
+    by_law: byLaw,
     attestations,
     provenance: {
       source:
@@ -610,6 +774,370 @@ interface RawRegleRow {
   legal_basis: string;
 }
 
+const NON_INFLECTED_SCAN_TOKENS = new Set([
+  "de",
+  "du",
+  "des",
+  "la",
+  "le",
+  "les",
+  "un",
+  "une",
+  "et",
+  "ou",
+  "en",
+  "au",
+  "aux",
+  "pour",
+  "par",
+  "sur",
+  "dans",
+  "sous",
+  "sans",
+  "avec",
+  "ne",
+  "pas",
+  "plus",
+  "dont",
+  "devant",
+  "entre",
+  "vers",
+  "chez",
+  "contre",
+  "of",
+  "in",
+  "on",
+  "to",
+  "for",
+  "by",
+  "at",
+  "and",
+  "or",
+  "the",
+  "a",
+  "an",
+  "not",
+  "with",
+  "under",
+  "from",
+  "into",
+  "before",
+  "after",
+  "upon",
+  "ab",
+  "initio",
+  "quantum",
+  "meruit",
+  "cautio",
+  "judicatum",
+  "solvi",
+  "vu",
+  "ces",
+  "aid",
+  "will",
+  "god",
+]);
+
+const SUPPLEMENTAL_SCAN_RULES: readonly RawRegleRow[] = [
+  {
+    code_regle: "sup-en-jointly-severally",
+    lang: "en",
+    pattern_term: "jointly and severally",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: "solidar",
+    reason_fr:
+      "Calque de common law (« jointly and severally ») ; en droit civil québécois, la solidarité s'exprime par « solidarily » / « solidary obligation ».",
+    suggested_replacement: "solidarily",
+    legal_basis: "Art. 1523 C.c.Q.",
+  },
+  {
+    code_regle: "sup-en-hold-harmless-indemnify",
+    lang: "en",
+    pattern_term: "hold harmless and indemnify",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Formule redondante de common law ; en rédaction civiliste québécoise en anglais, privilégier « indemnify and take up the defence ».",
+    suggested_replacement: "indemnify and take up the defence",
+    legal_basis: "Art. 1434 C.c.Q. ; art. 184 C.p.c.",
+  },
+  {
+    code_regle: "sup-en-indemnify-hold-harmless",
+    lang: "en",
+    pattern_term: "indemnify and hold harmless",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Formule redondante de common law ; en rédaction civiliste québécoise en anglais, privilégier « indemnify and take up the defence ».",
+    suggested_replacement: "indemnify and take up the defence",
+    legal_basis: "Art. 1434 C.c.Q. ; art. 184 C.p.c.",
+  },
+  {
+    code_regle: "sup-en-exam-discovery",
+    lang: "en",
+    pattern_term: "examination for discovery",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Terme procédural des provinces de common law ; la version anglaise officielle du C.p.c. emploie « pre-trial examination ».",
+    suggested_replacement: "pre-trial examination",
+    legal_basis: "Art. 221 C.p.c.",
+  },
+  {
+    code_regle: "sup-en-prayer-relief",
+    lang: "en",
+    pattern_term: "prayer for relief",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Formule de common law ; la version anglaise officielle du C.p.c. emploie « conclusions ».",
+    suggested_replacement: "conclusions",
+    legal_basis: "Art. 99–100 C.p.c.",
+  },
+  {
+    code_regle: "sup-en-estoppel",
+    lang: "en",
+    pattern_term: "estoppel",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: "fin de non-recevoir",
+    reason_fr:
+      "Doctrine d'equity de common law étrangère au droit civil québécois (art. 6, 7 et 1457 C.c.Q. ; fin de non-recevoir).",
+    suggested_replacement: "ground for dismissal / good faith (art. 6–7 C.C.Q.)",
+    legal_basis: "Art. 6, 7, 1457 C.c.Q. ; art. 168 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-en-refere",
+    lang: "fr",
+    pattern_term: "en référé",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Institution procédurale française sans équivalent au Québec ; viser l'ordonnance de sauvegarde ou l'injonction interlocutoire provisoire.",
+    suggested_replacement: "ordonnance de sauvegarde / injonction interlocutoire provisoire",
+    legal_basis: "Art. 49, 509–510 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-juge-referes",
+    lang: "fr",
+    pattern_term: "juge des référés",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Juridiction française du référé inexistante au Québec ; référer à la Cour supérieure ou au juge siégeant en chambre de pratique.",
+    suggested_replacement: "juge de la Cour supérieure (ordonnance de sauvegarde / injonction)",
+    legal_basis: "Art. 49, 509–510 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-juge-mise-en-etat",
+    lang: "fr",
+    pattern_term: "juge de la mise en état",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Institution procédurale française ; au Québec, la gestion de l'instance et le protocole de l'instance relèvent des art. 148 et 157 s. C.p.c.",
+    suggested_replacement: "protocole de l'instance / gestion d'instance",
+    legal_basis: "Art. 148, 157 s. C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-cour-cassation",
+    lang: "fr",
+    pattern_term: "Cour de cassation",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Juridiction suprême de l'ordre judiciaire français ; au Québec et au Canada, viser la Cour d'appel du Québec ou la Cour suprême du Canada.",
+    suggested_replacement: "Cour d'appel du Québec / Cour suprême du Canada",
+    legal_basis: "Art. 30 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-conseil-etat",
+    lang: "fr",
+    pattern_term: "Conseil d'État",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Juridiction administrative française sans équivalent au Québec ; le contrôle judiciaire relève de la Cour supérieure.",
+    suggested_replacement: "pourvoi en contrôle judiciaire devant la Cour supérieure",
+    legal_basis: "Art. 34 et 529 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-commandement-payer",
+    lang: "fr",
+    pattern_term: "commandement de payer",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Acte d'exécution français ; au Québec, employer la mise en demeure avant jugement ou l'avis d'exécution après jugement.",
+    suggested_replacement: "mise en demeure / avis d'exécution",
+    legal_basis: "Art. 1594 C.c.Q. ; art. 681 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-huissier-justice",
+    lang: "fr",
+    pattern_term: "acte d'huissier de justice",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Terminologie française ; au Québec, la signification par huissier est constatée par procès-verbal de signification.",
+    suggested_replacement: "signification par huissier (procès-verbal de signification)",
+    legal_basis: "Art. 110 et 119 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-bref-saisie",
+    lang: "fr",
+    pattern_term: "bref de saisie",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Archaïsme procédural d'avant le C.p.c. de 2016 ; les brefs d'exécution ont été remplacés par l'avis d'exécution.",
+    suggested_replacement: "avis d'exécution",
+    legal_basis: "Art. 681 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-bref-execution",
+    lang: "fr",
+    pattern_term: "bref d'exécution",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr: "Archaïsme procédural d'avant le C.p.c. de 2016 ; remplacé par l'avis d'exécution.",
+    suggested_replacement: "avis d'exécution",
+    legal_basis: "Art. 681 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-bref-subpoena",
+    lang: "fr",
+    pattern_term: "bref de subpoena",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr: "Archaïsme procédural d'avant 2016 ; employer « citation à comparaître ».",
+    suggested_replacement: "citation à comparaître",
+    legal_basis: "Art. 269 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-vu-articles",
+    lang: "fr",
+    pattern_term: "Vu les articles",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Formule de visa à la française ; au Québec, l'acte de procédure énonce directement les faits générateurs du droit sans visas de textes.",
+    suggested_replacement: "Énoncer directement les faits générateurs du droit (art. 99 C.p.c.)",
+    legal_basis: "Art. 99 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-au-visa",
+    lang: "fr",
+    pattern_term: "au visa de l'article",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Formule de cassation/procédure française ; au Québec, l'acte de procédure allègue les faits sans visas législatifs.",
+    suggested_replacement: "Énoncer directement les faits générateurs du droit (art. 99 C.p.c.)",
+    legal_basis: "Art. 99 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-garde-a-vue",
+    lang: "fr",
+    pattern_term: "garde à vue",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Institution de procédure pénale française inexistante en droit québécois et canadien (détention aux fins d'enquête / arrestation).",
+    suggested_replacement: "détention / arrestation",
+    legal_basis: "Charte canadienne, art. 9–10",
+  },
+  {
+    code_regle: "sup-fr-statement-of-claim",
+    lang: "fr",
+    pattern_term: "statement of claim",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Emprunt de common law ; au Québec, l'acte introductif se nomme « demande introductive d'instance » (et « originating application » en anglais).",
+    suggested_replacement: "demande introductive d'instance",
+    legal_basis: "Art. 141 C.p.c.",
+  },
+];
+
+function escapeScanLiteral(raw: string): string {
+  return raw
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/'/g, "['\\u2018\\u2019\\u02bc]")
+    .replace(/-/g, "[-\\u2010\\u2011]");
+}
+
+function inflectScanWordPattern(rawToken: string, lang: string, caseSensitive: number): string {
+  const aposMatch = /^([dlDL]['\u2018\u2019\u02bc])(.+)$/u.exec(rawToken);
+  const prefix = aposMatch ? escapeScanLiteral(aposMatch[1]!) : "";
+  const core = aposMatch ? aposMatch[2]! : rawToken;
+
+  if (
+    caseSensitive ||
+    !/^\p{L}{3,}$/u.test(core) ||
+    /^[A-ZÀ-Ý]{2,}$/.test(core) ||
+    NON_INFLECTED_SCAN_TOKENS.has(normalizeFold(core))
+  ) {
+    return `${prefix}${escapeScanLiteral(core)}`;
+  }
+
+  if (lang === "en") {
+    if (/[^aeiou]y$/i.test(core)) {
+      const stem = escapeScanLiteral(core.slice(0, -1));
+      return `${prefix}(?:${stem}y|${stem}ies)`;
+    }
+    if (/(?:s|x|z|ch|sh)$/i.test(core)) {
+      return `${prefix}${escapeScanLiteral(core)}(?:es)?`;
+    }
+    return `${prefix}${escapeScanLiteral(core)}s?`;
+  }
+
+  // Français : pluriels réguliers (-s, -aux, -eaux)
+  if (/al$/i.test(core) && core.length >= 5) {
+    const stem = escapeScanLiteral(core.slice(0, -2));
+    return `${prefix}(?:${stem}al|${stem}aux)`;
+  }
+  if (/(?:eau|eu)$/i.test(core)) {
+    return `${prefix}${escapeScanLiteral(core)}x?`;
+  }
+  if (!/[sxz]$/i.test(core)) {
+    return `${prefix}${escapeScanLiteral(core)}s?`;
+  }
+  return `${prefix}${escapeScanLiteral(core)}`;
+}
+
+function buildContaminationRegex(regle: RawRegleRow): RegExp {
+  const tokens = normalizeQuotesAndSpaces(regle.pattern_term.trim()).split(" ").filter(Boolean);
+  const body = tokens
+    .map((tok) => inflectScanWordPattern(tok, regle.lang, regle.case_sensitive))
+    .join("\\s+");
+  const startsWord = /^[\p{L}\p{N}]/u.test(regle.pattern_term.trim());
+  const endsWord = /[\p{L}\p{N}]$/u.test(regle.pattern_term.trim());
+  const pre = startsWord ? "(?<![\\p{L}\\p{N}])" : "";
+  const post = endsWord ? "(?![\\p{L}\\p{N}])" : "";
+  const flags = regle.case_sensitive ? "gu" : "giu";
+  return new RegExp(`${pre}${body}${post}`, flags);
+}
+
 export async function terminologieScanText(
   db: D1Database,
   input: TerminologieScanTextInput,
@@ -626,31 +1154,36 @@ export async function terminologieScanText(
     .bind(input.lang)
     .all<RawRegleRow>();
 
+  // Fusionner sans doublon les règles de la base avec les marqueurs complémentaires haute précision
+  const seenPatternKeys = new Set(reglesRes.results.map((r) => normalizeFold(r.pattern_term)));
+  const mergedRegles: RawRegleRow[] = [...reglesRes.results];
+  for (const sup of SUPPLEMENTAL_SCAN_RULES) {
+    if (sup.lang === input.lang && !seenPatternKeys.has(normalizeFold(sup.pattern_term))) {
+      seenPatternKeys.add(normalizeFold(sup.pattern_term));
+      mergedRegles.push(sup);
+    }
+  }
+  mergedRegles.sort((a, b) => b.pattern_term.length - a.pattern_term.length);
+
   const rawOccurrences: ScanOccurrence[] = [];
   const occupiedRanges: Array<[number, number]> = [];
 
-  for (const regle of reglesRes.results) {
-    const escaped = normalizeQuotesAndSpaces(regle.pattern_term.trim()).replace(
-      /[.*+?^${}()|[\]\\]/g,
-      "\\$&",
-    );
-    const flexQuotes = escaped.replace(/'/g, "['\\u2018\\u2019\\u02bc]").replace(/\s+/g, "\\s+");
-    const flags = regle.case_sensitive ? "gu" : "giu";
-    const re = new RegExp(`(?<![\\p{L}\\p{N}])${flexQuotes}(?![\\p{L}\\p{N}])`, flags);
+  for (const regle of mergedRegles) {
+    const re = buildContaminationRegex(regle);
 
     for (const m of input.text.matchAll(re)) {
       const start = m.index ?? 0;
       const end = start + m[0].length;
 
-      // Éviter de signaler deux fois un sous-segment déjà couvert par une locution plus longue
-      if (occupiedRanges.some(([s, e]) => start >= s && end <= e)) {
+      // Éviter de signaler deux fois un segment chevauchant déjà une locution plus longue
+      if (occupiedRanges.some(([s, e]) => start < e && end > s)) {
         continue;
       }
 
       // Exception : « avis d'assignation » est le terme officiel de l'art. 145 C.p.c.
       if (normalizeFold(regle.pattern_term) === "assignation") {
-        const prefixWindow = input.text.slice(Math.max(0, start - 12), start);
-        if (/avis\s+d['\u2018\u2019\u02bc]\s*$/iu.test(prefixWindow)) {
+        const prefixWindow = input.text.slice(Math.max(0, start - 32), start);
+        if (/\bavis\s+d['\u2018\u2019\u02bc]\s*$/iu.test(prefixWindow)) {
           continue;
         }
       }
@@ -685,13 +1218,11 @@ export async function terminologieScanText(
         suggested_replacement: regle.suggested_replacement,
         legal_basis: regle.legal_basis,
       });
-
-      if (rawOccurrences.length >= 100) break;
     }
-    if (rawOccurrences.length >= 100) break;
   }
 
   rawOccurrences.sort((a, b) => a.offset_start - b.offset_start);
+  const cappedOccurrences = rawOccurrences.slice(0, 250);
 
   const gardes: Garde[] = [makeGarde("TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE")];
   const structured: TerminologieScanTextOutput = {
@@ -699,7 +1230,7 @@ export async function terminologieScanText(
     context_system: contextSystem,
     scanned_length: input.text.length,
     flagged_count: rawOccurrences.length,
-    occurrences: rawOccurrences,
+    occurrences: cappedOccurrences,
     provenance: {
       source: "Table curée de détection des contaminations bijuridiques et linguistiques (Québec)",
       verified_at: "2026-11-15",
@@ -707,10 +1238,15 @@ export async function terminologieScanText(
     gardes,
   };
 
-  const occLines = rawOccurrences.map(
+  const occLines = cappedOccurrences.map(
     (o) =>
       `- [pos. ${o.offset_start}–${o.offset_end} · ${o.risk_category}] « ${o.matched_text} » dans « ${o.snippet} »\n  Risque : ${o.reason_fr}\n  Remplacement québécois attesté : « ${o.suggested_replacement} » (${o.legal_basis})`,
   );
+  if (rawOccurrences.length > cappedOccurrences.length) {
+    occLines.push(
+      `… (${rawOccurrences.length - cappedOccurrences.length} occurrence(s) additionnelle(s) omise(s) de l'affichage détaillé)`,
+    );
+  }
 
   const text = [
     `Contrôle de contamination terminologique (${input.lang}, cadre ${contextSystem}, ${input.text.length} car.) : ${rawOccurrences.length} occurrence(s) signalée(s)`,
