@@ -1,12 +1,6 @@
 import { z } from "zod";
-import {
-  addDays,
-  dayOfWeek,
-  formatIsoDate,
-  frenchWeekday,
-  parseIsoDate,
-} from "./dates.js";
-import { Garde, GardeSchema, ProvenanceSchema, makeGarde } from "./gardes.js";
+import { addDays, dayOfWeek, formatIsoDate, frenchWeekday, parseIsoDate } from "./dates.js";
+import { Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
 export const REGIMES = ["qc_cpc", "qc_li", "ca_li"] as const;
 export const RegimeSchema = z.enum(REGIMES);
@@ -31,17 +25,10 @@ export const HolidayEntrySchema = z.object({
 export type HolidayEntry = z.infer<typeof HolidayEntrySchema>;
 
 export const ListHolidaysInputSchema = z.strictObject({
-  year: z
-    .number()
-    .int()
-    .min(1900)
-    .max(2200)
-    .describe("Année civile visée (entre 1900 et 2200)."),
-  regime: RegimeSchema
-    .optional()
-    .describe(
-      "Régime juridique applicable : 'qc_cpc' (défaut, C.p.c. incluant samedis, 2 janv. et 26 déc.), 'qc_li' (L.I. Québec sans 2 janv./26 déc.), ou 'ca_li' (L.I. fédérale incluant 30 sept. et 11 nov., excluant 24 juin/2 janv./26 déc.)."
-    ),
+  year: z.number().int().min(1900).max(2200).describe("Année civile visée (entre 1900 et 2200)."),
+  regime: RegimeSchema.optional().describe(
+    "Régime juridique applicable : 'qc_cpc' (défaut, C.p.c. incluant samedis, 2 janv. et 26 déc.), 'qc_li' (L.I. Québec sans 2 janv./26 déc.), ou 'ca_li' (L.I. fédérale incluant 30 sept. et 11 nov., excluant 24 juin/2 janv./26 déc.).",
+  ),
 });
 export type ListHolidaysInput = z.infer<typeof ListHolidaysInputSchema>;
 
@@ -100,10 +87,7 @@ function secondMondayOfMonth(year: number, month: number): string {
   return addDays(firstMondayOfMonth(year, month), 7);
 }
 
-export function getStatutoryHolidaysForYear(
-  year: number,
-  regime: HolidayRegime
-): HolidayEntry[] {
+export function getStatutoryHolidaysForYear(year: number, regime: HolidayRegime): HolidayEntry[] {
   const easter = computeEasterSunday(year);
   const goodFriday = addDays(easter, -2);
   const easterMonday = addDays(easter, 1);
@@ -181,7 +165,7 @@ export function getStatutoryHolidaysForYear(
         name_fr: "Noël",
         legal_basis: "art. 61 par. 23° h) L.I. QC",
         movable: false,
-      }
+      },
     );
     if (regime === "qc_cpc") {
       items.push({
@@ -231,7 +215,7 @@ export function getStatutoryHolidaysForYear(
         name_fr: "Fête du Travail",
         legal_basis: "art. 35(1) L.I. CA",
         movable: true,
-      }
+      },
     );
     if (year >= 2021) {
       items.push({
@@ -259,7 +243,7 @@ export function getStatutoryHolidaysForYear(
         name_fr: "Noël",
         legal_basis: "art. 35(1) L.I. CA",
         movable: false,
-      }
+      },
     );
   }
 
@@ -276,15 +260,14 @@ export function isNonJuridicalDate(
   regime: HolidayRegime,
   rolloverSaturday: boolean,
   extraNonJuridicalDates?: ReadonlySet<string>,
-  yearCache?: Map<number, Map<string, HolidayEntry>>
+  yearCache?: Map<number, Map<string, HolidayEntry>>,
 ): { nonJuridical: boolean; reason: string | null } {
   if (extraNonJuridicalDates?.has(isoDate)) {
     return { nonJuridical: true, reason: "jour férié/fermeture additionnel fourni" };
   }
   const dow = dayOfWeek(isoDate);
   if (dow === 0) {
-    const basis =
-      regime === "ca_li" ? "art. 35(1) L.I. CA" : "art. 61 par. 23° a) L.I. QC";
+    const basis = regime === "ca_li" ? "art. 35(1) L.I. CA" : "art. 61 par. 23° a) L.I. QC";
     return { nonJuridical: true, reason: `dimanche (${basis})` };
   }
   if (dow === 6) {
@@ -331,8 +314,7 @@ export function listHolidays(input: ListHolidaysInput): ListHolidaysOutput {
     year: input.year,
     regime,
     regime_label_fr: REGIME_LABELS_FR[regime],
-    weekly_non_juridical_days:
-      regime === "qc_cpc" ? ["saturday", "sunday"] : ["sunday"],
+    weekly_non_juridical_days: regime === "qc_cpc" ? ["saturday", "sunday"] : ["sunday"],
     saturday_triggers_deadline_rollover: regime === "qc_cpc" || regime === "qc_li",
     holidays,
     count: holidays.length,

@@ -25,12 +25,7 @@ import {
   siegeFixe,
 } from "../qc/lookup.js";
 import { PAYS, type Palais, PROVINCE, RELEVE_LE, type TypeLieu } from "../qc/palais.js";
-import {
-  type Garde,
-  GardeSchema,
-  makeGarde,
-  ProvenanceSchema,
-} from "./gardes.js";
+import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
 const PROVENANCE_DOSSIER_SOURCE =
   "Ministère de la Justice du Québec — numéros des greffes et nomenclature judiciaire";

@@ -1,5 +1,5 @@
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const HHMM_RE = /^(\d{2}):(\d{2})$/;
+const TIME_RE = /^(\d{2}):(\d{2})(?::(\d{2}))?$/;
 const MS_PER_DAY = 86_400_000;
 
 export interface ParsedIsoDate {
@@ -11,7 +11,10 @@ export interface ParsedIsoDate {
 export interface ParsedTimeHHMM {
   hour: number;
   minute: number;
+  second: number;
   totalMinutes: number;
+  totalSeconds: number;
+  hasExplicitSeconds: boolean;
 }
 
 export const FRENCH_WEEKDAYS = [
@@ -117,7 +120,7 @@ export function addMonthsClamped(iso: string, months: number): string {
   const { year, month, day } = parseIsoDate(iso);
   const totalMonths = year * 12 + (month - 1) + months;
   const targetYear = Math.floor(totalMonths / 12);
-  const targetMonth = (totalMonths % 12 + 12) % 12 + 1;
+  const targetMonth = (((totalMonths % 12) + 12) % 12) + 1;
   const clampedDay = Math.min(day, daysInMonth(targetYear, targetMonth));
   return formatIsoDate(targetYear, targetMonth, clampedDay);
 }
@@ -158,17 +161,26 @@ export function maxIsoDate(a: string, b: string): string {
   return compareIsoDates(a, b) >= 0 ? a : b;
 }
 
-export function parseTimeHHMM(hhmm: string): ParsedTimeHHMM {
-  const match = HHMM_RE.exec(hhmm);
+export function parseTimeHHMM(timeStr: string): ParsedTimeHHMM {
+  const match = TIME_RE.exec(timeStr);
   if (!match) {
-    throw new RangeError(`Heure invalide (attendu HH:MM) : "${hhmm}"`);
+    throw new RangeError(`Heure invalide (attendu HH:MM ou HH:MM:SS) : "${timeStr}"`);
   }
   const hour = Number(match[1]);
   const minute = Number(match[2]);
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    throw new RangeError(`Heure hors bornes (00:00..23:59) : "${hhmm}"`);
+  const second = match[3] !== undefined ? Number(match[3]) : 0;
+  const hasExplicitSeconds = match[3] !== undefined;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) {
+    throw new RangeError(`Heure hors bornes (00:00[:00]..23:59[:59]) : "${timeStr}"`);
   }
-  return { hour, minute, totalMinutes: hour * 60 + minute };
+  return {
+    hour,
+    minute,
+    second,
+    totalMinutes: hour * 60 + minute,
+    totalSeconds: hour * 3600 + minute * 60 + second,
+    hasExplicitSeconds,
+  };
 }
 
 export function isValidTimeHHMM(hhmm: string): boolean {
@@ -193,7 +205,7 @@ export function quarterKey(year: number, month: number): string {
 
 export function quarterDateRange(
   year: number,
-  quarter: 1 | 2 | 3 | 4
+  quarter: 1 | 2 | 3 | 4,
 ): { start: string; end: string } {
   const startMonth = (quarter - 1) * 3 + 1;
   const endMonth = startMonth + 2;

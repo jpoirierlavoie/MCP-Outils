@@ -48,9 +48,7 @@ async function callToolRaw(
   if (ct.includes("application/json")) {
     return JSON.parse(raw) as CallToolRpcResponse;
   }
-  const dataLine = raw
-    .split(/\r?\n/)
-    .find((line) => line.startsWith("data: "));
+  const dataLine = raw.split(/\r?\n/).find((line) => line.startsWith("data: "));
   if (!dataLine) throw new Error(`Réponse SSE inattendue : ${raw}`);
   return JSON.parse(dataLine.slice(6)) as CallToolRpcResponse;
 }
@@ -162,7 +160,9 @@ describe("greffe_parse_court_file_number", () => {
 
   it("refuse une entrée vide, blanche ou une propriété inconnue par le schéma fermé", async () => {
     expect(
-      isInputRejected(await callToolRaw("greffe_parse_court_file_number", { court_file_number: "" })),
+      isInputRejected(
+        await callToolRaw("greffe_parse_court_file_number", { court_file_number: "" }),
+      ),
     ).toBe(true);
     expect(
       isInputRejected(

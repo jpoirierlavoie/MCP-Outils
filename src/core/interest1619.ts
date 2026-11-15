@@ -12,7 +12,7 @@ import {
   parseIsoDate,
   quarterKey,
 } from "./dates.js";
-import { Garde, GardeCode, GardeSchema, ProvenanceSchema, makeGarde } from "./gardes.js";
+import { Garde, GardeCode, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
 const ISO_DATE_FORMAT_RE = /^\d{4}-\d{2}-\d{2}$/;
 const QUARTER_RE = /^\d{4}-Q[1-4]$/;
@@ -21,11 +21,7 @@ const QUARTER_RE = /^\d{4}-Q[1-4]$/;
 export const EXACT_EXACT_COMMON_DENOMINATOR = 1_335_900_000n;
 export const LEGAL_INTEREST_RATE_BPS = lafRatesJson.metadata.legal_rate_bps;
 
-export const InterestModeSchema = z.enum([
-  "legal_plus_1619",
-  "legal_only",
-  "contractual",
-]);
+export const InterestModeSchema = z.enum(["legal_plus_1619", "legal_only", "contractual"]);
 export type InterestMode = z.infer<typeof InterestModeSchema>;
 
 export const RateOverrideSchema = z.strictObject({
@@ -39,7 +35,7 @@ export const RateOverrideSchema = z.strictObject({
     .min(0)
     .max(50000)
     .describe(
-      "Taux annuel total fixé sous l'art. 28 L.A.F. en points de base (p. ex. 700 pour 7,00 %)."
+      "Taux annuel total fixé sous l'art. 28 L.A.F. en points de base (p. ex. 700 pour 7,00 %).",
     ),
 });
 export type RateOverride = z.infer<typeof RateOverrideSchema>;
@@ -50,7 +46,9 @@ export const CapitalTrancheInputSchema = z.strictObject({
     .min(1)
     .max(120)
     .optional()
-    .describe("Étiquette de la tranche de capital (p. ex. 'Facture #104' ou 'Préjudice corporel')."),
+    .describe(
+      "Étiquette de la tranche de capital (p. ex. 'Facture #104' ou 'Préjudice corporel').",
+    ),
   principal_cents: z
     .number()
     .int()
@@ -61,13 +59,15 @@ export const CapitalTrancheInputSchema = z.strictObject({
     .string()
     .regex(ISO_DATE_FORMAT_RE)
     .describe(
-      "Date de point de départ ISO YYYY-MM-DD (exclue du compte : les intérêts courent à compter du lendemain)."
+      "Date de point de départ ISO YYYY-MM-DD (exclue du compte : les intérêts courent à compter du lendemain).",
     ),
   end_date: z
     .string()
     .regex(ISO_DATE_FORMAT_RE)
     .optional()
-    .describe("Date de fin optionnelle propre à cette tranche (incluse; remplace end_date global)."),
+    .describe(
+      "Date de fin optionnelle propre à cette tranche (incluse; remplace end_date global).",
+    ),
   rate_bps: z
     .number()
     .int()
@@ -79,11 +79,9 @@ export const CapitalTrancheInputSchema = z.strictObject({
 export type CapitalTrancheInput = z.infer<typeof CapitalTrancheInputSchema>;
 
 export const ComputeInterest1619InputSchema = z.strictObject({
-  mode: InterestModeSchema
-    .optional()
-    .describe(
-      "Mode de calcul : 'legal_plus_1619' (défaut : taux légal 5 % + indemnité additionnelle art. 1619 C.c.Q.), 'legal_only' (5 % seul), ou 'contractual' (taux fixe spécifié par rate_bps)."
-    ),
+  mode: InterestModeSchema.optional().describe(
+    "Mode de calcul : 'legal_plus_1619' (défaut : taux légal 5 % + indemnité additionnelle art. 1619 C.c.Q.), 'legal_only' (5 % seul), ou 'contractual' (taux fixe spécifié par rate_bps).",
+  ),
   end_date: z
     .string()
     .regex(ISO_DATE_FORMAT_RE)
@@ -95,14 +93,14 @@ export const ComputeInterest1619InputSchema = z.strictObject({
     .max(50000)
     .optional()
     .describe(
-      "Taux annuel contractuel par défaut en points de base (requis en mode 'contractual' si non précisé par tranche; 100 bps = 1,00 %)."
+      "Taux annuel contractuel par défaut en points de base (requis en mode 'contractual' si non précisé par tranche; 100 bps = 1,00 %).",
     ),
   rate_overrides: z
     .array(RateOverrideSchema)
     .max(40)
     .optional()
     .describe(
-      "Surcharges trimestrielles officielles de l'art. 28 L.A.F. pour les trimestres non encore publiés dans la table embarquée."
+      "Surcharges trimestrielles officielles de l'art. 28 L.A.F. pour les trimestres non encore publiés dans la table embarquée.",
     ),
   tranches: z
     .array(CapitalTrancheInputSchema)
@@ -206,7 +204,7 @@ export function formatCentsToCad(cents: bigint | number): string {
 function formatRationalCentsAsCad6(numerator: bigint): string {
   const scaledMicroDollars = roundHalfAwayFromZero(
     numerator * 10_000n,
-    EXACT_EXACT_COMMON_DENOMINATOR
+    EXACT_EXACT_COMMON_DENOMINATOR,
   );
   const neg = scaledMicroDollars < 0n;
   const abs = neg ? -scaledMicroDollars : scaledMicroDollars;
@@ -233,20 +231,17 @@ function buildLafRateMap(overrides?: RateOverride[]): Map<string, number> {
   return map;
 }
 
-export function computeInterest1619(
-  input: ComputeInterest1619Input
-): ComputeInterest1619Output {
+export function computeInterest1619(input: ComputeInterest1619Input): ComputeInterest1619Output {
   const mode: InterestMode = input.mode ?? "legal_plus_1619";
   parseIsoDate(input.end_date);
 
   if (mode !== "contractual" && input.rate_bps !== undefined) {
     throw new RangeError(
-      `rate_bps global ne doit être fourni qu'en mode 'contractual' (reçu avec mode='${mode}').`
+      `rate_bps global ne doit être fourni qu'en mode 'contractual' (reçu avec mode='${mode}').`,
     );
   }
 
-  const lafRateMap =
-    mode === "legal_plus_1619" ? buildLafRateMap(input.rate_overrides) : null;
+  const lafRateMap = mode === "legal_plus_1619" ? buildLafRateMap(input.rate_overrides) : null;
 
   const guardReasons = new Map<GardeCode, string | undefined>();
   guardReasons.set("INTERET_SIMPLE_ART_1620_CCQ", undefined);
@@ -268,13 +263,13 @@ export function computeInterest1619(
 
     if (compareIsoDates(requestedEndDate, tranche.start_date) < 0) {
       throw new RangeError(
-        `Tranche #${idx + 1} (${label}) : end_date (${requestedEndDate}) précède start_date (${tranche.start_date}).`
+        `Tranche #${idx + 1} (${label}) : end_date (${requestedEndDate}) précède start_date (${tranche.start_date}).`,
       );
     }
 
     if (mode !== "contractual" && tranche.rate_bps !== undefined) {
       throw new RangeError(
-        `Tranche #${idx + 1} (${label}) : rate_bps ne s'applique qu'en mode 'contractual'.`
+        `Tranche #${idx + 1} (${label}) : rate_bps ne s'applique qu'en mode 'contractual'.`,
       );
     }
 
@@ -283,7 +278,7 @@ export function computeInterest1619(
       const resolvedRate = tranche.rate_bps ?? input.rate_bps;
       if (resolvedRate === undefined) {
         throw new RangeError(
-          `Tranche #${idx + 1} (${label}) : rate_bps est requis (par tranche ou globalement) en mode 'contractual'.`
+          `Tranche #${idx + 1} (${label}) : rate_bps est requis (par tranche ou globalement) en mode 'contractual'.`,
         );
       }
       trancheContractualRateBps = resolvedRate;
@@ -325,17 +320,16 @@ export function computeInterest1619(
           if (foundBps === undefined) {
             if (accruedDays === 0 && qKey < lafRatesJson.metadata.first_quarter) {
               throw new RangeError(
-                `Tranche #${idx + 1} (${label}) : aucun taux art. 28 L.A.F. n'est disponible pour ${qKey} (table embarquée : ${lafRatesJson.metadata.first_quarter} à ${lafRatesJson.metadata.last_quarter}). Fournissez rate_overrides si nécessaire.`
+                `Tranche #${idx + 1} (${label}) : aucun taux art. 28 L.A.F. n'est disponible pour ${qKey} (table embarquée : ${lafRatesJson.metadata.first_quarter} à ${lafRatesJson.metadata.last_quarter}). Fournissez rate_overrides si nécessaire.`,
               );
             }
             truncated = true;
             truncatedAny = true;
             missingQuarter = qKey;
-            effectiveEndDate =
-              accruedDays === 0 ? tranche.start_date : addDays(cur, -1);
+            effectiveEndDate = accruedDays === 0 ? tranche.start_date : addDays(cur, -1);
             guardReasons.set(
               "TAUX_LAF_TRIMESTRE_MANQUANT",
-              `Trimestre manquant : ${qKey} (calcul arrêté au ${effectiveEndDate}).`
+              `Trimestre manquant : ${qKey} (calcul arrêté au ${effectiveEndDate}).`,
             );
             break;
           }
@@ -358,10 +352,8 @@ export function computeInterest1619(
         const sliceDaysBig = BigInt(sliceDays);
 
         const sliceLegalNum = principalBig * BigInt(legalBps) * sliceDaysBig * yMult;
-        const sliceAdditionalNum =
-          principalBig * BigInt(additionalBps) * sliceDaysBig * yMult;
-        const sliceContractualNum =
-          principalBig * BigInt(contractualBps) * sliceDaysBig * yMult;
+        const sliceAdditionalNum = principalBig * BigInt(additionalBps) * sliceDaysBig * yMult;
+        const sliceContractualNum = principalBig * BigInt(contractualBps) * sliceDaysBig * yMult;
         const sliceTotalNum = sliceLegalNum + sliceAdditionalNum + sliceContractualNum;
 
         legalNumSum += sliceLegalNum;
@@ -390,20 +382,16 @@ export function computeInterest1619(
       }
     }
 
-    const legalRounded = roundHalfAwayFromZero(
-      legalNumSum,
-      EXACT_EXACT_COMMON_DENOMINATOR
-    );
+    const legalRounded = roundHalfAwayFromZero(legalNumSum, EXACT_EXACT_COMMON_DENOMINATOR);
     const additionalRounded = roundHalfAwayFromZero(
       additionalNumSum,
-      EXACT_EXACT_COMMON_DENOMINATOR
+      EXACT_EXACT_COMMON_DENOMINATOR,
     );
     const contractualRounded = roundHalfAwayFromZero(
       contractualNumSum,
-      EXACT_EXACT_COMMON_DENOMINATOR
+      EXACT_EXACT_COMMON_DENOMINATOR,
     );
-    const trancheInterestTotal =
-      legalRounded + additionalRounded + contractualRounded;
+    const trancheInterestTotal = legalRounded + additionalRounded + contractualRounded;
     const trancheWithPrincipal = principalBig + trancheInterestTotal;
 
     sumPrincipalCents += principalBig;
@@ -425,24 +413,15 @@ export function computeInterest1619(
       accrued_days: accruedDays,
       legal_interest_cents: assertSafeIntCents(legalRounded, `${label} legal`),
       legal_interest_cad: formatCentsToCad(legalRounded),
-      additional_indemnity_cents: assertSafeIntCents(
-        additionalRounded,
-        `${label} additional`
-      ),
+      additional_indemnity_cents: assertSafeIntCents(additionalRounded, `${label} additional`),
       additional_indemnity_cad: formatCentsToCad(additionalRounded),
-      contractual_interest_cents: assertSafeIntCents(
-        contractualRounded,
-        `${label} contractual`
-      ),
+      contractual_interest_cents: assertSafeIntCents(contractualRounded, `${label} contractual`),
       contractual_interest_cad: formatCentsToCad(contractualRounded),
-      total_interest_cents: assertSafeIntCents(
-        trancheInterestTotal,
-        `${label} total_interest`
-      ),
+      total_interest_cents: assertSafeIntCents(trancheInterestTotal, `${label} total_interest`),
       total_interest_cad: formatCentsToCad(trancheInterestTotal),
       total_with_principal_cents: assertSafeIntCents(
         trancheWithPrincipal,
-        `${label} total_with_principal`
+        `${label} total_with_principal`,
       ),
       total_with_principal_cad: formatCentsToCad(trancheWithPrincipal),
       periods,
@@ -451,7 +430,7 @@ export function computeInterest1619(
 
   const grandTotalCents = sumPrincipalCents + sumTotalInterestCents;
   const gardes: Garde[] = Array.from(guardReasons.entries()).map(([code, detail]) =>
-    makeGarde(code, detail)
+    makeGarde(code, detail),
   );
 
   return {
@@ -461,25 +440,19 @@ export function computeInterest1619(
     truncated_any: truncatedAny,
     total_principal_cents: assertSafeIntCents(sumPrincipalCents, "total_principal"),
     total_principal_cad: formatCentsToCad(sumPrincipalCents),
-    total_legal_interest_cents: assertSafeIntCents(
-      sumLegalCents,
-      "total_legal_interest"
-    ),
+    total_legal_interest_cents: assertSafeIntCents(sumLegalCents, "total_legal_interest"),
     total_legal_interest_cad: formatCentsToCad(sumLegalCents),
     total_additional_indemnity_cents: assertSafeIntCents(
       sumAdditionalCents,
-      "total_additional_indemnity"
+      "total_additional_indemnity",
     ),
     total_additional_indemnity_cad: formatCentsToCad(sumAdditionalCents),
     total_contractual_interest_cents: assertSafeIntCents(
       sumContractualCents,
-      "total_contractual_interest"
+      "total_contractual_interest",
     ),
     total_contractual_interest_cad: formatCentsToCad(sumContractualCents),
-    total_interest_cents: assertSafeIntCents(
-      sumTotalInterestCents,
-      "total_interest"
-    ),
+    total_interest_cents: assertSafeIntCents(sumTotalInterestCents, "total_interest"),
     total_interest_cad: formatCentsToCad(sumTotalInterestCents),
     grand_total_cents: assertSafeIntCents(grandTotalCents, "grand_total"),
     grand_total_cad: formatCentsToCad(grandTotalCents),

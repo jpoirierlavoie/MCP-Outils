@@ -44,7 +44,7 @@ export const INSTRUCTIONS =
   "1) Calculs — calendrier_list_holidays, calendrier_compute_deadlines et interets_compute_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
   "2) Greffes et palais du Québec — greffe_parse_court_file_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses relevées le 2026-07-15, table des lieux 2026-07-22). " +
   "Ils ne consultent AUCUN registre de dossiers (aucun plumitif), ne portent AUCUNE coordonnée téléphonique ni courriel et n'établissent jamais qu'un dossier existe : vérifier les adresses et coordonnées officielles auprès du Ministère avant toute signification ou tout dépôt. " +
-  "Pour vérifier l'existence d'une décision de jurisprudence ou d'une cour fédérale, employer le connecteur distinct « Jurisprudence » ; pour le texte officiel des lois et règlements, employer « Législation du Québec ».";
+  "Pour vérifier l'existence d'une décision de jurisprudence ou d'une cour fédérale, employer le connecteur distinct « Jurisprudence » ; pour le texte officiel des lois et règlements, employer « Legislation » (lois et règlements du Québec et du fédéral).";
 
 const READ_ONLY_LOCAL_ANNOTATIONS = {
   readOnlyHint: true,
@@ -145,10 +145,7 @@ function specFor(name: string) {
   return spec;
 }
 
-function toolConfig<TOutput extends z.ZodType>(
-  name: string,
-  outputSchema: TOutput,
-) {
+function toolConfig<TOutput extends z.ZodType>(name: string, outputSchema: TOutput) {
   const spec = specFor(name);
   return {
     title: spec.title,
@@ -319,11 +316,19 @@ export function createOutilsMcpServer(): McpServer {
       inputSchema: ParseCourtFileInputSchema,
     },
     async (args) => {
-      const { structured, text } = parseCourtFile(args);
-      return {
-        structuredContent: structured,
-        content: [{ type: "text", text }],
-      };
+      try {
+        const { structured, text } = parseCourtFile(args);
+        return {
+          structuredContent: structured,
+          content: [{ type: "text", text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur d'analyse de dossier : ${msg}` }],
+        };
+      }
     },
   );
 
@@ -334,11 +339,19 @@ export function createOutilsMcpServer(): McpServer {
       inputSchema: PalaisListInputSchema,
     },
     async (args) => {
-      const { structured, text } = palaisList(args);
-      return {
-        structuredContent: structured,
-        content: [{ type: "text", text }],
-      };
+      try {
+        const { structured, text } = palaisList(args);
+        return {
+          structuredContent: structured,
+          content: [{ type: "text", text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de répertoire des palais : ${msg}` }],
+        };
+      }
     },
   );
 
@@ -349,17 +362,25 @@ export function createOutilsMcpServer(): McpServer {
       inputSchema: PalaisGetInputSchema,
     },
     async (args) => {
-      const result = palaisGet(args);
-      if (!result.ok) {
+      try {
+        const result = palaisGet(args);
+        if (!result.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: result.text }],
+          };
+        }
         return {
-          isError: true,
+          structuredContent: result.structured,
           content: [{ type: "text", text: result.text }],
         };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de consultation de palais : ${msg}` }],
+        };
       }
-      return {
-        structuredContent: result.structured,
-        content: [{ type: "text", text: result.text }],
-      };
     },
   );
 

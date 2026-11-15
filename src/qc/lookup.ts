@@ -9,8 +9,8 @@
  * d'auto-correction de §6.4, qui apprend du répertoire de CanLII.
  */
 
-import { FORUMS, type Forum } from "./forums.js";
 import { fold } from "./format.js";
+import { FORUMS, type Forum } from "./forums.js";
 import { GREFFES, type Greffe } from "./greffes.js";
 import { JURIDICTIONS, type Juridiction } from "./juridictions.js";
 import { LIEUX_PAR_GREFFE, type LieuMjq } from "./lieux.js";

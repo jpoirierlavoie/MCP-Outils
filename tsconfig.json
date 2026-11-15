@@ -13,6 +13,6 @@
     "isolatedModules": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "cloudflare.config.ts"],
-  "exclude": ["node_modules", "dist", ".cf", ".cloudflare"]
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".wrangler"]
 }

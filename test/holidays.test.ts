@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  ListHolidaysOutputSchema,
   computeEasterSunday,
+  ListHolidaysOutputSchema,
   listHolidays,
 } from "../src/core/holidays.js";
 
@@ -14,9 +14,7 @@ describe("calendrier_list_holidays", () => {
   });
 
   it("produit le calendrier qc_cpc complet avec 2 janv., 26 déc., et samedis/dimanches", () => {
-    const out = ListHolidaysOutputSchema.parse(
-      listHolidays({ year: 2026, regime: "qc_cpc" })
-    );
+    const out = ListHolidaysOutputSchema.parse(listHolidays({ year: 2026, regime: "qc_cpc" }));
 
     const dates = out.holidays.map((h) => h.date);
     expect(out.weekly_non_juridical_days).toEqual(["saturday", "sunday"]);
@@ -38,9 +36,7 @@ describe("calendrier_list_holidays", () => {
   });
 
   it("distingue qc_li de qc_cpc en excluant le 2 janvier et le 26 décembre et en émettant SAMEDI_CONGE_LOI_INTERPRETATION_QC", () => {
-    const out = ListHolidaysOutputSchema.parse(
-      listHolidays({ year: 2026, regime: "qc_li" })
-    );
+    const out = ListHolidaysOutputSchema.parse(listHolidays({ year: 2026, regime: "qc_li" }));
 
     const dates = out.holidays.map((h) => h.date);
     expect(out.weekly_non_juridical_days).toEqual(["sunday"]);
@@ -48,15 +44,11 @@ describe("calendrier_list_holidays", () => {
     expect(dates).not.toContain("2026-01-02");
     expect(dates).not.toContain("2026-12-26");
     expect(dates).toContain("2026-06-24");
-    expect(out.gardes.map((g) => g.code)).toContain(
-      "SAMEDI_CONGE_LOI_INTERPRETATION_QC"
-    );
+    expect(out.gardes.map((g) => g.code)).toContain("SAMEDI_CONGE_LOI_INTERPRETATION_QC");
   });
 
   it("produit ca_li avec le 30 septembre (à compter de 2021) et le 11 novembre sans le 24 juin", () => {
-    const out2026 = ListHolidaysOutputSchema.parse(
-      listHolidays({ year: 2026, regime: "ca_li" })
-    );
+    const out2026 = ListHolidaysOutputSchema.parse(listHolidays({ year: 2026, regime: "ca_li" }));
     const dates2026 = out2026.holidays.map((h) => h.date);
     expect(dates2026).toContain("2026-09-30");
     expect(dates2026).toContain("2026-11-11");
@@ -64,9 +56,7 @@ describe("calendrier_list_holidays", () => {
     expect(dates2026).not.toContain("2026-01-02");
     expect(dates2026).not.toContain("2026-12-26");
 
-    const out2020 = ListHolidaysOutputSchema.parse(
-      listHolidays({ year: 2020, regime: "ca_li" })
-    );
+    const out2020 = ListHolidaysOutputSchema.parse(listHolidays({ year: 2020, regime: "ca_li" }));
     expect(out2020.holidays.map((h) => h.date)).not.toContain("2020-09-30");
   });
 

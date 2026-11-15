@@ -22,7 +22,7 @@ Chaque réponse réussie retourne à la fois des données structurées validées
 Ce serveur est conçu pour recevoir des dates, montants et libellés génériques sans exposer de secrets ni constituer de dossier :
 
 - **Sans état et sans base de données** : aucune base D1/KV/R2, aucun appel HTTP sortant, aucun témoin de connexion.
-- **Aucune journalisation des charges utiles** : `observability.enabled = false`, `logs.enabled = false`, `logs.invocationLogs = false` et `logpush = false` dans `cloudflare.config.ts`. Le code du Worker ne journalise ni corps de requête, ni arguments d'outils, ni adresses IP.
+- **Aucune journalisation des charges utiles** : `observability.enabled = false`, `logs.enabled = false`, `logs.invocation_logs = false` et `logpush = false` dans [`wrangler.jsonc`](wrangler.jsonc). Le code du Worker ne journalise ni corps de requête, ni arguments d'outils, ni adresses IP.
 - **Limitation de débit à la périphérie** : un binding Cloudflare Rate Limiting (`RATE_LIMITER`, 60 requêtes / 60 s par IP client via `CF-Connecting-IP`) protège le point d'accès contre les abus sans stocker de contenu applicatif.
 
 ## Configuration dans les clients MCP
@@ -93,9 +93,9 @@ node scripts/extraire-lieux-mjq.mjs sources-officielles/mjq-numeros-greffes-2026
 
 La séparation stricte de `src/core/` et `src/mcp/` permet d'ajouter ultérieurement un binaire local `stdio` (`@modelcontextprotocol/server/stdio`) sans dupliquer la logique juridique ou arithmétique.
 
-## Développement local, déploiement et maintenance (`cf`)
+## Développement local, déploiement et maintenance (Wrangler)
 
-Ce projet utilise la CLI officielle Cloudflare [`cf`](https://developers.cloudflare.com/) avec [`cloudflare.config.ts`](cloudflare.config.ts).
+Ce projet utilise la CLI officielle Cloudflare [`wrangler`](https://developers.cloudflare.com/workers/wrangler/) avec [`wrangler.jsonc`](wrangler.jsonc).
 
 ```bash
 npm install
@@ -107,7 +107,7 @@ npm run build
 Développement local sur Worker :
 
 ```bash
-npx cf dev
+npm run dev
 ```
 
 Pour tester temporairement sur un domaine `*.workers.dev` ou un hôte de prévisualisation, ajoutez la variable d'environnement `ALLOWED_HOSTNAMES` (séparée par des virgules).
@@ -119,15 +119,15 @@ Le déploiement en production sur `outils.poirierlavoie.ca` est automatisé à c
 Pour un déploiement manuel local :
 
 ```bash
-npx cf auth login
-npx cf deploy
+npx wrangler login
+npm run deploy
 ```
 
 ### Mise à jour trimestrielle des taux (art. 28 L.A.F.)
 
 1. Consultez les taux publiés par Revenu Québec (`Metadata.source_url` dans [`src/data/laf_art28_rates.json`](src/data/laf_art28_rates.json)). Le workflow [`.github/workflows/check-laf-rates.yml`](.github/workflows/check-laf-rates.yml) ouvre automatiquement un billet de rappel à la mi-mars, mi-juin, mi-septembre et mi-décembre lorsque le trimestre suivant manque.
 2. Ajoutez le nouveau trimestre dans `src/data/laf_art28_rates.json` et mettez à jour `metadata.last_quarter`, `metadata.table_version` et `metadata.verified_at`.
-3. Exécutez `npm run typecheck && npm test && npx cf deploy --dry-run`, puis committez et poussez sur `main` (le workflow `deploy.yml` déploiera automatiquement), ou exécutez `npx cf deploy` manuellement.
+3. Exécutez `npm run typecheck && npm test && npx wrangler deploy --dry-run`, puis committez et poussez sur `main` (le workflow `deploy.yml` déploiera automatiquement), ou exécutez `npm run deploy` manuellement.
 
 ## Licence
 

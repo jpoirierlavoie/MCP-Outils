@@ -2,14 +2,19 @@
   "name": "pratique-civile-outils",
   "version": "0.2.0",
   "private": true,
-  "description": "Serveur MCP public et sans état (Cloudflare Workers) fournissant des outils déterministes de calcul de délais procéduraux québécois/fédéraux et d'intérêts légaux (art. 1619 C.c.Q.).",
+  "description": "Serveur MCP public et sans état (Cloudflare Workers) pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.), analyse de numéros de dossier de cour (greffe) et répertoire des palais de justice du Québec (relevé MJQ).",
   "license": "CC0-1.0",
   "type": "module",
+  "main": "src/index.ts",
   "scripts": {
-    "dev": "cf dev",
-    "build": "cf build",
-    "deploy": "cf deploy",
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
@@ -18,11 +23,10 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^2.0.0-beta.v.17",
+    "@biomejs/biome": "^2.6.7",
     "@cloudflare/workers-types": "^5.20261114.1",
-    "cf": "^0.15.0",
     "typescript": "^7.0.2",
-    "vite": "^8.0.0",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "wrangler": "^4.162.0"
   }
 }

@@ -9,8 +9,8 @@ import { JURIDICTIONS } from "../src/qc/juridictions.js";
 import { MJQ_MAJ } from "../src/qc/lieux.js";
 import { listerDistricts } from "../src/qc/lookup.js";
 import { RELEVE_LE } from "../src/qc/palais.js";
-import { esc, pagePubliqueHtml, SECTIONS } from "../src/site.js";
 import { OUTILS_EN } from "../src/site.i18n.js";
+import { esc, pagePubliqueHtml, SECTIONS } from "../src/site.js";
 
 const dummyCtx = {
   waitUntil: () => {},

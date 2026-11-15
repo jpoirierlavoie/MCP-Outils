@@ -2,10 +2,10 @@ import { localhostAllowedHostnames } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
-  SERVER_NAME,
-  SERVER_VERSION,
   createOutilsMcpServer,
   listToolDescriptors,
+  SERVER_NAME,
+  SERVER_VERSION,
 } from "./mcp/server.js";
 import { pagePubliqueHtml } from "./site.js";
 
@@ -15,7 +15,7 @@ export interface Env {
 }
 
 const DEFAULT_ALLOWED_HOSTNAMES = Array.from(
-  new Set(["outils.poirierlavoie.ca", ...localhostAllowedHostnames()])
+  new Set(["outils.poirierlavoie.ca", ...localhostAllowedHostnames()]),
 );
 
 function buildAllowedHostnames(extraCsv?: string): string[] {
@@ -50,7 +50,7 @@ function rateLimitExceededResponse(): Response {
         "Retry-After": "60",
         "Cache-Control": "no-store",
       },
-    }
+    },
   );
 }
 
@@ -71,7 +71,7 @@ function healthzResponse(): Response {
       headers: {
         "Cache-Control": "no-store",
       },
-    }
+    },
   );
 }
 
@@ -92,14 +92,9 @@ function pagePublique(request: Request): Response {
 }
 
 export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (env.RATE_LIMITER) {
-      const clientIp =
-        request.headers.get("CF-Connecting-IP") ?? "anonymous";
+      const clientIp = request.headers.get("CF-Connecting-IP") ?? "anonymous";
       const outcome = await env.RATE_LIMITER.limit({ key: clientIp });
       if (!outcome.success) {
         return rateLimitExceededResponse();
@@ -107,10 +102,7 @@ export default {
     }
 
     const url = new URL(request.url);
-    if (
-      url.pathname === "/healthz" &&
-      (request.method === "GET" || request.method === "HEAD")
-    ) {
+    if (url.pathname === "/healthz" && (request.method === "GET" || request.method === "HEAD")) {
       return healthzResponse();
     }
     if (url.pathname === "/") {
@@ -126,7 +118,39 @@ export default {
       const handler = env.ALLOWED_HOSTNAMES
         ? buildHandler(buildAllowedHostnames(env.ALLOWED_HOSTNAMES))
         : defaultMcpHandler;
-      return handler(request, env, ctx);
+
+      const rawAccept = request.headers.get("accept");
+      const wantsSse = Boolean(rawAccept?.includes("text/event-stream"));
+
+      let mcpRequest = request;
+      if (request.method === "POST" && (!wantsSse || !rawAccept?.includes("application/json"))) {
+        const headers = new Headers(request.headers);
+        headers.set("accept", "application/json, text/event-stream");
+        mcpRequest = new Request(request, { headers });
+      }
+
+      const response = await handler(mcpRequest, env, ctx);
+
+      if (
+        !wantsSse &&
+        request.method === "POST" &&
+        response.headers.get("content-type")?.includes("text/event-stream")
+      ) {
+        const text = await response.text();
+        const dataLine = text.split(/\r?\n/).find((line) => line.startsWith("data: "));
+        if (dataLine) {
+          const jsonText = dataLine.slice(6);
+          return new Response(jsonText, {
+            status: response.status,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+      }
+
+      return response;
     }
 
     return Response.json(
@@ -134,7 +158,7 @@ export default {
         error: "Not Found",
         mcp_endpoint: "/mcp",
       },
-      { status: 404 }
+      { status: 404 },
     );
   },
 };

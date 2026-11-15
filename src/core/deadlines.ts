@@ -7,18 +7,18 @@ import {
   parseIsoDate,
   parseTimeHHMM,
 } from "./dates.js";
-import { Garde, GardeCode, GardeSchema, ProvenanceSchema, makeGarde } from "./gardes.js";
+import { Garde, GardeCode, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 import {
   HolidayEntry,
   HolidayRegime,
+  isNonJuridicalDate,
   REGIME_LABELS_FR,
   RegimeSchema,
   VERIFIED_CALENDAR_AT,
-  isNonJuridicalDate,
 } from "./holidays.js";
 
 const ISO_DATE_FORMAT_RE = /^\d{4}-\d{2}-\d{2}$/;
-const HHMM_FORMAT_RE = /^\d{2}:\d{2}$/;
+const TIME_FORMAT_RE = /^\d{2}:\d{2}(?::\d{2})?$/;
 
 export const NotificationModeSchema = z.enum(["none", "technological", "physical"]);
 export type NotificationMode = z.infer<typeof NotificationModeSchema>;
@@ -36,20 +36,13 @@ export const DeadlineStepInputSchema = z.strictObject({
     .max(120)
     .optional()
     .describe("Étiquette fournie par l'appelant pour identifier l'étape (p. ex. 'Réponse')."),
-  amount: z
-    .number()
-    .int()
-    .min(1)
-    .max(36500)
-    .describe("Durée entière positive du délai à compter."),
-  unit: DeadlineUnitSchema
-    .optional()
-    .describe("Unité du délai : 'days' (défaut), 'months' (quantième) ou 'years'."),
-  direction: DeadlineDirectionSchema
-    .optional()
-    .describe(
-      "Sens du calcul : 'forward' (défaut, délai prospectif) ou 'backward' (délai à rebours avant une audience ou étape)."
-    ),
+  amount: z.number().int().min(1).max(36500).describe("Durée entière positive du délai à compter."),
+  unit: DeadlineUnitSchema.optional().describe(
+    "Unité du délai : 'days' (défaut), 'months' (quantième) ou 'years'.",
+  ),
+  direction: DeadlineDirectionSchema.optional().describe(
+    "Sens du calcul : 'forward' (défaut, délai prospectif) ou 'backward' (délai à rebours avant une audience ou étape).",
+  ),
   anchor_date: z
     .string()
     .regex(ISO_DATE_FORMAT_RE)
@@ -57,12 +50,12 @@ export const DeadlineStepInputSchema = z.strictObject({
     .describe("Date d'ancrage ISO YYYY-MM-DD spécifique à cette étape (remplace event_date)."),
   anchor_time: z
     .string()
-    .regex(HHMM_FORMAT_RE)
+    .regex(TIME_FORMAT_RE)
     .optional()
-    .describe("Heure d'ancrage HH:MM spécifique à cette étape."),
-  notification_mode: NotificationModeSchema
-    .optional()
-    .describe("Mode de notification spécifique à cette étape (remplace l'option globale)."),
+    .describe("Heure d'ancrage HH:MM ou HH:MM:SS spécifique à cette étape."),
+  notification_mode: NotificationModeSchema.optional().describe(
+    "Mode de notification spécifique à cette étape (remplace l'option globale).",
+  ),
   depends_on_index: z
     .number()
     .int()
@@ -70,7 +63,7 @@ export const DeadlineStepInputSchema = z.strictObject({
     .max(24)
     .optional()
     .describe(
-      "Index 0-basé d'une étape précédente de deadlines[] dont l'effective_date sert de point de départ."
+      "Index 0-basé d'une étape précédente de deadlines[] dont l'effective_date sert de point de départ.",
     ),
 });
 export type DeadlineStepInput = z.infer<typeof DeadlineStepInputSchema>;
@@ -82,28 +75,30 @@ export const ComputeDeadlinesInputSchema = z.strictObject({
     .describe("Date d'ancrage principale au format ISO YYYY-MM-DD (exclu du compte initial)."),
   event_time: z
     .string()
-    .regex(HHMM_FORMAT_RE)
-    .optional()
-    .describe("Heure de l'événement au format 24h HH:MM (utile pour art. 111 al. 2 C.p.c. après 17:00)."),
-  notification_mode: NotificationModeSchema
+    .regex(TIME_FORMAT_RE)
     .optional()
     .describe(
-      "Mode de notification : 'none' (défaut), 'technological' (applique le report de l'art. 111 al. 2 C.p.c. après 17:00 ou un jour non juridique), ou 'physical'."
+      "Heure de l'événement au format 24h HH:MM ou HH:MM:SS (utile pour art. 111 al. 2 C.p.c. après 17:00:00).",
     ),
-  regime: RegimeSchema
-    .optional()
-    .describe("Régime de jours fériés : 'qc_cpc' (défaut), 'qc_li', ou 'ca_li'."),
+  notification_mode: NotificationModeSchema.optional().describe(
+    "Mode de notification : 'none' (défaut), 'technological' (applique le report de l'art. 111 al. 2 C.p.c. après 17:00 ou un jour non juridique), ou 'physical'.",
+  ),
+  regime: RegimeSchema.optional().describe(
+    "Régime de jours fériés : 'qc_cpc' (défaut), 'qc_li', ou 'ca_li'.",
+  ),
   rollover_saturday: z
     .boolean()
     .optional()
     .describe(
-      "Prolonger un délai échéant un samedi (défaut true; toujours vrai en qc_cpc, prévu par art. 52 L.I. en qc_li)."
+      "Prolonger un délai échéant un samedi (défaut true; toujours vrai en qc_cpc, prévu par art. 52 L.I. en qc_li).",
     ),
   extra_non_juridical_dates: z
     .array(z.string().regex(ISO_DATE_FORMAT_RE))
     .max(50)
     .optional()
-    .describe("Dates additionnelles proclamées fériées ou fermetures de greffe au format YYYY-MM-DD."),
+    .describe(
+      "Dates additionnelles proclamées fériées ou fermetures de greffe au format YYYY-MM-DD.",
+    ),
   deadlines: z
     .array(DeadlineStepInputSchema)
     .min(1)
@@ -214,7 +209,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     "JOURS_PROCLAMES_NON_PREVISIBLES",
     regime === "ca_li"
       ? "Sous ca_li, vérifier aussi les jours fériés provinciaux/municipaux applicables (art. 35(1) al. a)-b) L.I. CA) et les règles propres aux Cours fédérales."
-      : undefined
+      : undefined,
   );
 
   const results: DeadlineStepResult[] = [];
@@ -227,7 +222,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
 
     if (step.depends_on_index !== undefined && step.anchor_date !== undefined) {
       throw new RangeError(
-        `Étape #${idx + 1} (${label}) : ne pas combiner depends_on_index et anchor_date.`
+        `Étape #${idx + 1} (${label}) : ne pas combiner depends_on_index et anchor_date.`,
       );
     }
 
@@ -241,7 +236,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     if (step.depends_on_index !== undefined) {
       if (step.depends_on_index >= idx) {
         throw new RangeError(
-          `Étape #${idx + 1} (${label}) : depends_on_index (${step.depends_on_index}) doit référencer une étape antérieure (< ${idx}).`
+          `Étape #${idx + 1} (${label}) : depends_on_index (${step.depends_on_index}) doit référencer une étape antérieure (< ${idx}).`,
         );
       }
       const parent = results[step.depends_on_index]!;
@@ -262,19 +257,22 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
 
     if (stepNotifMode === "technological" && direction === "forward") {
       const parsedTime = stepTime ? parseTimeHHMM(stepTime) : null;
-      const after17h = parsedTime !== null && parsedTime.totalMinutes > 17 * 60;
+      const after17h = parsedTime !== null && parsedTime.totalSeconds > 17 * 3600;
+      const isExact1700WithoutSeconds =
+        parsedTime !== null &&
+        parsedTime.totalSeconds === 17 * 3600 &&
+        !parsedTime.hasExplicitSeconds;
       const anchorStatus = isNonJuridicalDate(
         inputAnchorDate,
         regime,
         rolloverSaturday,
         extraSet,
-        yearCache
+        yearCache,
       );
       if (after17h || anchorStatus.nonJuridical) {
         let candidate = after17h ? addDays(inputAnchorDate, 1) : inputAnchorDate;
         while (
-          isNonJuridicalDate(candidate, regime, rolloverSaturday, extraSet, yearCache)
-            .nonJuridical
+          isNonJuridicalDate(candidate, regime, rolloverSaturday, extraSet, yearCache).nonJuridical
         ) {
           candidate = addDays(candidate, 1);
         }
@@ -282,13 +280,15 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
         anchorShiftedArt111 = candidate !== inputAnchorDate;
         const causes: string[] = [];
         if (after17h && stepTime) {
-          causes.push(`notification technologique après 17:00 (${stepTime})`);
+          causes.push(`notification technologique après 17:00:00 (${stepTime})`);
         }
         if (anchorStatus.nonJuridical && anchorStatus.reason) {
           causes.push(`jour initial non juridique (${anchorStatus.reason})`);
         }
         anchorShiftReason = causes.join(" et ");
         recordGarde("NOTIFICATION_TECHNOLOGIQUE_APRES_17H");
+      } else if (isExact1700WithoutSeconds && !anchorStatus.nonJuridical) {
+        recordGarde("NOTIFICATION_TECHNOLOGIQUE_17H_SECONDE_EXACTE");
       }
     }
 
@@ -301,13 +301,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     const hopDelta = direction === "forward" ? 1 : -1;
     let safety = 0;
     while (true) {
-      const check = isNonJuridicalDate(
-        current,
-        regime,
-        rolloverSaturday,
-        extraSet,
-        yearCache
-      );
+      const check = isNonJuridicalDate(current, regime, rolloverSaturday, extraSet, yearCache);
       if (!check.nonJuridical) {
         break;
       }
@@ -320,7 +314,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
       safety += 1;
       if (safety > 366) {
         throw new RangeError(
-          `Dépassement lors de la recherche du jour ouvrable pour l'étape "${label}".`
+          `Dépassement lors de la recherche du jour ouvrable pour l'étape "${label}".`,
         );
       }
     }
@@ -348,7 +342,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     const parts: string[] = [];
     if (anchorShiftedArt111) {
       parts.push(
-        `${frenchWeekday(inputAnchorDate)} ${inputAnchorDate}${stepTime ? ` à ${stepTime}` : ""} → réputé fait le ${frenchWeekday(effectiveAnchorDate)} ${effectiveAnchorDate} (art. 111 al. 2 C.p.c.)`
+        `${frenchWeekday(inputAnchorDate)} ${inputAnchorDate}${stepTime ? ` à ${stepTime}` : ""} → réputé fait le ${frenchWeekday(effectiveAnchorDate)} ${effectiveAnchorDate} (art. 111 al. 2 C.p.c.)`,
       );
     } else {
       parts.push(`${frenchWeekday(effectiveAnchorDate)} ${effectiveAnchorDate}`);
@@ -357,8 +351,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     parts.push(`${op} ${unitLabelFr(step.amount, unit)} → ${rawWeekday} ${rawDate}`);
     if (rolledOver) {
       const hopText = rolloverHops.map((h) => h.reason).join(", ");
-      const verb =
-        direction === "forward" ? "reporté au" : "reculé au jour ouvrable précédent";
+      const verb = direction === "forward" ? "reporté au" : "reculé au jour ouvrable précédent";
       parts.push(`(${hopText}) → ${verb} ${effectiveWeekday} ${effectiveDate}`);
     }
 
@@ -386,7 +379,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
   }
 
   const gardes: Garde[] = Array.from(guardReasons.entries()).map(([code, detail]) =>
-    makeGarde(code, detail)
+    makeGarde(code, detail),
   );
 
   return {

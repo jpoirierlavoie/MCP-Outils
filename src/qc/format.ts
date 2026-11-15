@@ -32,13 +32,8 @@ export function pluriel(n: number, singulier: string, pluriel_: string): string 
 }
 
 /** Joint des fragments non vides par un séparateur. */
-export function joindre(
-  parts: ReadonlyArray<string | null | undefined>,
-  sep = " · ",
-): string {
-  return parts
-    .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
-    .join(sep);
+export function joindre(parts: ReadonlyArray<string | null | undefined>, sep = " · "): string {
+  return parts.filter((p): p is string => typeof p === "string" && p.trim().length > 0).join(sep);
 }
 
 /** Numérote un bloc et indente ses lignes de continuation. */
