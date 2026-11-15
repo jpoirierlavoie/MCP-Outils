@@ -649,7 +649,7 @@ ${biP(
     "Vérification de santé sans journalisation des charges utiles : " +
       "https://outils.poirierlavoie.ca/healthz. Une limitation de débit à la périphérie " +
       "(60 requêtes / 60 s par IP) protège la disponibilité sans conserver de contenu applicatif.",
-    "Le code est ouvert et l'ensemble des tests s'exécute localement sans accès réseau.",
+    "Le code source est public (licence CC BY-NC-SA 4.0) et l'ensemble des tests s'exécute localement sans accès réseau.",
   ],
   EN.acces,
 )}

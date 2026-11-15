@@ -166,7 +166,7 @@ export const EN = {
       "skill plugin alongside authenticated primary-source connectors.",
     "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz. Edge rate " +
       "limiting protects availability (60 req / 60 s per IP) without storing application content.",
-    "The code is open source, and the entire test suite runs locally with no network access.",
+    "The source code is public (CC BY-NC-SA 4.0 licence), and the entire test suite runs locally with no network access.",
   ],
 
   pied: [

@@ -129,6 +129,7 @@ npm run deploy
 2. Ajoutez le nouveau trimestre dans `src/data/laf_art28_rates.json` et mettez à jour `metadata.last_quarter`, `metadata.table_version` et `metadata.verified_at`.
 3. Exécutez `npm run typecheck && npm test && npx wrangler deploy --dry-run`, puis committez et poussez sur `main` (le workflow `deploy.yml` déploiera automatiquement), ou exécutez `npm run deploy` manuellement.
 
-## Licence
+## Sécurité, confidentialité et licence
 
-CC0 1.0 Universel — voir [LICENSE](LICENSE).
+- **Sécurité, vie privée et secret professionnel :** Consulter [`SECURITY.md`](SECURITY.md) pour signaler de manière privée et coordonnée toute vulnérabilité ou question de confidentialité / secret professionnel à Jason Poirier Lavoie (`jason@poirierlavoie.ca`), sans ouvrir d'issue publique ni transmettre de renseignements confidentiels de clients.
+- **Licence :** Le logiciel, les schémas, les tests et la documentation originale sont mis à disposition sous licence **Creative Commons Attribution - Pas d'Utilisation Commerciale - Partage dans les Mêmes Conditions 4.0 International (`CC-BY-NC-SA-4.0`)** — voir [`LICENSE`](LICENSE). Les taux trimestriels (art. 28 L.A.F.) proviennent de Revenu Québec et les tables de greffes et palais proviennent des relevés publics du ministère de la Justice du Québec.

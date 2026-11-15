@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "description": "Serveur MCP public et sans état (Cloudflare Workers) pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.), analyse de numéros de dossier de cour (greffe) et répertoire des palais de justice du Québec (relevé MJQ).",
-  "license": "CC0-1.0",
+  "license": "CC-BY-NC-SA-4.0",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {

@@ -139,7 +139,20 @@ Le routage d'entrée implémente des contrôles d'arête stricts :
 
 ---
 
-## 5. Surfaces de synchronisation du plugin cadre (`pratique-civile-quebecoise`)
+## 5. Évaluation d'impact obligatoire (intra-dépôt, README.md, Page publique HTML et inter-dépôts)
+
+**Aucune modification de ce dépôt n'est terminée tant que ses répercussions n'ont pas été évaluées et explicitement rapportées sur les quatre axes ci-dessous** (« non touché » est une réponse valide uniquement si elle est vérifiée et énoncée) :
+
+| # | Axe d'impact | Éléments à inspecter et maintenir synchronisés | Règle / Garde associée |
+|---|---|---|---|
+| 1 | **Outils MCP, calculs et schémas** | `src/core/`, `src/mcp/`, `src/qc/`, `src/data/laf_art28_rates.json`, `src/index.ts` | Double sortie obligatoire (`content[0].text` + `structuredContent` avec `provenance` et `gardes`), `openWorldHint: false`, arithmétique `BigInt`, constantes `src/qc/format.ts` |
+| 2 | **`README.md` et gouvernance du dépôt** | `README.md`, `SECURITY.md`, `LICENSE` (`CC-BY-NC-SA-4.0`), `package.json`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md` | Tout changement d'outil, de source de données (L.A.F. / MJQ), de politique de confidentialité/zéro-log, de version ou de déploiement |
+| 3 | **Page publique HTML (`GET /`) et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts` | La table d'outils, schémas, gardes et relevés dérivent de `listToolDescriptors()` et du code ; maintenir la parité bilingue `OUTILS_EN`, les variables CSS clair/sombre, la liste blanche `ALLOWED_URL_PREFIXES` et l'exactitude des sections `#acces` et pied de page |
+| 4 | **Impacts inter-dépôts (`Cross-repository`)** | **`pratique-civile-quebecoise`** (`.mcp.json`, `mcp_config.json`, `gemini-extension.json`, `.claude-plugin/*`, `plugin.json`, `skills/calendrier-procedural` et son repli `scripts/calcul_delai.py`, `skills/redaction-juridique`, `skills/recherche-juridique`, scripts `regenerer_cache_mcp.py --apply`, `synchroniser_plugin_gemini.py --apply`, `verifier.py`, `verifier_tout.py`) ; **`MCP-Legislation` & `MCP-Jurisprudence`** (cohérence visuelle HTML/CSS `GET /`, frontière de responsabilité hors ligne vs sources primaires) | Signaler et répercuter toute évolution d'outil, de schéma, d'URL, de licence ou d'accès vers les dépôts dépendants |
+
+---
+
+## 6. Surfaces de synchronisation du plugin cadre (`pratique-civile-quebecoise`)
 
 Toute modification apportée aux outils, schémas, noms ou comportements de ce dépôt impose la mise à jour synchronisée des surfaces du plugin cadre `pratique-civile-quebecoise` :
 1. **Manifestes clients** :
@@ -160,7 +173,7 @@ Toute modification apportée aux outils, schémas, noms ou comportements de ce d
 
 ---
 
-## 6. Invariants critiques et règles anti-dérive
+## 7. Invariants critiques et règles anti-dérive
 
 1. **Invariant 1 : Absence totale d'état et journalisation zéro**
    - Aucune base de données persistante (zéro D1, zéro KV, zéro R2).
@@ -179,19 +192,19 @@ Toute modification apportée aux outils, schémas, noms ou comportements de ce d
 6. **Invariant 6 : La page publique `/` dérive du code**
    - La page d'accueil bilingue à `GET /` dérive dynamiquement sa table d'outils et de schémas de `listToolDescriptors()`.
    - Elle partage la même identité visuelle (police Georgia, variables CSS `--f`, `--m`, `--b`, `--a`, `--bg`, `--card`) que `MCP-Legislation` et `MCP-Jurisprudence`.
-7. **Invariant 7 : Règle de propagation sur les 4 surfaces**
-   Toute modification d'un outil exige la mise à jour synchronisée des 4 surfaces :
-   1. Handler et schéma d'entrée dans `src/core/` et `src/mcp/`.
-   2. Schéma de sortie Zod et tableau des `gardes`.
-   3. Tableau et documentation dans `README.md`.
-   4. Page publique (`src/site.ts` et `src/site.i18n.ts`).
+7. **Invariant 7 : Règle de propagation sur les 4 surfaces locales + inter-dépôts**
+   Toute modification exige la mise à jour synchronisée et vérifiée de chaque surface touchée (voir section 5) :
+   1. Handler et schéma d'entrée/sortie Zod dans `src/core/`, `src/qc/` et `src/mcp/` (avec `gardes`).
+   2. `README.md`, `SECURITY.md`, `LICENSE` et `package.json`.
+   3. Page publique HTML (`GET /` via `src/site.ts` et `src/site.i18n.ts`).
+   4. Dépôt cadre `pratique-civile-quebecoise` (manifestes, compétences et scripts de synchronisation) et cohérence avec `MCP-Legislation` / `MCP-Jurisprudence`.
 8. **Invariant 8 : Limitation de débit d'arête et taille maximale**
    - Le binding Cloudflare `RATE_LIMITER` impose 60 requêtes par minute par IP cliente.
    - Taille maximale du corps MCP : 64 KiB (`MAX_MCP_BODY_BYTES = 65_536`).
 
 ---
 
-## 7. Commandes de développement et vérification (PowerShell Windows)
+## 8. Commandes de développement et vérification (PowerShell Windows)
 
 Employer `npm.cmd` et `npx.cmd` :
 
@@ -202,7 +215,7 @@ npm.cmd test             # npx.cmd vitest run (223 tests passants)
 npm.cmd run build        # npx.cmd wrangler deploy --dry-run --outdir dist
 ```
 
-## 8. Surveillance et maintenance automatisée (CI/CD)
+## 9. Surveillance et maintenance automatisée (CI/CD)
 
 - `.github/workflows/check-laf-rates.yml` : Tâche cron trimestrielle (`15 13 15 3,6,9,12 *`) vérifiant que le trimestre à venir est couvert dans `src/data/laf_art28_rates.json`.
 - `.github/workflows/deploy.yml` : Déploiement automatisé sur push vers `main` après validation des tests et des contrôles préalables en lecture seule.
