@@ -208,12 +208,19 @@ def _clean_oqlf_term(raw: str) -> str:
     return " ".join(cleaned.split())
 
 
-def _is_legal_oqlf_domain(domaines_str: str) -> bool:
+def _extract_legal_oqlf_domain(domaines_str: str) -> str | None:
+    legal_branches: list[str] = []
     for branch in domaines_str.split(";"):
-        b = branch.strip().lower()
-        if b == "droit" or b.startswith("droit >"):
-            return True
-    return False
+        cleaned = " ".join(branch.split())
+        low = cleaned.lower()
+        if low == "droit" or low.startswith("droit >"):
+            if cleaned not in legal_branches:
+                legal_branches.append(cleaned)
+    return "; ".join(legal_branches) if legal_branches else None
+
+
+def _is_legal_oqlf_domain(domaines_str: str) -> bool:
+    return _extract_legal_oqlf_domain(domaines_str) is not None
 
 
 def _detect_termium_system(row: dict[str, str]) -> str:
@@ -763,7 +770,8 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
         with open(p_off, encoding="utf-8-sig", errors="replace") as f:
             for row in csv.DictReader(f):
                 dom_raw = row.get("Domaines") or ""
-                if not _is_legal_oqlf_domain(dom_raw):
+                legal_dom = _extract_legal_oqlf_domain(dom_raw)
+                if not legal_dom:
                     continue
                 fr_terms = [
                     _clean_oqlf_term(x)
@@ -793,7 +801,7 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
                     syn_en=en_terms[1:6],
                     deconseilles=[],
                     systeme_juridique="droit_civil_qc",
-                    domaine=dom_raw.split(";")[0].strip(),
+                    domaine=legal_dom,
                     note_ou_definition=note[:700],
                     base_legale=None,
                     url_fiche=(row.get("URL_fiche") or "").strip() or None,
@@ -804,7 +812,8 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
         with open(p_rec, encoding="utf-8-sig", errors="replace") as f:
             for row in csv.DictReader(f):
                 dom_raw = row.get("Domaines") or ""
-                if not _is_legal_oqlf_domain(dom_raw):
+                legal_dom = _extract_legal_oqlf_domain(dom_raw)
+                if not legal_dom:
                     continue
                 fr_terms = [
                     _clean_oqlf_term(x)
@@ -830,7 +839,7 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
                     syn_en=en_terms[1:6],
                     deconseilles=[],
                     systeme_juridique="droit_civil_qc",
-                    domaine=dom_raw.split(";")[0].strip(),
+                    domaine=legal_dom,
                     note_ou_definition=defn[:700],
                     base_legale=None,
                     url_fiche=(row.get("URL_fiche") or "").strip() or None,
@@ -870,6 +879,14 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     ):
         conn.execute(stmt)
     conn.commit()
+
+    non_droit_r4 = conn.execute(
+        "SELECT COUNT(*) FROM fiches_terminologiques WHERE rang_source = 4 AND LOWER(domaine) NOT LIKE 'droit%'"
+    ).fetchone()[0]
+    if non_droit_r4 != 0:
+        raise RuntimeError(
+            f"Validation locale échouée : {non_droit_r4} fiche(s) OQLF de rang 4 hors domaine 'droit'."
+        )
 
     stats = {
         "fiches_terminologiques": conn.execute(
@@ -1031,15 +1048,20 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
     # Contrôle strict post-chargement (comptes de lignes + FTS5)
     rem_fiches = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM fiches_terminologiques")[0]["c"]
     rem_arts = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM articles_bilingues")[0]["c"]
+    rem_bad_r4 = d1_query_remote(
+        db_id,
+        "SELECT COUNT(*) AS c FROM fiches_terminologiques "
+        "WHERE rang_source = 4 AND LOWER(domaine) NOT LIKE 'droit%'",
+    )[0]["c"]
     fts_probe = d1_query_remote(
         db_id,
         "SELECT COUNT(*) AS c FROM articles_en_fts f JOIN articles_bilingues a ON a.id = f.rowid "
         "WHERE a.law_id = 'ccq' AND articles_en_fts MATCH '\"hypothec\"'",
     )[0]["c"]
-    if rem_fiches != n_fiches or rem_arts != n_arts or fts_probe <= 0:
+    if rem_fiches != n_fiches or rem_arts != n_arts or rem_bad_r4 != 0 or fts_probe <= 0:
         raise RuntimeError(
             f"Validation D1 échouée : fiches={rem_fiches}/{n_fiches}, "
-            f"articles={rem_arts}/{n_arts}, ccq_hypothec_fts={fts_probe}"
+            f"articles={rem_arts}/{n_arts}, bad_r4={rem_bad_r4}, ccq_hypothec_fts={fts_probe}"
         )
     verif = verify_remote_candidate(
         db_id,

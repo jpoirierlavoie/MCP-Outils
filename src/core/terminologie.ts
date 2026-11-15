@@ -296,9 +296,7 @@ export async function terminologieLookup(
   const qVariantSet = new Set(qVariants);
   const ftsQuery = buildFtsAndPrefixQuery(input.query, sourceLang);
   if (ftsQuery) {
-    const ftsRes = await db
-      .prepare(
-        `SELECT t.id, t.rang_source, t.source_nom, t.licence_source, t.terme_fr, t.terme_en,
+    const ftsSelectSql = `SELECT t.id, t.rang_source, t.source_nom, t.licence_source, t.terme_fr, t.terme_en,
                 t.terme_fr_norm, t.terme_en_norm, t.synonymes_fr_json, t.synonymes_en_json,
                 t.termes_deconseilles_json, t.systeme_juridique, t.domaine,
                 t.note_ou_definition, t.base_legale, t.url_fiche, t.date_verification
@@ -306,12 +304,19 @@ export async function terminologieLookup(
            JOIN fiches_terminologiques t ON t.id = f.rowid
           WHERE fiches_fts MATCH ?
           ORDER BY t.rang_source ASC, bm25(fiches_fts) ASC
-          LIMIT 80`,
-      )
-      .bind(ftsQuery)
-      .all<RawFicheRow>();
+          LIMIT 80`;
+    const domFts = input.domain_filter ? buildFtsAndPrefixQuery(input.domain_filter, "auto") : null;
+    let ftsRows = (
+      await db
+        .prepare(ftsSelectSql)
+        .bind(domFts ? `(${ftsQuery}) AND {domaine} : (${domFts})` : ftsQuery)
+        .all<RawFicheRow>()
+    ).results;
+    if (domFts && ftsRows.length === 0) {
+      ftsRows = (await db.prepare(ftsSelectSql).bind(ftsQuery).all<RawFicheRow>()).results;
+    }
 
-    for (const r of ftsRes.results) {
+    for (const r of ftsRows) {
       const id = Number(r.id);
       if (!byId.has(id)) {
         const decList = parseJsonArray<z.infer<typeof TermeDeconseilleSchema>>(
@@ -366,7 +371,7 @@ export async function terminologieLookup(
   const fiches = candidates.slice(0, limit).map((c) => mapFicheRow(c.row));
 
   const gardes: Garde[] = [makeGarde("TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE")];
-  if (fiches.some((f) => f.rang_source === 4 || f.licence_source.includes("NC-SA"))) {
+  if (fiches.some((f) => f.rang_source === 4)) {
     gardes.push(makeGarde("LICENCE_DONNEES_OUVERTES_NC_SA"));
   }
 
@@ -516,12 +521,21 @@ interface LoiBilingueRow {
   consol_date_en: string | null;
 }
 
+const ATTESTATION_CURSOR_PAGE_SIZE = 4_000;
+
 interface LightAttestationCandidateRow {
   id: number;
   law_id: string;
   article_number: string;
   sort_key: number;
   target_text: string;
+}
+
+interface VerifiedAttestationRow {
+  id: number;
+  law_id: string;
+  article_number: string;
+  sort_key: number;
 }
 
 export async function terminologieAttestations(
@@ -554,31 +568,58 @@ export async function terminologieAttestations(
     .all<LoiBilingueRow>();
   const lawMap = new Map<string, LoiBilingueRow>(lawsRes.results.map((l) => [l.law_id, l]));
 
-  let verifiedRows: LightAttestationCandidateRow[] = [];
+  const verifiedRows: VerifiedAttestationRow[] = [];
   const phraseRegex = buildExactPhraseRegex(input.term);
 
   if (!lawFilter || lawMap.size > 0) {
-    let sql = `
+    const allowedLawIds = lawFilter ? Array.from(lawMap.keys()) : [];
+    const pushLawInClause = lawFilter !== null && allowedLawIds.length <= 50;
+    const lawInClause = pushLawInClause
+      ? ` AND a.law_id IN (${allowedLawIds.map(() => "?").join(",")})`
+      : "";
+    const pageSql = `
       SELECT a.id, a.law_id, a.article_number, a.sort_key, a.${targetCol} AS target_text
         FROM ${ftsTable} f
         JOIN articles_bilingues a ON a.id = f.rowid
        WHERE ${ftsTable} MATCH ?
+         AND f.rowid > ?
+         AND a.id > ?${lawInClause}
+       ORDER BY f.rowid ASC
+       LIMIT ${ATTESTATION_CURSOR_PAGE_SIZE}
     `;
-    const params: unknown[] = [ftsPhrase];
-    if (lawFilter) {
-      const allowedLawIds = Array.from(lawMap.keys());
-      sql += ` AND a.law_id IN (${allowedLawIds.map(() => "?").join(",")})`;
-      params.push(...allowedLawIds);
+
+    let lastId = -1;
+    while (true) {
+      const pageParams: unknown[] = pushLawInClause
+        ? [ftsPhrase, lastId, lastId, ...allowedLawIds]
+        : [ftsPhrase, lastId, lastId];
+      const res = await db
+        .prepare(pageSql)
+        .bind(...pageParams)
+        .all<LightAttestationCandidateRow>();
+
+      const batch = res.results;
+      if (batch.length === 0) {
+        break;
+      }
+
+      for (const r of batch) {
+        if (lawMap.has(r.law_id) && phraseRegex.test(r.target_text)) {
+          verifiedRows.push({
+            id: Number(r.id),
+            law_id: r.law_id,
+            article_number: r.article_number,
+            sort_key: Number(r.sort_key),
+          });
+        }
+      }
+
+      const nextLastId = Number(batch[batch.length - 1]!.id);
+      if (batch.length < ATTESTATION_CURSOR_PAGE_SIZE || nextLastId <= lastId) {
+        break;
+      }
+      lastId = nextLastId;
     }
-
-    const res = await db
-      .prepare(sql)
-      .bind(...params)
-      .all<LightAttestationCandidateRow>();
-
-    verifiedRows = res.results.filter(
-      (r) => lawMap.has(r.law_id) && phraseRegex.test(r.target_text),
-    );
   }
 
   const lawPriority = (lawId: string): number =>

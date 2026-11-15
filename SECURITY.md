@@ -51,7 +51,7 @@ Hors portée :
 
 ## Reproduction hors ligne de la suite de tests
 
-La suite complète (`test/`, 245 tests incluant un harnais `node:sqlite` en mémoire forcé en `PRAGMA query_only = ON`, les tests différentiels et de page publique) s'exécute localement sans réseau ni secret :
+La suite complète (`test/`, 247 tests incluant un harnais `node:sqlite` en mémoire forcé en `PRAGMA query_only = ON`, les tests différentiels et de page publique) s'exécute localement sans réseau ni secret :
 
 ```powershell
 npm.cmd ci

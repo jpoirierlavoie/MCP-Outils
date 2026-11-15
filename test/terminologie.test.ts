@@ -240,17 +240,20 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     }
   });
 
-  it("terminologie_lookup classe par rang_source (1 -> 4), remonte le faux ami 'mortgage' vers 'hypothec' et joint LICENCE_DONNEES_OUVERTES_NC_SA au rang 4", async () => {
+  it("terminologie_lookup classe par rang_source (1 -> 4), remonte le faux ami 'mortgage' vers 'hypothec' et réserve LICENCE_DONNEES_OUVERTES_NC_SA au rang 4", async () => {
     const hyp = await terminologieLookup(harness.d1, { query: "hypothèque" });
     const parsedHyp = TerminologieLookupOutputSchema.parse(hyp.structured);
     expect(parsedHyp.count).toBeGreaterThanOrEqual(1);
     expect(parsedHyp.fiches[0]!.rang_source).toBe(1);
     expect(parsedHyp.fiches[0]!.terme_en).toBe("hypothec");
+    expect(parsedHyp.fiches.every((f) => f.rang_source !== 4)).toBe(true);
     expect(
       parsedHyp.gardes.some((g) => g.code === "TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE"),
     ).toBe(true);
+    expect(parsedHyp.gardes.some((g) => g.code === "LICENCE_DONNEES_OUVERTES_NC_SA")).toBe(false);
+    expect(hyp.text).not.toContain("LICENCE_DONNEES_OUVERTES_NC_SA");
 
-    // Faux ami anglais 'mortgage' : le rang 1 civiliste doit précéder le rang 3 common law
+    // Faux ami anglais 'mortgage' : le rang 1 civiliste doit précéder le rang 3 common law, sans garde NC-SA
     const mort = await terminologieLookup(harness.d1, {
       query: "mortgage",
       source_lang: "en",
@@ -262,6 +265,10 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
         (d) => d.terme.toLowerCase() === "mortgage",
       ),
     ).toBe(true);
+    expect(mort.structured.fiches.some((f) => f.rang_source === 4)).toBe(false);
+    expect(mort.structured.gardes.some((g) => g.code === "LICENCE_DONNEES_OUVERTES_NC_SA")).toBe(
+      false,
+    );
 
     // Rang 4 OQLF -> déclenche LICENCE_DONNEES_OUVERTES_NC_SA et expose URL_fiche
     const oqlf = await terminologieLookup(harness.d1, {
@@ -413,5 +420,158 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       "brefs de saisie",
       "cour de cassation",
     ]);
+  });
+
+  it("terminologie_lookup pousse domain_filter dans FTS5 afin de ne jamais évincer une fiche OQLF de rang 4 derrière 80 résultats hors domaine", async () => {
+    const schemaSql = readFileSync(
+      resolve(process.cwd(), "pipeline/terminologie/schema.sql"),
+      "utf-8",
+    );
+    const indexesSql = readFileSync(
+      resolve(process.cwd(), "pipeline/terminologie/indexes.sql"),
+      "utf-8",
+    );
+
+    const seedRows: string[] = [
+      `INSERT INTO meta_sources VALUES ('oqlf_droit', 'OQLF', 4, 'CC-BY-NC-SA-4.0', '2026-01-19', 1);`,
+    ];
+    for (let i = 1; i <= 95; i += 1) {
+      seedRows.push(
+        `INSERT INTO fiches_terminologiques VALUES (
+          ${i}, NULL, 3, 'TERMIUM Plus®', 'OGL-Canada',
+          'bénéficiaire de régime ${i}', 'plan beneficiary ${i}',
+          'beneficiaire de regime ${i}', 'plan beneficiary ${i}',
+          '[]', '[]', '[]', 'bénéficiaire de régime ${i} | plan beneficiary ${i}',
+          'bijuridique_federal', 'assurance et régimes de retraite',
+          'Fiche administrative hors domaine juridique.', NULL, NULL, '2026-11-15'
+        );`,
+      );
+    }
+    seedRows.push(
+      `INSERT INTO fiches_terminologiques VALUES (
+        96, NULL, 4, 'Office québécois de la langue française (OQLF)', 'CC-BY-NC-SA-4.0',
+        'bénéficiaire', 'beneficiary',
+        'beneficiaire', 'beneficiary',
+        '[]', '[]', '[]', 'bénéficiaire | beneficiary',
+        'droit_civil_qc', 'droit > droit du travail',
+        'Personne en faveur de qui une prestation est stipulée.',
+        NULL, 'https://vitrinelinguistique.oqlf.gouv.qc.ca/fiche-gdt/fiche/83597/beneficiaire', '2026-01-19'
+      );`,
+    );
+
+    const domHarness = createSqliteD1Harness({
+      seedSql: [
+        schemaSql,
+        ...seedRows,
+        indexesSql,
+        `INSERT INTO fiches_fts(rowid, terme_fr, terme_en, termes_recherche, domaine)
+          SELECT id, terme_fr, terme_en, termes_recherche, domaine FROM fiches_terminologiques;`,
+      ],
+      enforceQueryOnly: true,
+    });
+    try {
+      // Requête préfixielle non exacte ("beneficiair") avec domain_filter : sans poussée FTS5 sur {domaine},
+      // LIMIT 80 sur rang_source ASC évincerait la fiche de rang 4 derrière les 95 fiches de rang 3.
+      const res = await terminologieLookup(domHarness.d1, {
+        query: "beneficiair",
+        domain_filter: "droit du travail",
+      });
+      expect(res.structured.count).toBe(1);
+      expect(res.structured.fiches[0]!.rang_source).toBe(4);
+      expect(res.structured.fiches[0]!.domaine).toBe("droit > droit du travail");
+      expect(res.structured.gardes.some((g) => g.code === "LICENCE_DONNEES_OUVERTES_NC_SA")).toBe(
+        true,
+      );
+    } finally {
+      domHarness.close();
+    }
+  });
+
+  it("terminologie_attestations pagine par curseur FTS5 (> 4 000 et === 4 000 candidats) sans perte ni doublon sur les totaux par loi", async () => {
+    const schemaSql = readFileSync(
+      resolve(process.cwd(), "pipeline/terminologie/schema.sql"),
+      "utf-8",
+    );
+    const indexesSql = readFileSync(
+      resolve(process.cwd(), "pipeline/terminologie/indexes.sql"),
+      "utf-8",
+    );
+
+    const values: string[] = [];
+    // Répartition : 1 500 ccq + 1 500 cpc + 550 ca-i-21 + 500 qc-s-31.1 = 4 050 vrais positifs
+    // + 5 faux positifs FTS ("l. obligation") placés exactement à la frontière de page 3998..4002 = 4 055 candidats FTS
+    let id = 0;
+    let exact4kCount = 0;
+    const lawPlan: Array<[string, number]> = [
+      ["qc-s-31.1", 500],
+      ["ca-i-21", 550],
+      ["cpc", 1500],
+      ["ccq", 1500],
+    ];
+    for (const [lawId, count] of lawPlan) {
+      for (let n = 1; n <= count; n += 1) {
+        id += 1;
+        if (id === 3998) {
+          for (let fp = 1; fp <= 5; fp += 1) {
+            values.push(
+              `(${id}, 'cpc', 'FP-${fp}', ${9000 + fp}, 'Renvoi à l. obligation accessoire.', 'Cross-reference.')`,
+            );
+            id += 1;
+          }
+        }
+        exact4kCount += 1;
+        const clauseTag = exact4kCount <= 4000 ? " et une clause pénale valide" : "";
+        values.push(
+          `(${id}, '${lawId}', '${n}', ${n}, 'Exécution de l’obligation principale${clauseTag}.', 'Performance of the principal obligation.')`,
+        );
+      }
+    }
+
+    const pageHarness = createSqliteD1Harness({
+      seedSql: [
+        schemaSql,
+        `INSERT INTO meta_sources VALUES ('concordancier_legislatif', 'Concordancier législatif', 2, 'OGL-Canada', '2026-11-15', ${id});`,
+        `INSERT INTO lois_bilingues VALUES
+          ('ccq', 'qc', 'Code civil du Québec', 'Civil Code of Québec', 'RLRQ, c. CCQ-1991', NULL, '2026-04-07', '2026-04-07'),
+          ('cpc', 'qc', 'Code de procédure civile', 'Code of Civil Procedure', 'RLRQ, c. C-25.01', NULL, '2026-04-07', '2026-04-07'),
+          ('ca-i-21', 'ca', 'Loi d’interprétation', 'Interpretation Act', 'L.R.C. (1985), ch. I-21', 'R.S.C., 1985, c. I-21', '2026-07-21', '2026-07-21'),
+          ('qc-s-31.1', 'qc', 'Loi sur les sociétés par actions', 'Business Corporations Act', 'RLRQ, c. S-31.1', NULL, '2026-04-07', '2026-04-07');`,
+        `INSERT INTO articles_bilingues VALUES ${values.join(",\n")};`,
+        indexesSql,
+        `INSERT INTO articles_fr_fts(rowid, text_fr) SELECT id, text_fr FROM articles_bilingues;
+         INSERT INTO articles_en_fts(rowid, text_en) SELECT id, text_en FROM articles_bilingues;`,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      // 1) Franchissement multi-pages : 4 055 candidats FTS -> 4 050 articles vérifiés (5 faux positifs rejetés à la jonction 3998..4002)
+      const multiPage = await terminologieAttestations(pageHarness.d1, {
+        term: "l'obligation",
+        lang: "fr",
+        limit: 5,
+      });
+      const parsed = TerminologieAttestationsOutputSchema.parse(multiPage.structured);
+      expect(parsed.total_matching_articles).toBe(4050);
+      expect(parsed.by_law.map((l) => [l.law_id, l.article_count])).toEqual([
+        ["ccq", 1500],
+        ["cpc", 1500],
+        ["ca-i-21", 550],
+        ["qc-s-31.1", 500],
+      ]);
+      // Même si ccq a été inséré en fin de table (> 2 550), la priorité statutaire place ccq art. 1 en tête
+      expect(parsed.attestations.length).toBe(5);
+      expect(parsed.attestations[0]!.law_id).toBe("ccq");
+      expect(parsed.attestations[0]!.article_number).toBe("1");
+
+      // 2) Cas frontière exact d'un multiple plein de page (exactement 4 000 candidats FTS -> page 2 vide)
+      const boundaryPage = await terminologieAttestations(pageHarness.d1, {
+        term: "clause pénale",
+        lang: "fr",
+      });
+      expect(boundaryPage.structured.total_matching_articles).toBe(4000);
+    } finally {
+      pageHarness.close();
+    }
   });
 });
