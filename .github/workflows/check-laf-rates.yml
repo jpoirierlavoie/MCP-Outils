@@ -13,8 +13,12 @@ jobs:
   check-laf-rates:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Durcir l'environnement du runner (egress audit)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
       - name: Vérifier la couverture du trimestre à venir
@@ -39,12 +43,16 @@ jobs:
           '
       - name: Ouvrir un billet de rappel si le prochain trimestre manque
         if: steps.check.outputs.covered == 'false'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          NEXT_QUARTER: ${{ steps.check.outputs.next_quarter }}
+          LAST_QUARTER: ${{ steps.check.outputs.last_quarter }}
+          SOURCE_URL: ${{ steps.check.outputs.source_url }}
         with:
           script: |
-            const nextQuarter = "${{ steps.check.outputs.next_quarter }}";
-            const lastQuarter = "${{ steps.check.outputs.last_quarter }}";
-            const sourceUrl = "${{ steps.check.outputs.source_url }}";
+            const nextQuarter = process.env.NEXT_QUARTER ?? "";
+            const lastQuarter = process.env.LAST_QUARTER ?? "";
+            const sourceUrl = process.env.SOURCE_URL ?? "";
             const title = `[art. 28 L.A.F.] Vérifier et ajouter le taux ${nextQuarter}`;
 
             const existing = await github.rest.issues.listForRepo({
