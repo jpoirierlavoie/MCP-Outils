@@ -26,6 +26,7 @@ updates:
           - "version-update:semver-minor"
     groups:
       dev-minor-and-patch:
+        dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
