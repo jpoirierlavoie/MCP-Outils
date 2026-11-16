@@ -49,7 +49,7 @@ jobs:
             github_actions|github-actions) ;;
             npm_and_yarn|npm)
               case "$DEP_TYPE" in
-                direct:development|indirect) ;;
+                direct:development) ;;
                 *)
                   echo "Skipping auto-merge for npm dependency-type=${DEP_TYPE}."
                   exit 0
