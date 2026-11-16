@@ -1,12 +1,12 @@
-# pratique-civile-outils — Architecture, principes et consignes de travail
+# MCP-Outils — Architecture, principes et consignes de travail
 
-Directives de développement, architecture et règles anti-dérive pour le serveur MCP `pratique-civile-outils` (`v0.3.0`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `pratique-civile-quebecoise`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
+Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v0.3.0`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `pratique-civile-quebecoise`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
 
 ---
 
 ## 1. Rôle architectural et intégration dans le cadre global
 
-`pratique-civile-outils` est un serveur MCP public, sans état applicatif, sans écriture au fil de l'eau, sans appel HTTP sortant, sans journalisation et sans secret, déployé comme Cloudflare Worker sur `https://outils.poirierlavoie.ca/mcp` avec trois bases D1 strictement en lecture seule à la requête (`ENAM`).
+`MCP-Outils` est un serveur MCP public, sans état applicatif, sans écriture au fil de l'eau, sans appel HTTP sortant, sans journalisation et sans secret, déployé comme Cloudflare Worker (`outils`) sur `https://outils.poirierlavoie.ca/mcp` avec trois bases D1 strictement en lecture seule à la requête (`ENAM`).
 
 Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`pratique-civile-quebecoise`, 32 outils MCP au total) :
 
@@ -21,16 +21,16 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
                     │                       │            `calcul`, `greffe`, `registre`,
                     ▼                       ▼            `adresse`, `terminologie`)
          ┌─────────────────────┐ ┌─────────────────────┐ ┌──────────────────────────┐
-         │   MCP-Legislation   │ │  MCP-Jurisprudence  │ │  pratique-civile-outils  │
+         │   MCP-Legislation   │ │  MCP-Jurisprudence  │ │        MCP-Outils        │
          │  (Worker Cloudflare │ │ (Worker Cloudflare  │ │    (Worker Cloudflare    │
          │  D1 + Vectorize +   │ │  D1 cache CanLII    │ │   public, zéro secret,   │
          │    Workers AI)      │ │  authentifié Bearer │ │  3 D1 lecture seule, Zod)│
          └──────────┬──────────┘ └──────────┬──────────┘ └──────────────────────────┘
                     │                       │
                     └───────────┬───────────┘
-                                ▼ (dépendance de dev `#v0.6.2`, zéro runtime dep)
+                                ▼ (dépendance de dev `#v0.7.0`, zéro runtime dep)
                  ┌─────────────────────────────┐
-                 │    MCP-Socle-Juridique      │
+                 │          MCP-Socle          │
                  │  Transport JSON-RPC 2.0     │
                  │  Streamable HTTP sans état  │
                  │  Auth SHA-256 temps constant│
@@ -47,8 +47,8 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 
 ### Relations inter-dépôts et séparation des responsabilités
 - **Découplage de `MCP-Jurisprudence`** : Depuis `v0.2.0`, les outils `greffe_*` et `palais_*` ainsi que `src/qc/` résident ici afin de séparer l'interrogation distante de CanLII (avec secret Bearer) des outils locaux déterministes.
-- **Découplage de `MCP-Socle-Juridique`** : Ce serveur étant public et sans authentification, il utilise directement `@modelcontextprotocol/server` avec `zod`.
-- **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `pratique-civile-outils` exécute les calculs arithmétiques et fournit les attestations terminologiques précalculées en lecture seule.
+- **Découplage de `MCP-Socle`** : Ce serveur étant public et sans authentification, il utilise directement `@modelcontextprotocol/server` avec `zod`.
+- **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `MCP-Outils` exécute les calculs arithmétiques et fournit les attestations terminologiques précalculées en lecture seule.
 
 ---
 
@@ -86,7 +86,7 @@ Tous les outils déclarent les annotations MCP :
 
 ## 3. Contrat de données et format de sortie
 
-`pratique-civile-outils` adopte une **double sortie standardisée** obligatoire sur les 12 outils :
+`MCP-Outils` adopte une **double sortie standardisée** obligatoire sur les 12 outils :
 
 ```typescript
 {
@@ -125,7 +125,8 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` : Page HTML bilingue dérivée de `listToolDescriptors()` (CSP stricte, zéro JSON à la racine, `405` sur autres méthodes).
-   - `GET` / `HEAD /healthz` : Statut JSON (`version: "0.3.0"`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils).
+   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "0.3.0"`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils).
+   - `GET` / `HEAD` / `OPTIONS /mcp/server-card` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
    - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, plafond `MAX_MCP_BODY_BYTES = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), désencapsulation SSE → JSON, limiteur `RATE_LIMITER` (60 req/min/IP → `429`).
 2. **Topologie D1 à 3 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
    - `DB_TERMINOLOGIE` (`outils-terminologie`), `DB_REGISTRES` (`outils-registres`), `DB_ADRESSES` (`outils-adresses`).
@@ -140,8 +141,8 @@ Tous les outils déclarent les annotations MCP :
 | # | Axe d'impact | Éléments à inspecter et maintenir synchronisés | Règle / Garde associée |
 |---|---|---|---|
 | 1 | **Outils MCP, calculs, D1 et schémas** | `src/core/`, `src/mcp/`, `src/qc/`, `src/data/`, `pipeline/`, `src/index.ts` | Double sortie obligatoire + `gardes`, `openWorldHint: false`, `readOnlyHint: true`, arithmétique `BigInt`, constantes `src/qc/format.ts`, zéro source sous droit d'auteur fermée |
-| 2 | **`README.md` et gouvernance du dépôt** | `README.md`, `SECURITY.md`, `LICENSE` (`CC-BY-NC-SA-4.0`), `package.json`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de version ou de déploiement |
-| 3 | **Page publique HTML (`GET /`) et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts` | Parité bilingue `OUTILS_EN` (12 outils, 5 familles), variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
+| 2 | **`README.md`, manifestes autonomes et gouvernance** | `README.md`, `SECURITY.md`, `LICENSE` (`CC-BY-NC-SA-4.0`), `package.json`, `plugin.json`, `mcp_config.json`, `gemini-extension.json`, `assets/logo.svg`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md`, `test/doc.test.ts` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de version ou de déploiement |
+| 3 | **Page publique HTML (`GET /`), `/mcp/server-card` et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts`, `test/mcp.integration.test.ts` | Parité bilingue `OUTILS_EN` (12 outils, 5 familles), fiche SEP-2127, variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
 | 4 | **Impacts inter-dépôts (`Cross-repository`)** | **`pratique-civile-quebecoise`** (`verifier.py`, `verifier_tout.py`, `scripts/regenerer_cache_mcp.py --apply`, `skills/redaction-juridique`, `skills/recherche-juridique`, `README.md`, `CLAUDE.md`, `GEMINI.md`, manifestes) ; **`MCP-Legislation` & `MCP-Jurisprudence`** (lecture seule stricte, cohérence visuelle HTML/CSS) | Maintenir les fins de ligne LF (`\n`), `< 3000` mots par `SKILL.md`, aucun nom d'outil dans `analyse-documentaire` / `deontologie-professionnelle` |
 
 ---

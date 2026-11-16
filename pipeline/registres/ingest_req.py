@@ -75,7 +75,7 @@ def _http_get_json(url: str) -> dict:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "pratique-civile-outils-pipeline/0.3",
+            "User-Agent": "mcp-outils-pipeline/0.3",
             "Accept": "application/json",
         },
     )
@@ -89,7 +89,7 @@ def _download_file(url: str, dest: Path, force: bool = False) -> Path:
         return dest
     print(f"  Téléchargement : {url} -> {dest.name}", flush=True)
     req = urllib.request.Request(
-        url, headers={"User-Agent": "pratique-civile-outils-pipeline/0.3"}
+        url, headers={"User-Agent": "mcp-outils-pipeline/0.3"}
     )
     with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as out:
         while True:

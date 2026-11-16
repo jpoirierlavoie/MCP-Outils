@@ -1,4 +1,4 @@
-"""Orchestrateur de bascule bleu-vert hors ligne pour les 3 bases D1 de `pratique-civile-outils`.
+"""Orchestrateur de bascule bleu-vert hors ligne pour les 3 bases D1 de `MCP-Outils`.
 
 Modèle d'exploitation sans interruption ni corruption de production :
 1. Provisionner une nouvelle base D1 datée (p. ex. `outils-registres-20261115`, région `enam`).

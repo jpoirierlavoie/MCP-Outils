@@ -85,6 +85,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(health.status).toBe(200);
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
+    expect(healthJson.service).toBe("mcp-outils");
     expect(healthJson.version).toBe("0.3.0");
     expect(healthJson.request_payload_logging).toBe(false);
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
@@ -117,7 +118,8 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(landing.headers.get("content-type")).toContain("text/html");
     expect(landing.headers.get("access-control-allow-origin")).toBeNull();
     const html = await landing.text();
-    expect(html).toContain("pratique-civile-outils");
+    expect(html).toContain("mcp-outils");
+    expect(html).toContain("MCP Outils");
     expect(html).toContain("greffe_parse_court_file_number");
 
     const headLanding = await worker.fetch(
@@ -142,6 +144,92 @@ describe("Worker HTTP & intégration MCP", () => {
       dummyCtx,
     );
     expect(notFound.status).toBe(404);
+
+    // SEP-2127 : fiche publique de découverte /mcp/server-card (GET, HEAD, OPTIONS, 405, 404 hors exactitude)
+    const cardRes = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp/server-card", {
+        headers: { Origin: "https://exemple.invalide" },
+      }),
+      {},
+      dummyCtx,
+    );
+    expect(cardRes.status).toBe(200);
+    expect(cardRes.headers.get("content-type")).toBe(
+      "application/mcp-server-card+json; charset=utf-8",
+    );
+    expect(cardRes.headers.get("access-control-allow-origin")).toBe("*");
+    expect(cardRes.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(cardRes.headers.get("cache-control")).toContain("max-age=600");
+    const cardBody = (await cardRes.json()) as {
+      $schema: string;
+      name: string;
+      title: string;
+      version: string;
+      description: string;
+      websiteUrl: string;
+      repository: { url: string; source: string };
+      remotes: Array<{
+        type: string;
+        url: string;
+        supportedProtocolVersions: string[];
+        headers: unknown[];
+      }>;
+    };
+    expect(cardBody.$schema).toBe(
+      "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+    );
+    expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
+    expect(cardBody.title).toBe("MCP Outils");
+    expect(cardBody.version).toBe("0.3.0");
+    expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
+    expect(cardBody.repository).toEqual({
+      url: "https://github.com/jpoirierlavoie/MCP-Outils",
+      source: "github",
+    });
+    expect(cardBody.remotes).toHaveLength(1);
+    expect(cardBody.remotes[0]?.type).toBe("streamable-http");
+    expect(cardBody.remotes[0]?.url).toBe("https://outils.poirierlavoie.ca/mcp");
+    expect(cardBody.remotes[0]?.supportedProtocolVersions.length).toBeGreaterThanOrEqual(3);
+    expect(cardBody.remotes[0]?.headers).toEqual([]);
+
+    const cardHead = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp/server-card", { method: "HEAD" }),
+      {},
+      dummyCtx,
+    );
+    expect(cardHead.status).toBe(200);
+    expect(cardHead.headers.get("content-type")).toBe(
+      "application/mcp-server-card+json; charset=utf-8",
+    );
+    expect(await cardHead.text()).toBe("");
+
+    const cardOpt = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp/server-card", { method: "OPTIONS" }),
+      {},
+      dummyCtx,
+    );
+    expect(cardOpt.status).toBe(204);
+    expect(cardOpt.headers.get("access-control-allow-origin")).toBe("*");
+    expect(cardOpt.headers.get("access-control-allow-methods")).toContain("GET");
+
+    for (const badMethod of ["POST", "DELETE"]) {
+      const badRes = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp/server-card", { method: badMethod }),
+        {},
+        dummyCtx,
+      );
+      expect(badRes.status, badMethod).toBe(405);
+      expect(badRes.headers.get("allow")).toBe("GET, HEAD, OPTIONS");
+    }
+
+    for (const wrongPath of ["/server-card", "/.well-known/mcp.json", "/mcp/server-card/"]) {
+      const r404 = await worker.fetch(
+        new Request(`https://outils.poirierlavoie.ca${wrongPath}`),
+        {},
+        dummyCtx,
+      );
+      expect(r404.status, wrongPath).toBe(404);
+    }
   });
 
   it("valide Host header (accepte outils.poirierlavoie.ca et ALLOWED_HOSTNAMES, rejette un hôte tiers)", async () => {

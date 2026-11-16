@@ -53,7 +53,7 @@ jobs:
             echo "Le secret est présent et ne porte aucune espace."
             exit 0
           fi
-          echo "::error title=CLOUDFLARE_API_TOKEN est VIDE dans ce job::Définir le secret dans l'environnement GitHub « production » (gh secret set CLOUDFLARE_API_TOKEN --env production -R jpoirierlavoie/pratique-civile-outils)."
+          echo "::error title=CLOUDFLARE_API_TOKEN est VIDE dans ce job::Définir le secret dans l'environnement GitHub « production » (gh secret set CLOUDFLARE_API_TOKEN --env production -R jpoirierlavoie/MCP-Outils)."
           exit 1
 
       - name: Contrôle 2/3 — Cloudflare accepte-t-il ce jeton ?
@@ -151,10 +151,11 @@ jobs:
           tag="${ATTENDU_LONG:0:7}"
           npx wrangler deploy --tag "$tag" --message "Deploy ${tag} (GitHub Actions)"
 
-      - name: Vérification vivante (/healthz et /mcp initialize)
+      - name: Vérification vivante (/healthz, /mcp/server-card et /mcp initialize)
         if: success()
         env:
           SANTE: https://outils.poirierlavoie.ca/healthz
+          CARTE: https://outils.poirierlavoie.ca/mcp/server-card
           MCP_URL: https://outils.poirierlavoie.ca/mcp
         run: |
           set -euo pipefail
@@ -173,6 +174,11 @@ jobs:
             echo "::error title=Vérification /healthz échouée::${SANTE} n'a pas rendu HTTP 200."
             exit 1
           fi
+          code_carte=$(curl -sS --max-time 20 -o /tmp/server-card.json -w '%{http_code}' "$CARTE" || echo 000)
+          if [ "$code_carte" != "200" ]; then
+            echo "::error title=Fiche /mcp/server-card en échec (HTTP ${code_carte})::${CARTE} a répondu HTTP ${code_carte}."
+            exit 1
+          fi
           code_mcp=$(curl -sS --max-time 20 -o /tmp/mcp-init.txt -w '%{http_code}' \
             -X POST "$MCP_URL" \
             -H 'Content-Type: application/json' \
@@ -187,4 +193,4 @@ jobs:
             echo "::error title=Réponse MCP inattendue::serverInfo absent dans la réponse d'initialisation."
             exit 1
           fi
-          echo "Vérification vivante complète : /healthz=200, POST /mcp initialize=200."
+          echo "Vérification vivante complète : /healthz=200, /mcp/server-card=200, POST /mcp initialize=200."

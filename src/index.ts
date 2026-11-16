@@ -1,11 +1,16 @@
-import { localhostAllowedHostnames } from "@modelcontextprotocol/server";
+import {
+  localhostAllowedHostnames,
+  SUPPORTED_PROTOCOL_VERSIONS,
+} from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
   createOutilsMcpServer,
   listToolDescriptors,
   type OutilsBindings,
+  SERVER_DESCRIPTION,
   SERVER_NAME,
+  SERVER_TITLE,
   SERVER_VERSION,
 } from "./mcp/server.js";
 import { pagePubliqueHtml } from "./site.js";
@@ -13,6 +18,72 @@ import { pagePubliqueHtml } from "./site.js";
 export interface Env extends OutilsBindings {
   RATE_LIMITER?: RateLimit;
   ALLOWED_HOSTNAMES?: string;
+}
+
+export const SERVER_CARD_SCHEMA =
+  "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json";
+
+export const SERVER_CARD_CONTENT_TYPE = "application/mcp-server-card+json; charset=utf-8";
+
+export function carteServeur() {
+  return {
+    $schema: SERVER_CARD_SCHEMA,
+    name: `ca.poirierlavoie.outils/${SERVER_NAME}`,
+    title: SERVER_TITLE,
+    version: SERVER_VERSION,
+    description: SERVER_DESCRIPTION,
+    websiteUrl: "https://outils.poirierlavoie.ca/",
+    repository: {
+      url: "https://github.com/jpoirierlavoie/MCP-Outils",
+      source: "github" as const,
+    },
+    remotes: [
+      {
+        type: "streamable-http" as const,
+        url: "https://outils.poirierlavoie.ca/mcp",
+        supportedProtocolVersions: [...SUPPORTED_PROTOCOL_VERSIONS],
+        headers: [] as Array<{
+          name: string;
+          description: string;
+          isRequired: boolean;
+          isSecret: boolean;
+        }>,
+      },
+    ],
+  };
+}
+
+function repondreCarteServeur(method: string): Response {
+  if (method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Headers": "Accept, Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+  if (method !== "GET" && method !== "HEAD") {
+    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
+      status: 405,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        Allow: "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": SERVER_CARD_CONTENT_TYPE,
+    "Cache-Control": "public, max-age=600",
+    "X-Content-Type-Options": "nosniff",
+    "Access-Control-Allow-Origin": "*",
+  };
+  return method === "HEAD"
+    ? new Response(null, { status: 200, headers })
+    : new Response(JSON.stringify(carteServeur()), { status: 200, headers });
 }
 
 const MAX_MCP_BODY_BYTES = 65_536;
@@ -119,7 +190,7 @@ function pagePublique(request: Request): Response {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (env.RATE_LIMITER) {
+    if (env.RATE_LIMITER && request.method !== "OPTIONS") {
       const clientIp = request.headers.get("CF-Connecting-IP") ?? "anonymous";
       const outcome = await env.RATE_LIMITER.limit({ key: clientIp });
       if (!outcome.success) {
@@ -139,6 +210,9 @@ export default {
         });
       }
       return pagePublique(request);
+    }
+    if (url.pathname === "/mcp/server-card") {
+      return repondreCarteServeur(request.method);
     }
     if (url.pathname === "/mcp") {
       const allowedHostnames = env.ALLOWED_HOSTNAMES

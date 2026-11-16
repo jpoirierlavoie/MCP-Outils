@@ -55,8 +55,8 @@ import {
   terminologieScanText,
 } from "../core/terminologie.js";
 
-export const SERVER_NAME = "pratique-civile-outils";
-export const SERVER_TITLE = "Pratique civile — outils déterministes (Québec)";
+export const SERVER_NAME = "mcp-outils";
+export const SERVER_TITLE = "MCP Outils";
 export const SERVER_VERSION = "0.3.0";
 export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
