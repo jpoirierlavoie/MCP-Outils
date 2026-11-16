@@ -8,6 +8,11 @@ import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.j
 
 export function foldAddressToken(raw: string): string {
   return raw
+    .replace(/Œ/g, "OE")
+    .replace(/œ/g, "oe")
+    .replace(/Æ/g, "AE")
+    .replace(/æ/g, "ae")
+    .replace(/ß/g, "ss")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u2018\u2019\u02bc']/g, " ")
@@ -296,7 +301,9 @@ export interface ParsedQuebecAddress {
   cardinal: string | null;
   rawStreetSpecific: string;
   specifiqueNorm: string;
+  specifiqueWithParticleNorm: string;
   consonantKey: string;
+  consonantKeyWithParticle: string;
   municipalityNorm: string | null;
   municipalityOriginal: string | null;
   postalCodeCompact: string | null;
@@ -320,9 +327,12 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
   const corrections: string[] = [];
   let freeLine = (input.address ?? "").trim();
 
-  // 0) Virgule française après le numéro civique initial (p. ex. « 1, rue Notre-Dame Est »)
+  // 0) Virgule française après le numéro civique initial (p. ex. « 1, rue Notre-Dame Est », « 10-B, boul. Sainte-Anne »)
   if (freeLine && !input.civic_number && !input.street) {
-    freeLine = freeLine.replace(/^\s*(\d+\s*(?:1\/2|[A-Za-z])?)\s*,\s*(?=[A-Za-zÀ-ÿ0-9])/, "$1 ");
+    freeLine = freeLine.replace(
+      /^\s*(\d+\s*(?:1\/2|-\s*[A-Za-z]|[A-Za-z])?)\s*,\s*(?=[A-Za-zÀ-ÿ0-9])/,
+      "$1 ",
+    );
   }
 
   // 1) Code postal
@@ -341,13 +351,13 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     );
   }
 
-  // 2) Unité (bureau, app., suite, local, # ou préfixe 200-1) — avant retrait de la province
+  // 2) Unité (bureau, app., suite, local, # ou préfixe 200-1) et mention d'étage — avant retrait de la province
   let unitNumber = "";
   let unitTypeLabel: string | null = null;
 
   if (input.unit) {
     const um =
-      /^\s*(bureau|bur\.?|suite|ste\.?|appartement|app\.?|apt\.?|unité|unite|local|loc\.?|#)?\s*([A-Za-z0-9-]+)\s*$/i.exec(
+      /^\s*(bureau|bur\.?|suite|ste\.?|appartement|app\.?|apt\.?|unité|unite|local|loc\.?|salle|#)?\s*([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)\s*$/i.exec(
         input.unit,
       );
     if (um) {
@@ -361,7 +371,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
 
   if (freeLine) {
     const unitKwRe =
-      /(?:,\s*|\s+)\b(bureau|bur\.?|suite|appartement|app\.?|apt\.?|unité|unite|local|loc\.?)\s+([A-Za-z0-9-]+)\b/i;
+      /(?:,\s*|\s+)\b(bureau|bur\.?|suite|appartement|app\.?|apt\.?|unité|unite|local|loc\.?|salle)\s+([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)\b/i;
     const kwMatch = unitKwRe.exec(freeLine);
     if (kwMatch) {
       if (!unitNumber) {
@@ -370,7 +380,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       }
       freeLine = `${freeLine.slice(0, kwMatch.index)} ${freeLine.slice(kwMatch.index + kwMatch[0].length)}`;
     } else {
-      const hashRe = /(?:,\s*|\s+)#\s*([A-Za-z0-9-]+)\b/;
+      const hashRe = /(?:,\s*|\s+)#\s*([A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*)\b/;
       const hm = hashRe.exec(freeLine);
       if (hm) {
         if (!unitNumber) {
@@ -379,6 +389,17 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
         }
         freeLine = `${freeLine.slice(0, hm.index)} ${freeLine.slice(hm.index + hm[0].length)}`;
       }
+    }
+
+    // Retirer une indication d'étage (« 1er étage », « 20 ième étage », « rez-de-chaussée ») absente de la clé civique RQA
+    const floorRe =
+      /(?:,\s*|\s+)\b(\d+\s*(?:er|re|e|ère|ere|ième|ieme|ème|eme)\s+étage|\d+\s*(?:er|re|e|ère|ere|ième|ieme|ème|eme)\s+etage|étage\s+[A-Za-z0-9.-]+|etage\s+[A-Za-z0-9.-]+|rez-de-chaussée|rez-de-chaussee)(?=\s*,|\s|$)/iu;
+    const flMatch = floorRe.exec(freeLine);
+    if (flMatch) {
+      corrections.push(
+        `Indication d'étage '${flMatch[1]!.trim()}' non indexée individuellement au RQA`,
+      );
+      freeLine = `${freeLine.slice(0, flMatch.index)} ${freeLine.slice(flMatch.index + flMatch[0].length)}`;
     }
 
     // Format postal canadien « 200-1 rue Notre-Dame » -> unité 200, civique 1
@@ -470,31 +491,33 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
   let civicSuffix = "";
 
   if (input.civic_number) {
-    const cm = /^\s*(\d+)\s*([A-Za-z]|1\/2)?\s*$/.exec(input.civic_number);
+    const cm = /^\s*(\d+)\s*(?:-\s*([A-Za-z])|(1\/2|[A-Za-z]))?\s*$/.exec(input.civic_number);
     if (cm) {
       civicNumber = Number.parseInt(cm[1]!, 10);
-      civicSuffix = (cm[2] ?? "").toUpperCase();
+      civicSuffix = (cm[2] ?? cm[3] ?? "").toUpperCase();
     }
   } else if (streetWork) {
     const leadCivic =
-      /^\s*(\d+)\s*(1\/2|re|er|ère|ere|ième|ieme|ème|eme|[A-Za-z])?(?=\s|,|$)\s*,?\s*/iu.exec(
+      /^\s*(\d+)\s*(?:-\s*([A-Za-z])|(1\/2|re|er|ère|ere|ième|ieme|ème|eme|[A-Za-z]))?(?=\s|,|$)\s*,?\s*/iu.exec(
         streetWork,
       );
     if (leadCivic) {
+      const rawLeadSuffix = leadCivic[2] ?? leadCivic[3] ?? "";
       const restAfter = streetWork.slice(leadCivic[0].length).trim();
       // Ne pas confondre un odonyme ordinal sans numéro civique (« 1re Avenue », « 3e Rue », « 4e Rang ») avec un numéro civique
       const restFirstFold = foldAddressToken(restAfter.split(/\s+/)[0] ?? "");
       const isOrdinalStreet =
-        Boolean(leadCivic[2]) &&
-        /^(?:re|er|e|ere|ère|iere|ière|eme|ème|ieme|ième)$/iu.test(leadCivic[2]!) &&
+        !leadCivic[2] &&
+        Boolean(rawLeadSuffix) &&
+        /^(?:re|er|e|ere|ère|iere|ière|eme|ème|ieme|ième)$/iu.test(rawLeadSuffix) &&
         Boolean(GENERIC_MAP[restFirstFold]);
       if (
         !isOrdinalStreet &&
         restAfter.length > 0 &&
-        (!leadCivic[2] || leadCivic[2] === "1/2" || leadCivic[2].length === 1)
+        (!rawLeadSuffix || rawLeadSuffix === "1/2" || rawLeadSuffix.length === 1)
       ) {
         civicNumber = Number.parseInt(leadCivic[1]!, 10);
-        civicSuffix = (leadCivic[2] ?? "").toUpperCase();
+        civicSuffix = rawLeadSuffix.toUpperCase();
         streetWork = restAfter;
       }
     }
@@ -520,7 +543,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     }
   }
 
-  // Générique initial (« boul », « av », « rue », « ch ») ou postposé à un ordinal (« 1re Avenue », « 3e Rue », « 4e Rang »)
+  // Générique initial (« boul », « av », « rue », « ch ») ou postposé à un ordinal simple (« 1re Avenue », « 3e Rue », « 4e Rang »)
   if (stTokens.length >= 2) {
     const firstFold = foldAddressToken(stTokens[0]!);
     // Attention : « St » suivi d'un nom est « Saint- », pas « street »
@@ -532,7 +555,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       if (foldAddressToken(rawFirst) !== foldAddressToken(mappedGen)) {
         corrections.push(`Générique d'odonyme '${rawFirst}' normalisé en '${mappedGen}'`);
       }
-    } else {
+    } else if (stTokens.length === 2) {
       const ordMatch = /^(\d+)(re|er|e|ere|ère|iere|ière|ier|eme|ème|ieme|ième)$/iu.exec(
         stTokens[0]!,
       );
@@ -558,6 +581,14 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
   let specificRaw = stTokens.join(" ");
   specificRaw = expandSaintAbbreviations(specificRaw, corrections);
 
+  // Conserver aussi la forme complète avec particule pour les patronymes (« De La Gauchetière », « De Maisonneuve », « D'Iberville »)
+  const rawFoldedFull = foldAddressToken(specificRaw);
+  const specifiqueWithParticleNorm =
+    GENERIC_MAP[rawFoldedFull] || PARTICLE_SET.has(rawFoldedFull) ? "" : rawFoldedFull;
+  const consonantKeyWithParticle = specifiqueWithParticleNorm
+    ? computeConsonantKey(specificRaw)
+    : "";
+
   // Retirer une particule initiale (« de la », « de l' », « à la », « à l' », « du », « des », « de », « d' », « l' »)
   const particlePrefixRe =
     /^(?:de\s+la\s+|de\s+l\s*['\u2018\u2019\u02bc]\s*|à\s+la\s+|a\s+la\s+|à\s+l\s*['\u2018\u2019\u02bc]\s*|a\s+l\s*['\u2018\u2019\u02bc]\s*|des\s+|du\s+|de\s+|aux\s+|au\s+|à\s+|a\s+|d\s*['\u2018\u2019\u02bc]\s*|l\s*['\u2018\u2019\u02bc]\s*)(?=.{2,})/iu;
@@ -575,9 +606,11 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     unitTypeLabel,
     generique,
     cardinal,
-    rawStreetSpecific: specificCore || cleanStreet,
+    rawStreetSpecific: specificRaw || specificCore || cleanStreet,
     specifiqueNorm,
+    specifiqueWithParticleNorm,
     consonantKey,
+    consonantKeyWithParticle,
     municipalityNorm,
     municipalityOriginal: rawMun,
     postalCodeCompact: postalCompact,
@@ -590,6 +623,7 @@ function normalizeUnitLabel(raw: string): string {
   if (f.startsWith("bur") || f === "suite" || f === "ste") return "bureau";
   if (f.startsWith("app") || f.startsWith("apt")) return "app.";
   if (f.startsWith("loc")) return "local";
+  if (f === "salle") return "salle";
   return "unité";
 }
 
@@ -777,6 +811,14 @@ interface RawCivicRow {
   longitude: number | null;
 }
 
+function formatCivicWithSuffix(civic: number, suffix: string): string {
+  const clean = suffix.trim();
+  if (!clean) return String(civic);
+  if (clean.includes("/")) return `${civic} ${clean}`;
+  if (/^\d/.test(clean)) return `${civic}-${clean}`;
+  return `${civic}${clean}`;
+}
+
 function formatNormalizedQuebecAddress(opts: {
   civic: number | null;
   suffix: string;
@@ -788,7 +830,7 @@ function formatNormalizedQuebecAddress(opts: {
 }): string {
   const streetPart =
     opts.civic !== null
-      ? `${opts.civic}${opts.suffix ? opts.suffix : ""}, ${opts.odonymeLong}`
+      ? `${formatCivicWithSuffix(opts.civic, opts.suffix)}, ${opts.odonymeLong}`
       : opts.odonymeLong;
   const unitPart = opts.unitNumber ? `, ${opts.unitLabel ?? "unité"} ${opts.unitNumber}` : "";
   const cpFormatted = formatPostalCode(opts.postalCode);
@@ -842,6 +884,14 @@ export async function adresseVerify(
   const munFilterClause =
     munCodes.length > 0 ? ` AND code_municipalite IN (${munCodes.map(() => "?").join(",")})` : "";
 
+  const specNormVariants = Array.from(
+    new Set([parsed.specifiqueNorm, parsed.specifiqueWithParticleNorm].filter(Boolean)),
+  );
+  const specNormSet = new Set(specNormVariants);
+  const consKeyVariants = Array.from(
+    new Set([parsed.consonantKey, parsed.consonantKeyWithParticle].filter((k) => k.length >= 3)),
+  );
+
   // Voie rapide par code postal + numéro civique lorsque présents
   if (parsed.postalCodeCompact && parsed.civicNumber !== null) {
     const cpRes = await db
@@ -857,10 +907,11 @@ export async function adresseVerify(
       .bind(parsed.postalCodeCompact, parsed.civicNumber)
       .all<RawOdoRow>();
     for (const o of cpRes.results) {
-      const exactSpec = !parsed.specifiqueNorm || o.specifique_norm === parsed.specifiqueNorm;
-      const sim = parsed.specifiqueNorm
-        ? similarityRatio(parsed.specifiqueNorm, o.specifique_norm)
-        : 1;
+      const exactSpec = specNormVariants.length === 0 || specNormSet.has(o.specifique_norm);
+      const sim =
+        specNormVariants.length > 0
+          ? Math.max(...specNormVariants.map((v) => similarityRatio(v, o.specifique_norm)))
+          : 1;
       if (exactSpec || sim >= 0.65) {
         odoCandidates.set(Number(o.id), {
           odo: o,
@@ -871,20 +922,24 @@ export async function adresseVerify(
     }
   }
 
-  if (parsed.specifiqueNorm) {
-    // 2A) Correspondance exacte sur `specifique_norm` (en priorisant le générique demandé avant LIMIT)
+  if (specNormVariants.length > 0) {
+    // 2A) Correspondance exacte sur `specifique_norm` (avec ou sans particule patronymique)
+    const specInSql =
+      specNormVariants.length === 1
+        ? "specifique_norm = ?"
+        : `specifique_norm IN (${specNormVariants.map(() => "?").join(",")})`;
     const exactOdoRes = await db
       .prepare(
         `SELECT id, code_municipalite, seqodo, generique, particule, specifique, cardinal,
                 odonyme_normal, odonyme_long, specifique_norm, cle_consonnes, renvois_recherche
            FROM odonymes
-          WHERE specifique_norm = ?${munFilterClause}
+          WHERE ${specInSql}${munFilterClause}
           ORDER BY CASE WHEN ? != '' AND LOWER(COALESCE(generique, '')) = LOWER(?) THEN 0 ELSE 1 END,
                    CASE WHEN code_municipalite IN ('66023', '23027', '65005', '58227', '81017', '43027', '25213', '94068', '37067') THEN 0 ELSE 1 END,
                    id ASC
           LIMIT 60`,
       )
-      .bind(parsed.specifiqueNorm, ...munCodes, parsed.generique ?? "", parsed.generique ?? "")
+      .bind(...specNormVariants, ...munCodes, parsed.generique ?? "", parsed.generique ?? "")
       .all<RawOdoRow>();
 
     for (const o of exactOdoRes.results) {
@@ -924,7 +979,8 @@ export async function adresseVerify(
 
       for (const o of ftsOdoRes.results) {
         if (odoCandidates.has(Number(o.id))) continue;
-        const isRenvoiExact = foldAddressToken(o.renvois_recherche).includes(parsed.specifiqueNorm);
+        const foldedRenvois = foldAddressToken(o.renvois_recherche);
+        const isRenvoiExact = specNormVariants.some((v) => foldedRenvois.includes(v));
         let sc = isRenvoiExact ? 88 : 80;
         if (parsed.cardinal) {
           if (o.cardinal?.toLowerCase() === parsed.cardinal.toLowerCase()) sc += 12;
@@ -936,7 +992,7 @@ export async function adresseVerify(
         }
         odoCandidates.set(Number(o.id), {
           odo: o,
-          isFuzzy: o.specifique_norm !== parsed.specifiqueNorm,
+          isFuzzy: !specNormSet.has(o.specifique_norm),
           odoScore: sc,
         });
       }
@@ -945,53 +1001,62 @@ export async function adresseVerify(
     // 2C) Tolérance aux fautes de frappe : squelette consonantique + trigrammes FTS5
     if (odoCandidates.size === 0) {
       const fuzzyRows: RawOdoRow[] = [];
-      if (parsed.consonantKey.length >= 3) {
+      if (consKeyVariants.length > 0) {
+        const consWhere =
+          consKeyVariants.length === 1
+            ? "cle_consonnes = ?"
+            : `cle_consonnes IN (${consKeyVariants.map(() => "?").join(",")})`;
         const consRes = await db
           .prepare(
             `SELECT id, code_municipalite, seqodo, generique, particule, specifique, cardinal,
                     odonyme_normal, odonyme_long, specifique_norm, cle_consonnes, renvois_recherche
                FROM odonymes
-              WHERE cle_consonnes = ?${munFilterClause}
+              WHERE ${consWhere}${munFilterClause}
               LIMIT 50`,
           )
-          .bind(parsed.consonantKey, ...munCodes)
+          .bind(...consKeyVariants, ...munCodes)
           .all<RawOdoRow>();
         fuzzyRows.push(...consRes.results);
       }
 
-      if (fuzzyRows.length === 0 && parsed.specifiqueNorm.length >= 4) {
-        // Extraire des trigrammes distincts pour interroger `odonymes_trigram` (classés par BM25)
-        const cleanSpec = parsed.specifiqueNorm;
+      if (fuzzyRows.length === 0) {
         const trigramSet = new Set<string>();
-        trigramSet.add(`"${cleanSpec.slice(0, 3)}"`);
-        if (cleanSpec.length >= 5) {
-          const mid = Math.floor((cleanSpec.length - 3) / 2);
-          trigramSet.add(`"${cleanSpec.slice(mid, mid + 3)}"`);
+        for (const cleanSpec of specNormVariants) {
+          if (cleanSpec.length < 4) continue;
+          trigramSet.add(`"${cleanSpec.slice(0, 3)}"`);
+          if (cleanSpec.length >= 5) {
+            const mid = Math.floor((cleanSpec.length - 3) / 2);
+            trigramSet.add(`"${cleanSpec.slice(mid, mid + 3)}"`);
+          }
+          if (cleanSpec.length >= 6) {
+            trigramSet.add(`"${cleanSpec.slice(-3)}"`);
+          }
         }
-        if (cleanSpec.length >= 6) {
-          trigramSet.add(`"${cleanSpec.slice(-3)}"`);
+        if (trigramSet.size > 0) {
+          const triQuery = Array.from(trigramSet).join(" OR ");
+          const triRes = await db
+            .prepare(
+              `SELECT o.id, o.code_municipalite, o.seqodo, o.generique, o.particule, o.specifique,
+                      o.cardinal, o.odonyme_normal, o.odonyme_long, o.specifique_norm,
+                      o.cle_consonnes, o.renvois_recherche
+                 FROM odonymes_trigram t
+                 JOIN odonymes o ON o.id = t.rowid
+                WHERE odonymes_trigram MATCH ?${munFilterClause.replace("code_municipalite", "o.code_municipalite")}
+                ORDER BY bm25(odonymes_trigram)
+                LIMIT 60`,
+            )
+            .bind(triQuery, ...munCodes)
+            .all<RawOdoRow>();
+          fuzzyRows.push(...triRes.results);
         }
-        const triQuery = Array.from(trigramSet).join(" OR ");
-        const triRes = await db
-          .prepare(
-            `SELECT o.id, o.code_municipalite, o.seqodo, o.generique, o.particule, o.specifique,
-                    o.cardinal, o.odonyme_normal, o.odonyme_long, o.specifique_norm,
-                    o.cle_consonnes, o.renvois_recherche
-               FROM odonymes_trigram t
-               JOIN odonymes o ON o.id = t.rowid
-              WHERE odonymes_trigram MATCH ?${munFilterClause.replace("code_municipalite", "o.code_municipalite")}
-              ORDER BY bm25(odonymes_trigram)
-              LIMIT 60`,
-          )
-          .bind(triQuery, ...munCodes)
-          .all<RawOdoRow>();
-        fuzzyRows.push(...triRes.results);
       }
 
       for (const o of fuzzyRows) {
         if (odoCandidates.has(Number(o.id))) continue;
-        const sim = similarityRatio(parsed.specifiqueNorm, o.specifique_norm);
-        const dist = levenshteinDistance(parsed.specifiqueNorm, o.specifique_norm);
+        const sim = Math.max(...specNormVariants.map((v) => similarityRatio(v, o.specifique_norm)));
+        const dist = Math.min(
+          ...specNormVariants.map((v) => levenshteinDistance(v, o.specifique_norm)),
+        );
         if (sim < 0.72 && dist > 2) continue;
 
         let sc = 60 + sim * 25;
@@ -1120,7 +1185,7 @@ export async function adresseVerify(
         WHERE odo_id IN (${odoIds.map(() => "?").join(",")})
           AND numero_municipal = ?
         ORDER BY CASE
-                   WHEN ? != '' AND UPPER(numero_unite) = ? THEN 0
+                   WHEN ? != '' AND (UPPER(numero_unite) = ? OR (numero_unite = '' AND UPPER(suffixe) = ?)) THEN 0
                    WHEN numero_unite = '' THEN 1
                    ELSE 2
                  END,
@@ -1128,7 +1193,7 @@ export async function adresseVerify(
                  numero_unite ASC
         LIMIT 80`,
     )
-    .bind(...odoIds, parsed.civicNumber, requestedUnitUpper, requestedUnitUpper)
+    .bind(...odoIds, parsed.civicNumber, requestedUnitUpper, requestedUnitUpper, requestedUnitUpper)
     .all<RawCivicRow>();
 
   const odoMetaById = new Map(rankedOdos.map((r) => [r.odo.id, r]));
@@ -1160,6 +1225,10 @@ export async function adresseVerify(
       if (parsed.unitNumber) {
         if (c.numero_unite.toUpperCase() === parsed.unitNumber) {
           sc += 35;
+          unitConfirmed = true;
+        } else if (c.numero_unite === "" && c.suffixe.toUpperCase() === parsed.unitNumber) {
+          // Certaines municipalités RQA encodent le numéro de local/bureau dans `suffixe` (p. ex. Gaspé 11, suffixe '101')
+          sc += 30;
           unitConfirmed = true;
         } else if (c.numero_unite === "") {
           // Point bâtiment principal sans subdivision d'unité au RQA
@@ -1195,7 +1264,7 @@ export async function adresseVerify(
     const seenKeys = new Set<string>();
     for (const item of scoredCivics) {
       const key = parsed.unitNumber
-        ? `${item.odo.id}:${item.civ.suffixe}:${item.unitConfirmed ? item.civ.numero_unite : "UNCONF"}`
+        ? `${item.odo.id}:${item.civ.suffixe}:${item.unitConfirmed ? item.civ.numero_unite || item.civ.suffixe : "UNCONF"}`
         : `${item.odo.id}:${item.civ.suffixe}`;
       if (seenKeys.has(key)) continue;
       seenKeys.add(key);
@@ -1209,6 +1278,37 @@ export async function adresseVerify(
       status = "fuzzy_street_exact_civic";
       corrections.push(
         `Odonyme corrigé par rapprochement orthographique : '${parsed.rawStreetSpecific}' → '${best.odo.odonyme_long}'`,
+      );
+    }
+    if (
+      parsed.cardinal &&
+      (best.odo.cardinal ?? "").toLowerCase() !== parsed.cardinal.toLowerCase()
+    ) {
+      status = "fuzzy_street_exact_civic";
+      corrections.push(
+        `Point cardinal divergent : numéro civique ${best.civ.numero_municipal} introuvable sur le tronçon '${parsed.cardinal}', candidat retenu sur '${best.odo.odonyme_long}'`,
+      );
+    }
+    if (
+      parsed.generique &&
+      best.odo.generique &&
+      foldAddressToken(best.odo.generique) !== foldAddressToken(parsed.generique)
+    ) {
+      status = "fuzzy_street_exact_civic";
+      corrections.push(
+        `Générique d'odonyme rectifié selon le RQA : '${parsed.generique}' → '${best.odo.generique.toLowerCase()}' ('${best.odo.odonyme_long}')`,
+      );
+    }
+    if (
+      parsed.civicSuffix &&
+      best.civ.suffixe.toUpperCase() !== parsed.civicSuffix &&
+      best.civ.numero_unite.toUpperCase() !== parsed.civicSuffix
+    ) {
+      if (status === "exact_civic") {
+        status = "exact_civic_unit_unconfirmed";
+      }
+      corrections.push(
+        `Numéro civique ${best.civ.numero_municipal} confirmé au RQA, mais le suffixe '${parsed.civicSuffix}' n'y est pas inscrit individuellement`,
       );
     }
     if (parsed.unitNumber && !best.unitConfirmed) {
@@ -1237,11 +1337,19 @@ export async function adresseVerify(
     const formattedCandidates: z.infer<typeof CandidatAdresseSchema>[] = deduped.map((item) => {
       const mun = munMap.get(item.odo.code_municipalite);
       const munName = mun?.nom_municipalite ?? item.odo.code_municipalite;
+      const suffixMatchesUnit =
+        Boolean(parsed.unitNumber) &&
+        item.unitConfirmed &&
+        item.civ.numero_unite === "" &&
+        item.civ.suffixe.toUpperCase() === parsed.unitNumber;
       const effectiveUnit = parsed.unitNumber
         ? item.unitConfirmed
-          ? item.civ.numero_unite
+          ? item.civ.numero_unite || parsed.unitNumber
           : parsed.unitNumber
         : "";
+      const effectiveSuffix = suffixMatchesUnit
+        ? ""
+        : item.civ.suffixe || (parsed.civicSuffix && item === best ? parsed.civicSuffix : "");
       const rqaPostalType = isGisStackingUnitType(item.civ.type_unite)
         ? null
         : normalizeUnitLabel(item.civ.type_unite!);
@@ -1268,7 +1376,7 @@ export async function adresseVerify(
       return {
         adresse_normalisee: formatNormalizedQuebecAddress({
           civic: item.civ.numero_municipal,
-          suffix: item.civ.suffixe,
+          suffix: effectiveSuffix,
           odonymeLong: item.odo.odonyme_long,
           unitNumber: effectiveUnit,
           unitLabel: effectiveUnitLabel,

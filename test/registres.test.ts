@@ -95,20 +95,42 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         '{"im":"2001-05-01","ad":"75, BOUL. RENÉ-LÉVESQUE OUEST, 20 IÈME ÉTAGE, MONTRÉAL QC","cp":"H2Z1A4"}'
       );
 
+      -- 6) Maison d'hébergement avec dispense d'adresse LPLE (da=1) ayant aussi un établissement et volets annexes
+      INSERT INTO entites VALUES (
+        6, 'qc', '1144118263', NULL, 1,
+        'L''AUBERGE DE L''AMITIÉ ROBERVAL INC.',
+        '',
+        NULL,
+        'CIE', 'IM', '1990-06-15', 'Roberval', 6,
+        '{"im":"1990-06-15","da":1,"ad":"374 rue Brassard, Roberval (Québec)","cp":"G8H2E1","et":[["0001","Maison d''hébergement",1,"374 rue Brassard, Roberval (Québec)","G8H2E1","Hébergement"]],"fs":[["FO","1140009999","Ancien Refuge Inc.","2010-01-01","374 rue Brassard, Roberval"]]}'
+      );
+
+      -- 7) Fondation comportant une ligature française « Œ » dans sa dénomination officielle
+      INSERT INTO entites VALUES (
+        7, 'qc', '1165554444', NULL, 1,
+        'FONDATION SŒURS DE NOTRE-DAME AUXILIATRICE',
+        '',
+        NULL,
+        'CIE', 'IM', '2008-03-20', 'Montréal', 0,
+        '{"im":"2008-03-20","ad":"200 rue Sherbrooke Est, Montréal (Québec)","cp":"H2X1C8"}'
+      );
+
       INSERT INTO rbq_licences VALUES (
         '1170123456', '5789-1234-01',
         '{"statut":"Active","type_licence":"Entrepreneur","categorie":"Generale","sous_categories":["1.2","1.3","16"],"restriction":false,"date_delivrance":"2019-03-01","date_paiement_annuel":"2027-03-01","cautionnement_montant":"40000"}'
       );
 
-      INSERT INTO opc_permis VALUES (
-        1, '1170123456', '700912',
-        '{"categorie_permis":"Commerçant itinérant","nom_commercant":"9123-4567 QUÉBEC INC.","adresse_etablissement":"500 boul. René-Lévesque Ouest","ville_etablissement":"Montréal","code_postal":"H2Z 1W7","autres_noms":"Constructions Tremblay Grand-Nord"}'
-      );
+      INSERT INTO opc_permis VALUES
+        (1, '1170123456', '700912',
+          '{"categorie_permis":"Commerçant itinérant","nom_commercant":"9123-4567 QUÉBEC INC.","adresse_etablissement":"500 boul. René-Lévesque Ouest","ville_etablissement":"Montréal","code_postal":"H2Z 1W7","autres_noms":"Constructions Tremblay Grand-Nord"}'),
+        (2, '1144118263', '799999',
+          '{"categorie_permis":"Collecte","nom_commercant":"L''AUBERGE DE L''AMITIÉ","adresse_etablissement":"374 rue Brassard","ville_etablissement":"Roberval","code_postal":"G8H 2E1","autres_noms":null}');
 
-      INSERT INTO rena_inscriptions VALUES (
-        1, '1170123456', '9123-4567 QUÉBEC INC.', '9123 4567 quebec inc',
-        '{"categorie":"Personnes morales","adresse":"500 boul. René-Lévesque Ouest, Montréal","date_debut":"2024-06-01","date_fin":"2029-06-01","infraction":"Loi sur les contrats des organismes publics, art. 21.1","decision_amp":"Inscription au RENA (5 ans)"}'
-      );
+      INSERT INTO rena_inscriptions VALUES
+        (1, '1170123456', '9123-4567 QUÉBEC INC.', '9123 4567 quebec inc',
+          '{"categorie":"Personnes morales","adresse":"500 boul. René-Lévesque Ouest, Montréal","date_debut":"2024-06-01","date_fin":"2029-06-01","infraction":"Loi sur les contrats des organismes publics, art. 21.1","decision_amp":"Inscription au RENA (5 ans)"}'),
+        (2, '1144118263', 'L''AUBERGE DE L''AMITIÉ ROBERVAL INC.', 'l auberge de l amitie roberval inc',
+          '{"categorie":"Personnes morales","adresse":"374 rue Brassard, Roberval","date_debut":"2020-01-01","date_fin":"2021-01-01","infraction":"Test","decision_amp":"Test"}');
     `;
 
     const ftsPopulateSql = `
@@ -258,5 +280,72 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
 
     const dispSearch = await registreSearchEntities(harness.d1, { query: "Cabinet Belanger" });
     expect(dispSearch.structured.entities[0]?.ville).toBeNull();
+  });
+
+  it("occulte intégralement toute adresse sous dispense LPLE (établissements/fusions/OPC/RENA), résout les ligatures 'Sœurs'/'Soeurs' et évite le balayage complet de domaine_valeur", async () => {
+    // 1) Maison d'hébergement avec da=1 : aucune fuite d'adresse ni dans les établissements ni dans les volets annexes
+    const shelter = await registreGetEntity(harness.d1, { neq: "1144118263" });
+    expect(shelter.ok).toBe(true);
+    if (shelter.ok) {
+      expect(shelter.structured.quebec?.domicile_declare.dispense_adresse).toBe(true);
+      expect(shelter.structured.quebec?.domicile_declare.adresse).toBeNull();
+      expect(shelter.structured.quebec?.domicile_declare.ville).toBeNull();
+      expect(shelter.structured.quebec?.domicile_declare.code_postal).toBeNull();
+      expect(shelter.structured.quebec?.etablissements[0]?.adresse).toBeNull();
+      expect(shelter.structured.quebec?.etablissements[0]?.code_postal).toBeNull();
+      expect(shelter.structured.quebec?.fusions_scissions[0]?.adresse).toBeNull();
+      expect(shelter.structured.quebec?.opc_permis[0]?.adresse_etablissement).toBeNull();
+      expect(shelter.structured.quebec?.opc_permis[0]?.ville_etablissement).toBeNull();
+      expect(shelter.structured.quebec?.opc_permis[0]?.code_postal).toBeNull();
+      expect(shelter.structured.quebec?.rena_inscriptions[0]?.adresse).toBeNull();
+      const dumped = JSON.stringify(shelter);
+      expect(dumped).not.toContain("Brassard");
+      expect(dumped).not.toContain("G8H");
+    }
+
+    // 2) Recherche bidirectionnelle avec ou sans ligature « œ »
+    const withLigature = await registreSearchEntities(harness.d1, {
+      query: "Fondation Sœurs de Notre-Dame",
+    });
+    const withoutLigature = await registreSearchEntities(harness.d1, {
+      query: "Fondation Soeurs de Notre-Dame",
+    });
+    expect(withLigature.structured.count).toBe(1);
+    expect(withoutLigature.structured.count).toBe(1);
+    expect(withLigature.structured.entities[0]?.neq).toBe("1165554444");
+    expect(withoutLigature.structured.entities[0]?.neq).toBe("1165554444");
+
+    // 3) Aucune requête sur domaine_valeur en périmètre fédéral pur, et requête indexée ciblée en périmètre québécois
+    const sqlSeen: string[] = [];
+    const spyD1: D1Database = {
+      prepare(query: string) {
+        sqlSeen.push(query);
+        return harness.d1.prepare(query);
+      },
+      batch(statements) {
+        return harness.d1.batch(statements);
+      },
+      exec(query: string) {
+        return harness.d1.exec(query);
+      },
+      withSession(constraintOrBookmark?: string) {
+        return harness.d1.withSession(constraintOrBookmark);
+      },
+      dump() {
+        return harness.d1.dump();
+      },
+    };
+
+    await registreSearchEntities(spyD1, {
+      query: "Technologies Nordiques",
+      jurisdiction: "ca",
+    });
+    expect(sqlSeen.some((s) => s.includes("domaine_valeur"))).toBe(false);
+
+    sqlSeen.length = 0;
+    await registreGetEntity(spyD1, { neq: "1165554444" });
+    const dvQueries = sqlSeen.filter((s) => s.includes("domaine_valeur"));
+    expect(dvQueries).toHaveLength(1);
+    expect(dvQueries[0]).toContain("WHERE (typ_dom_val = ? AND cod_dom_val = ?)");
   });
 });

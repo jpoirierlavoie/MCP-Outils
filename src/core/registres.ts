@@ -34,10 +34,28 @@ const LEGAL_SUFFIX_TOKENS = new Set([
 const DOTTED_ACRONYM_RE =
   /(?<![\p{L}\p{N}])(?:\p{L}\.){2,}\p{L}?(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])(?:\p{L}\.)+\p{L}(?![\p{L}\p{N}])/gu;
 
+function expandLigatures(raw: string): string {
+  return raw
+    .replace(/Œ/g, "OE")
+    .replace(/œ/g, "oe")
+    .replace(/Æ/g, "AE")
+    .replace(/æ/g, "ae")
+    .replace(/ß/g, "ss");
+}
+
+function expandLigatureFtsTokenVariants(tok: string): string[] {
+  const out = new Set<string>([tok]);
+  if (tok.includes("oe")) out.add(tok.replace(/oe/g, "œ"));
+  if (tok.includes("ae")) out.add(tok.replace(/ae/g, "æ"));
+  if (tok.includes("œ")) out.add(tok.replace(/œ/g, "oe"));
+  if (tok.includes("æ")) out.add(tok.replace(/æ/g, "ae"));
+  return Array.from(out);
+}
+
 export function normalizeEntitySearch(raw: string): string {
   // Recomposer les sigles ponctués (p. ex. S.E.N.C.R.L. -> sencrl, S.A. -> sa, C.É.G.E.P. -> cegep)
   const collapsedAcronyms = raw.replace(DOTTED_ACRONYM_RE, (m) => m.replace(/\./g, ""));
-  return collapsedAcronyms
+  return expandLigatures(collapsedAcronyms)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u2018\u2019\u02bc]/g, " ")
@@ -49,7 +67,7 @@ export function normalizeEntitySearch(raw: string): string {
 
 function buildRegistreFtsQuery(rawQuery: string): string | null {
   const collapsed = rawQuery.replace(DOTTED_ACRONYM_RE, (m) => m.replace(/\./g, ""));
-  const folded = collapsed
+  const folded = expandLigatures(collapsed)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u2018\u2019\u02bc]/g, " ")
@@ -78,9 +96,11 @@ function buildRegistreFtsQuery(rawQuery: string): string | null {
     if (/^\d+$/.test(tok)) {
       groups.push(`"${tok}"`);
     } else if (tok.length >= 4) {
-      groups.push(`"${tok}"*`);
+      const clauses = expandLigatureFtsTokenVariants(tok).map((v) => `"${v}"*`);
+      groups.push(clauses.length === 1 ? clauses[0]! : `(${clauses.join(" OR ")})`);
     } else if (tok.length >= 2) {
-      groups.push(`"${tok}"`);
+      const clauses = expandLigatureFtsTokenVariants(tok).map((v) => `"${v}"`);
+      groups.push(clauses.length === 1 ? clauses[0]! : `(${clauses.join(" OR ")})`);
     }
   }
 
@@ -409,13 +429,41 @@ async function loadMetaSnapshots(db: D1Database): Promise<Record<string, string>
   return out;
 }
 
-async function loadDomaineValeurMap(db: D1Database): Promise<Map<string, string>> {
-  const res = await db
-    .prepare("SELECT typ_dom_val, cod_dom_val, libelle_fr FROM domaine_valeur")
-    .all<{ typ_dom_val: string; cod_dom_val: string; libelle_fr: string }>();
+async function loadDomaineValeurForPairs(
+  db: D1Database,
+  pairs: ReadonlyArray<readonly [string, string | null | undefined]>,
+): Promise<Map<string, string>> {
+  const unique: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const [typ, code] of pairs) {
+    if (!code) continue;
+    const key = `${typ}\0${code}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push([typ, code]);
+    }
+  }
   const map = new Map<string, string>();
-  for (const r of res.results) {
-    map.set(`${r.typ_dom_val}:${r.cod_dom_val}`, r.libelle_fr);
+  if (unique.length === 0) {
+    return map;
+  }
+  // Tranches de <= 40 paires (<= 80 paramètres liés) utilisant la clé primaire (typ_dom_val, cod_dom_val)
+  for (let i = 0; i < unique.length; i += 40) {
+    const chunk = unique.slice(i, i + 40);
+    const whereClause = chunk.map(() => "(typ_dom_val = ? AND cod_dom_val = ?)").join(" OR ");
+    const params: string[] = [];
+    for (const [typ, code] of chunk) {
+      params.push(typ, code);
+    }
+    const res = await db
+      .prepare(
+        `SELECT typ_dom_val, cod_dom_val, libelle_fr FROM domaine_valeur WHERE ${whereClause}`,
+      )
+      .bind(...params)
+      .all<{ typ_dom_val: string; cod_dom_val: string; libelle_fr: string }>();
+    for (const r of res.results) {
+      map.set(`${r.typ_dom_val}:${r.cod_dom_val}`, r.libelle_fr);
+    }
   }
   return map;
 }
@@ -434,7 +482,7 @@ const QC_UNIT_OR_FLOOR_FOLDED_RE =
 
 function isUnitOrFloorLine(raw: string): boolean {
   if (/^\s*#\s*\d+/.test(raw)) return true;
-  const folded = raw
+  const folded = expandLigatures(raw)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -499,7 +547,7 @@ export async function registreSearchEntities(
   const activeOnly = input.active_only ?? false;
   const limit = input.limit ?? 10;
 
-  const [snapshots, dv] = await Promise.all([loadMetaSnapshots(db), loadDomaineValeurMap(db)]);
+  const snapshots = await loadMetaSnapshots(db);
 
   const digitsOnly = input.query.replace(/[\s-]/g, "");
   const byId = new Map<number, { row: RawEntiteRow; score: number }>();
@@ -574,6 +622,14 @@ export async function registreSearchEntities(
   const sorted = Array.from(byId.values())
     .sort((a, b) => a.score - b.score || a.row.id - b.row.id)
     .slice(0, limit);
+
+  const dvPairs: Array<[string, string | null | undefined]> = [];
+  for (const { row } of sorted) {
+    if (row.juridiction === "qc") {
+      dvPairs.push(["FORM_JURI", row.forme_code], ["STAT_IMMAT", row.statut_code]);
+    }
+  }
+  const dv = await loadDomaineValeurForPairs(db, dvPairs);
 
   const entities = sorted.map(({ row }) => {
     const isQc = row.juridiction === "qc";
@@ -697,7 +753,7 @@ export async function registreGetEntity(
     };
   }
 
-  const [snapshots, dv] = await Promise.all([loadMetaSnapshots(db), loadDomaineValeurMap(db)]);
+  const snapshots = await loadMetaSnapshots(db);
 
   let qcRow: RawEntiteRow | null = null;
   let caRow: RawEntiteRow | null = null;
@@ -777,6 +833,27 @@ export async function registreGetEntity(
   let quebec: z.infer<typeof ProfilQuebecSchema> | null = null;
   if (qcRow || rbqRows.length > 0 || opcRows.length > 0 || renaRows.length > 0) {
     const f = parseJsonSafe<QcFicheCompact>(qcRow?.fiche_json ?? null, {});
+    const dispenseAdresse = f.da === 1;
+    const statCode = qcRow?.statut_code ?? "ND";
+
+    const dvPairs: Array<[string, string | null | undefined]> = [
+      ["STAT_IMMAT", statCode === "ND" ? null : statCode],
+      ["FORM_JURI", qcRow?.forme_code],
+      ["REGIM_JURI", f.rj],
+      ["REGIM_JURI", f.rc],
+      ["INTVAL_EMPLO_QUE", f.tr],
+    ];
+    for (const [, , st, typ] of f.nm ?? []) {
+      dvPairs.push(["STAT_NOM", st], ["TYP_NOM", typ]);
+    }
+    for (const [rel] of f.fs ?? []) {
+      dvPairs.push(["RELA_ASSUJ", rel]);
+    }
+    for (const [typ, reg] of f.ct ?? []) {
+      dvPairs.push(["TYP_CHANG", typ], ["REGIM_JURI", reg]);
+    }
+    const dv = await loadDomaineValeurForPairs(db, dvPairs);
+
     const rbqParsed = rbqRows.map((r) => {
       const p = parseJsonSafe<Record<string, unknown>>(r.payload_json, {});
       return {
@@ -798,9 +875,13 @@ export async function registreGetEntity(
         numero_permis: r.numero_permis,
         categorie_permis: String(p.categorie_permis ?? ""),
         nom_commercant: String(p.nom_commercant ?? ""),
-        adresse_etablissement: (p.adresse_etablissement as string | null) ?? null,
-        ville_etablissement: (p.ville_etablissement as string | null) ?? null,
-        code_postal: (p.code_postal as string | null) ?? null,
+        adresse_etablissement: dispenseAdresse
+          ? null
+          : ((p.adresse_etablissement as string | null) ?? null),
+        ville_etablissement: dispenseAdresse
+          ? null
+          : ((p.ville_etablissement as string | null) ?? null),
+        code_postal: dispenseAdresse ? null : ((p.code_postal as string | null) ?? null),
         autres_noms: (p.autres_noms as string | null) ?? null,
       };
     });
@@ -810,7 +891,7 @@ export async function registreGetEntity(
       return {
         nom_entreprise: r.nom_entreprise,
         categorie: (p.categorie as string | null) ?? null,
-        adresse: (p.adresse as string | null) ?? null,
+        adresse: dispenseAdresse ? null : ((p.adresse as string | null) ?? null),
         date_debut: (p.date_debut as string | null) ?? null,
         date_fin: (p.date_fin as string | null) ?? null,
         infraction: (p.infraction as string | null) ?? null,
@@ -823,7 +904,6 @@ export async function registreGetEntity(
       opcParsed[0]?.nom_commercant ??
       renaParsed[0]?.nom_entreprise ??
       `Entité NEQ ${cleanDigits}`;
-    const statCode = qcRow?.statut_code ?? "ND";
 
     quebec = {
       neq: cleanDigits,
@@ -862,10 +942,10 @@ export async function registreGetEntity(
         tranche_employes_quebec: decodeDv(dv, "INTVAL_EMPLO_QUE", f.tr),
       },
       domicile_declare: {
-        dispense_adresse: f.da === 1,
-        adresse: f.da === 1 ? null : (f.ad ?? null),
+        dispense_adresse: dispenseAdresse,
+        adresse: dispenseAdresse ? null : (f.ad ?? null),
         ville: resolveQcVille(qcRow?.ville, f),
-        code_postal: f.da === 1 ? null : (f.cp ?? null),
+        code_postal: dispenseAdresse ? null : (f.cp ?? null),
       },
       activites_economiques: (f.ac ?? []).map(([code_cae, description]) => ({
         code_cae,
@@ -883,8 +963,8 @@ export async function registreGetEntity(
         numero_suffixe: no_suf,
         nom,
         principal: princ === 1,
-        adresse: adr,
-        code_postal: cp,
+        adresse: dispenseAdresse ? null : adr,
+        code_postal: dispenseAdresse ? null : cp,
         activite: act,
       })),
       fusions_scissions: (f.fs ?? []).map(([rel, neq_rel, denom, dtEf, adr]) => ({
@@ -892,7 +972,7 @@ export async function registreGetEntity(
         neq_relie: neq_rel,
         denomination: denom,
         date_prise_effet: dtEf,
-        adresse: adr,
+        adresse: dispenseAdresse ? null : adr,
       })),
       continuations_transformations: (f.ct ?? []).map(([typ, reg, loc, dtEf]) => ({
         type_changement: decodeDv(dv, "TYP_CHANG", typ) ?? typ,

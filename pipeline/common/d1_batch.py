@@ -40,7 +40,14 @@ MAX_FILE_BYTES = 6_000_000
 
 
 def strip_accents(text: str) -> str:
-    nfd = unicodedata.normalize("NFD", text)
+    expanded = (
+        text.replace("Œ", "OE")
+        .replace("œ", "oe")
+        .replace("Æ", "AE")
+        .replace("æ", "ae")
+        .replace("ß", "ss")
+    )
+    nfd = unicodedata.normalize("NFD", expanded)
     return "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
 
 

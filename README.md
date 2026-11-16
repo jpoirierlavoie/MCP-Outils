@@ -93,7 +93,7 @@ pipeline/
   adresses/          Schéma normalisé 3 tables, index FTS5 odonymes et ingestion RQA (`ingest_adresses.py`)
 sources-officielles/ Instantané HTML officiel du ministère de la Justice (greffes et points de service)
 scripts/             Générateur de `src/qc/lieux.ts` à partir de l'instantané MJQ (`extraire-lieux-mjq.mjs`)
-test/                247 tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`)
+test/                250 tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`)
 ```
 
 ## Développement local, pipelines D1 et déploiement (Wrangler)

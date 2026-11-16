@@ -574,4 +574,125 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       pageHarness.close();
     }
   });
+
+  it("unifie les ligatures 'œ'/'oe', isole law_filter sans amalgame ('ccq'/'b-1'/'C-25.01'/'100%') et épargne les tournures statutaires québécoises", async () => {
+    const schemaSql = readFileSync(
+      resolve(process.cwd(), "pipeline/terminologie/schema.sql"),
+      "utf-8",
+    );
+    const indexesSql = readFileSync(
+      resolve(process.cwd(), "pipeline/terminologie/indexes.sql"),
+      "utf-8",
+    );
+
+    const ligHarness = createSqliteD1Harness({
+      seedSql: [
+        schemaSql,
+        `INSERT INTO meta_sources VALUES ('concordancier_legislatif', 'Concordancier', 2, 'OGL-Canada', '2026-11-15', 6);`,
+        // Fiche dont terme_fr_norm imite un chargement antérieur ('mise en uvre') + terme_fr avec ligature 'œuvre'
+        `INSERT INTO fiches_terminologiques VALUES (
+          1, NULL, 3, 'TERMIUM Plus®', 'OGL-Canada',
+          'mise en œuvre', 'implementation', 'mise en uvre', 'implementation',
+          '[]', '[]', '[]', 'mise en œuvre | implementation',
+          'bijuridique_federal', 'Droit général', 'Exécution effective.', NULL, NULL, '2026-11-15'
+        );`,
+        `INSERT INTO lois_bilingues VALUES
+          ('ccq', 'qc', 'Code civil du Québec', 'Civil Code of Québec', 'RLRQ, c. CCQ-1991', NULL, '2026-04-07', '2026-04-07'),
+          ('ccq-r.6', 'qc', 'Règlement sur le registre des droits personnels et réels mobiliers', 'Regulation respecting the register of personal and movable real rights', 'RLRQ, c. CCQ, r. 6', NULL, '2026-04-07', '2026-04-07'),
+          ('cpc', 'qc', 'Code de procédure civile', 'Code of Civil Procedure', 'RLRQ, c. C-25.01', NULL, '2026-04-07', '2026-04-07'),
+          ('c-25.01-r.9', 'qc', 'Règlement de la Cour du Québec', 'Regulation of the Court of Québec', 'RLRQ, c. C-25.01, r. 9', NULL, '2026-04-07', '2026-04-07'),
+          ('b-1', 'qc', 'Loi sur le Barreau', 'Act respecting the Barreau du Québec', 'RLRQ, c. B-1', NULL, '2026-04-07', '2026-04-07'),
+          ('b-1.1', 'qc', 'Loi sur le bâtiment', 'Building Act', 'RLRQ, c. B-1.1', NULL, '2026-04-07', '2026-04-07'),
+          ('ca-i-21', 'ca', 'Loi d’interprétation', 'Interpretation Act', 'L.R.C. (1985), ch. I-21', 'R.S.C., 1985, c. I-21', '2026-07-21', '2026-07-21');`,
+        `INSERT INTO articles_bilingues VALUES
+          (1, 'ccq', '1458', 1458, 'La mise en oeuvre de la responsabilité contractuelle.', 'Contractual liability implementation.'),
+          (2, 'ccq-r.6', '1', 1, 'Inscription d’une hypothèque mobilière au registre.', 'Registration of a movable hypothec.'),
+          (3, 'cpc', '145', 145, 'Le défendeur doit répondre à l’assignation dans les 15 jours.', 'The defendant must answer the summons within 15 days.'),
+          (4, 'c-25.01-r.9', '5', 5, 'Toute demande présentée en chambre de pratique.', 'Any application presented in practice division.'),
+          (5, 'b-1', '128', 128, 'Sont du ressort exclusif de l’avocat en exercice.', 'Exclusive prerogative of the practising advocate.'),
+          (6, 'b-1.1', '40', 40, 'L’entrepreneur représenté par avocat devant la Régie.', 'Contractor represented by advocate.'),
+          (7, 'ca-i-21', '8.1', 8.1, 'La mise en œuvre du bijuridisme fédéral.', 'Implementation of federal bijuralism.');`,
+        indexesSql,
+        `INSERT INTO fiches_fts(rowid, terme_fr, terme_en, termes_recherche, domaine)
+          SELECT id, terme_fr, terme_en, termes_recherche, domaine FROM fiches_terminologiques;
+         INSERT INTO articles_fr_fts(rowid, text_fr) SELECT id, text_fr FROM articles_bilingues;
+         INSERT INTO articles_en_fts(rowid, text_en) SELECT id, text_en FROM articles_bilingues;`,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      // 1) Ligature œ <-> oe dans terminologie_lookup et terminologie_attestations
+      const lookLig = await terminologieLookup(ligHarness.d1, { query: "mise en œuvre" });
+      const lookAscii = await terminologieLookup(ligHarness.d1, { query: "mise en oeuvre" });
+      expect(lookLig.structured.count).toBe(1);
+      expect(lookAscii.structured.count).toBe(1);
+      expect(lookLig.structured.fiches[0]?.terme_en).toBe("implementation");
+      expect(lookAscii.structured.fiches[0]?.terme_en).toBe("implementation");
+
+      const attLig = await terminologieAttestations(ligHarness.d1, {
+        term: "mise en œuvre",
+        lang: "fr",
+      });
+      const attAscii = await terminologieAttestations(ligHarness.d1, {
+        term: "mise en oeuvre",
+        lang: "fr",
+      });
+      expect(attLig.structured.total_matching_articles).toBe(2);
+      expect(attAscii.structured.total_matching_articles).toBe(2);
+
+      // 2) Isolation stricte de law_filter et échappement des jokers SQL LIKE
+      const ccq = await terminologieAttestations(ligHarness.d1, {
+        term: "hypothèque",
+        lang: "fr",
+        law_filter: "ccq",
+      });
+      expect(ccq.structured.total_matching_articles).toBe(0);
+
+      const b1 = await terminologieAttestations(ligHarness.d1, {
+        term: "avocat",
+        lang: "fr",
+        law_filter: "b-1",
+      });
+      expect(b1.structured.by_law.map((l) => l.law_id)).toEqual(["b-1"]);
+
+      const c25 = await terminologieAttestations(ligHarness.d1, {
+        term: "demande",
+        lang: "fr",
+        law_filter: "C-25.01",
+      });
+      expect(c25.structured.total_matching_articles).toBe(0);
+
+      const wild = await terminologieAttestations(ligHarness.d1, {
+        term: "avocat",
+        lang: "fr",
+        law_filter: "100%",
+      });
+      expect(wild.structured.total_matching_articles).toBe(0);
+    } finally {
+      ligHarness.close();
+    }
+
+    // 3) terminologie_scan_text : zéro faux positif sur les tournures statutaires du C.p.c. / C.c.Q.
+    const cleanStatutesFr = await terminologieScanText(harness.d1, {
+      text: "Le défendeur doit répondre à l’assignation dans le délai d'assignation devant les tribunaux judiciaires du Québec ou un autre tribunal judiciaire compétent.",
+      lang: "fr",
+    });
+    expect(cleanStatutesFr.structured.flagged_count).toBe(0);
+
+    const dirtyFranceFr = await terminologieScanText(harness.d1, {
+      text: "La demanderesse entend saisir le tribunal judiciaire de Paris par l'assignation délivrée hier.",
+      lang: "fr",
+    });
+    expect(dirtyFranceFr.structured.occurrences.map((o) => o.matched_text.toLowerCase())).toEqual([
+      "tribunal judiciaire",
+      "assignation",
+    ]);
+
+    const cleanCmhcEn = await terminologieScanText(harness.d1, {
+      text: "Investments guaranteed by the Canada Mortgage and Housing Corporation are presumed sound under article 1339 C.C.Q.",
+      lang: "en",
+    });
+    expect(cleanCmhcEn.structured.flagged_count).toBe(0);
+  });
 });

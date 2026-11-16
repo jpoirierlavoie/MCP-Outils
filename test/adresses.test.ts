@@ -302,4 +302,179 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(towerBase.structured.candidates).toHaveLength(1);
     }
   });
+
+  it("résout les patronymes à particule intégrée ('De La Gauchetière' + faute de frappe) et les ligatures ('Sœurs-Grises')", async () => {
+    const schemaSql = readFileSync(resolve(process.cwd(), "pipeline/adresses/schema.sql"), "utf-8");
+    const indexesSql = readFileSync(
+      resolve(process.cwd(), "pipeline/adresses/indexes.sql"),
+      "utf-8",
+    );
+    const subHarness = createSqliteD1Harness({
+      seedSql: [
+        schemaSql,
+        indexesSql,
+        `
+        INSERT INTO meta_sources VALUES ('rqa', 'RQA', 'CC-BY-4.0', '2026-09-01', 4);
+        INSERT INTO municipalites VALUES
+          ('66023', 'Montréal', 'montreal', 'mtl', 'Montréal', 'Montréal'),
+          ('03005', 'Gaspé', 'gaspe', '', 'La Côte-de-Gaspé', 'Gaspésie'),
+          ('53052', 'Shawinigan', 'shawinigan', '', 'Shawinigan', 'Mauricie');
+        INSERT INTO odonymes VALUES
+          (1, '66023', '1', 'rue', NULL, 'De La Gauchetière', 'Ouest', 'rue De La Gauchetière Ouest', 'rue De La Gauchetière Ouest', 'de la gauchetiere', '${computeConsonantKey("De La Gauchetière")}', ''),
+          (2, '66023', '2', 'rue', 'des', 'Sœurs-Grises', NULL, 'rue des Sœurs-Grises', 'rue des Sœurs-Grises', 'soeurs grises', '${computeConsonantKey("Sœurs-Grises")}', ''),
+          (3, '66023', '3', 'boulevard', NULL, 'De Maisonneuve', 'Est', 'boul. De Maisonneuve Est', 'boulevard De Maisonneuve Est', 'de maisonneuve', '${computeConsonantKey("De Maisonneuve")}', ''),
+          (4, '66023', '4', 'boulevard', NULL, 'De Maisonneuve', 'Ouest', 'boul. De Maisonneuve Ouest', 'boulevard De Maisonneuve Ouest', 'de maisonneuve', '${computeConsonantKey("De Maisonneuve")}', ''),
+          (5, '66023', '5', 'avenue', 'du', 'Parc', NULL, 'av. du Parc', 'avenue du Parc', 'parc', '${computeConsonantKey("Parc")}', ''),
+          (6, '03005', '6', 'rue', 'de la', 'Cathédrale', NULL, 'rue de la Cathédrale', 'rue de la Cathédrale', 'cathedrale', '${computeConsonantKey("Cathédrale")}', ''),
+          (7, '53052', '7', NULL, NULL, '6e rue de la Pointe', NULL, '6e rue de la Pointe', '6e rue de la Pointe', '6e rue de la pointe', '${computeConsonantKey("6e rue de la Pointe")}', '');
+        INSERT INTO adresses_civiques VALUES
+          (1, 1, 1000, '', '', NULL, 'H3B5H4', 'C', 'Principal', '1000001', '9000-00-0001', 45.498, -73.566),
+          (2, 2, 100, '', '', NULL, 'H3C2A1', 'C', 'Principal', '1000002', '9000-00-0002', 45.497, -73.555),
+          (3, 3, 1250, '', '', NULL, 'H2L1Z9', 'C', 'Principal', '1000003', '9000-00-0003', 45.518, -73.558),
+          (4, 4, 1000, '', '', NULL, 'H3A3C8', 'C', 'Principal', '1000004', '9000-00-0004', 45.502, -73.573),
+          (5, 5, 3500, '', '', NULL, 'H2X2H7', 'C', 'Principal', '1000005', '9000-00-0005', 45.511, -73.572),
+          (6, 6, 11, '101', '', NULL, 'G4X2V9', 'C', 'Principal', '1000006', '1000-00-0006', 48.831, -64.482),
+          (7, 6, 123, '1/2', '', NULL, 'G4X1A1', 'C', 'Principal', '1000007', '1000-00-0007', 48.832, -64.483),
+          (8, 6, 10, '', '', NULL, 'G4X1A2', 'C', 'Principal', '1000008', '1000-00-0008', 48.833, -64.484),
+          (9, 7, 212, '', '', NULL, 'G9N8B6', 'C', 'Principal', '1000009', '2000-00-0009', 46.539, -72.748);
+        INSERT INTO odonymes_fts(rowid, specifique, odonyme_normal, renvois_recherche)
+          SELECT id, specifique, odonyme_normal, renvois_recherche FROM odonymes;
+        INSERT INTO odonymes_trigram(rowid, specifique_norm)
+          SELECT id, specifique_norm FROM odonymes;
+        `,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      // 1) Patronyme à particule exact + faute de frappe + ligature œ
+      const exactGauch = await adresseVerify(subHarness.d1, {
+        address: "1000, rue De La Gauchetière Ouest, Montréal",
+      });
+      expect(exactGauch.ok).toBe(true);
+      if (exactGauch.ok) {
+        expect(exactGauch.structured.status).toBe("exact_civic");
+        expect(exactGauch.structured.adresse_normalisee).toBe(
+          "1000, rue De La Gauchetière Ouest, Montréal (Québec) H3B 5H4",
+        );
+      }
+
+      const typoGauch = await adresseVerify(subHarness.d1, {
+        address: "1000 rue De La Gauchetierre O, Mtl",
+      });
+      expect(typoGauch.ok).toBe(true);
+      if (typoGauch.ok) {
+        expect(typoGauch.structured.status).toBe("fuzzy_street_exact_civic");
+        expect(typoGauch.structured.adresse_normalisee).toBe(
+          "1000, rue De La Gauchetière Ouest, Montréal (Québec) H3B 5H4",
+        );
+      }
+
+      const soeurs = await adresseVerify(subHarness.d1, {
+        address: "100, rue des Sœurs-Grises, Montréal",
+      });
+      expect(soeurs.ok).toBe(true);
+      if (soeurs.ok) {
+        expect(soeurs.structured.status).toBe("exact_civic");
+        expect(soeurs.structured.adresse_normalisee).toBe(
+          "100, rue des Sœurs-Grises, Montréal (Québec) H3C 2A1",
+        );
+      }
+
+      // 2) Suffixe numérique d'unité RQA (Gaspé 11, suffixe '101' -> pas de collage '11101'), fraction '1/2', suffixe '10-B' non confirmé
+      const gaspe = await adresseVerify(subHarness.d1, {
+        address: "11, rue de la Cathédrale, bureau 101, Gaspé G4X 2V9",
+      });
+      expect(gaspe.ok).toBe(true);
+      if (gaspe.ok) {
+        expect(gaspe.structured.status).toBe("exact_civic");
+        expect(gaspe.structured.adresse_normalisee).toBe(
+          "11, rue de la Cathédrale, bureau 101, Gaspé (Québec) G4X 2V9",
+        );
+      }
+
+      const frac = await adresseVerify(subHarness.d1, {
+        address: "123 1/2, rue de la Cathédrale, Gaspé",
+      });
+      expect(frac.ok).toBe(true);
+      if (frac.ok) {
+        expect(frac.structured.status).toBe("exact_civic");
+        expect(frac.structured.adresse_normalisee).toBe(
+          "123 1/2, rue de la Cathédrale, Gaspé (Québec) G4X 1A1",
+        );
+      }
+
+      const unconfSuffix = await adresseVerify(subHarness.d1, {
+        address: "10-B, rue de la Cathédrale, Gaspé",
+      });
+      expect(unconfSuffix.ok).toBe(true);
+      if (unconfSuffix.ok) {
+        expect(unconfSuffix.structured.status).toBe("exact_civic_unit_unconfirmed");
+        expect(unconfSuffix.structured.adresse_normalisee).toBe(
+          "10B, rue de la Cathédrale, Gaspé (Québec) G4X 1A2",
+        );
+        expect(unconfSuffix.structured.gardes.map((g) => g.code)).toContain(
+          "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+        );
+      }
+
+      // 3) Odonyme ordinal composé ('6e rue de la Pointe'), mention d'étage ('1er étage') et bureau décimal ('bureau 1.32')
+      const shawinigan = await adresseVerify(subHarness.d1, {
+        address: "212, 6e rue de la Pointe, 1er étage, Shawinigan G9N 8B6",
+      });
+      expect(shawinigan.ok).toBe(true);
+      if (shawinigan.ok) {
+        expect(shawinigan.structured.status).toBe("exact_civic");
+        expect(shawinigan.structured.adresse_normalisee).toBe(
+          "212, 6e rue de la Pointe, Shawinigan (Québec) G9N 8B6",
+        );
+      }
+
+      const dottedUnit = await adresseVerify(subHarness.d1, {
+        address: "1000, rue De La Gauchetière Ouest, bureau 1.32, Montréal",
+      });
+      expect(dottedUnit.ok).toBe(true);
+      if (dottedUnit.ok) {
+        expect(dottedUnit.structured.status).toBe("exact_civic_unit_unconfirmed");
+        expect(dottedUnit.structured.adresse_normalisee).toBe(
+          "1000, rue De La Gauchetière Ouest, bureau 1.32, Montréal (Québec) H3B 5H4",
+        );
+      }
+
+      // 4) Divergence de cardinal ('Ouest' -> 'Est') ou de générique ('rue' -> 'avenue') : jamais exact_civic silencieux
+      const cardMismatch = await adresseVerify(subHarness.d1, {
+        address: "1250, boulevard De Maisonneuve Ouest, Montréal",
+      });
+      expect(cardMismatch.ok).toBe(true);
+      if (cardMismatch.ok) {
+        expect(cardMismatch.structured.status).toBe("fuzzy_street_exact_civic");
+        expect(
+          cardMismatch.structured.corrections_appliquees.some((c) =>
+            c.includes("Point cardinal divergent"),
+          ),
+        ).toBe(true);
+        expect(cardMismatch.structured.gardes.map((g) => g.code)).toContain(
+          "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+        );
+      }
+
+      const genMismatch = await adresseVerify(subHarness.d1, {
+        address: "3500, rue du Parc, Montréal",
+      });
+      expect(genMismatch.ok).toBe(true);
+      if (genMismatch.ok) {
+        expect(genMismatch.structured.status).toBe("fuzzy_street_exact_civic");
+        expect(
+          genMismatch.structured.corrections_appliquees.some((c) =>
+            c.includes("Générique d'odonyme rectifié"),
+          ),
+        ).toBe(true);
+        expect(genMismatch.structured.gardes.map((g) => g.code)).toContain(
+          "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+        );
+      }
+    } finally {
+      subHarness.close();
+    }
+  });
 });

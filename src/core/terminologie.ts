@@ -1,8 +1,27 @@
 import { z } from "zod";
 import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
-export function normalizeFold(input: string): string {
+function expandLigatures(input: string): string {
   return input
+    .replace(/Œ/g, "OE")
+    .replace(/œ/g, "oe")
+    .replace(/Æ/g, "AE")
+    .replace(/æ/g, "ae")
+    .replace(/ß/g, "ss");
+}
+
+function expandLigatureFtsTokenVariants(tok: string): string[] {
+  const out = new Set<string>([tok]);
+  const lower = tok.toLowerCase();
+  if (lower.includes("oe")) out.add(lower.replace(/oe/g, "œ"));
+  if (lower.includes("ae")) out.add(lower.replace(/ae/g, "æ"));
+  if (lower.includes("œ")) out.add(lower.replace(/œ/g, "oe"));
+  if (lower.includes("æ")) out.add(lower.replace(/æ/g, "ae"));
+  return Array.from(out);
+}
+
+export function normalizeFold(input: string): string {
+  return expandLigatures(input)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[\u2018\u2019\u02bc]/g, "'")
@@ -103,9 +122,23 @@ export function extractSafeFtsTokens(input: string): string[] {
 }
 
 export function buildFtsPhraseQuery(input: string): string | null {
-  const tokens = extractSafeFtsTokens(input);
+  const tokens = extractSafeFtsTokens(input).map((t) => t.replace(/"/g, ""));
   if (tokens.length === 0) return null;
-  return `"${tokens.map((t) => t.replace(/"/g, "")).join(" ")}"`;
+  let phrases: string[][] = [[]];
+  let expandedCount = 0;
+  for (const tok of tokens) {
+    const vars = expandedCount < 3 ? expandLigatureFtsTokenVariants(tok) : [tok];
+    if (vars.length > 1) expandedCount += 1;
+    const next: string[][] = [];
+    for (const prefix of phrases) {
+      for (const v of vars) {
+        next.push([...prefix, v]);
+      }
+    }
+    phrases = next;
+  }
+  const uniquePhrases = Array.from(new Set(phrases.map((p) => `"${p.join(" ")}"`)));
+  return uniquePhrases.join(" OR ");
 }
 
 export function buildFtsAndPrefixQuery(
@@ -118,8 +151,9 @@ export function buildFtsAndPrefixQuery(
     .map((t) => {
       const clean = t.replace(/"/g, "");
       const folded = normalizeFold(clean);
+      const baseVariants = [clean, ...singularizeFoldedTokenVariants(folded, lang)].filter(Boolean);
       const variants = Array.from(
-        new Set([clean, ...singularizeFoldedTokenVariants(folded, lang)].filter(Boolean)),
+        new Set(baseVariants.flatMap((v) => expandLigatureFtsTokenVariants(v))),
       );
       const clauses = variants.map((v) => (v.length >= 3 ? `"${v}"*` : `"${v}"`));
       return clauses.length === 1 ? clauses[0]! : `(${clauses.join(" OR ")})`;
@@ -266,14 +300,24 @@ export async function terminologieLookup(
 
   // 1) Correspondances exactes sur termes normalisés (incluant la lemmatisation singulière régulière)
   const qVariants = buildNormalizedQueryVariants(qNorm, sourceLang);
-  const inPlaceholders = qVariants.map(() => "?").join(", ");
+  const qVariantSet = new Set(qVariants);
+  const sqlVariants = Array.from(
+    new Set([
+      ...qVariants,
+      ...qVariants
+        .filter((v) => v.includes("oe") || v.includes("ae"))
+        .map((v) => v.replace(/oe/g, " ").replace(/ae/g, " ").replace(/\s+/g, " ").trim())
+        .filter((v) => v.length >= 2),
+    ]),
+  );
+  const inPlaceholders = sqlVariants.map(() => "?").join(", ");
   const exactWhere =
     sourceLang === "fr"
       ? `terme_fr_norm IN (${inPlaceholders})`
       : sourceLang === "en"
         ? `terme_en_norm IN (${inPlaceholders})`
         : `(terme_fr_norm IN (${inPlaceholders}) OR terme_en_norm IN (${inPlaceholders}))`;
-  const exactParams = sourceLang === "auto" ? [...qVariants, ...qVariants] : [...qVariants];
+  const exactParams = sourceLang === "auto" ? [...sqlVariants, ...sqlVariants] : [...sqlVariants];
   const exactRes = await db
     .prepare(
       `SELECT id, rang_source, source_nom, licence_source, terme_fr, terme_en,
@@ -289,11 +333,20 @@ export async function terminologieLookup(
     .all<RawFicheRow>();
 
   for (const r of exactRes.results) {
-    byId.set(Number(r.id), { row: r, exactTier: 0 });
+    const rowFrNorm = normalizeFold(r.terme_fr);
+    const rowEnNorm = normalizeFold(r.terme_en);
+    const matchesExact =
+      sourceLang === "fr"
+        ? qVariantSet.has(rowFrNorm)
+        : sourceLang === "en"
+          ? qVariantSet.has(rowEnNorm)
+          : qVariantSet.has(rowFrNorm) || qVariantSet.has(rowEnNorm);
+    if (matchesExact) {
+      byId.set(Number(r.id), { row: r, exactTier: 0 });
+    }
   }
 
   // 2) Recherche plein texte FTS5 (incluant synonymes, pluriels et faux amis déconseillés)
-  const qVariantSet = new Set(qVariants);
   const ftsQuery = buildFtsAndPrefixQuery(input.query, sourceLang);
   if (ftsQuery) {
     const ftsSelectSql = `SELECT t.id, t.rang_source, t.source_nom, t.licence_source, t.terme_fr, t.terme_en,
@@ -319,6 +372,8 @@ export async function terminologieLookup(
     for (const r of ftsRows) {
       const id = Number(r.id);
       if (!byId.has(id)) {
+        const rowFrNorm = normalizeFold(r.terme_fr);
+        const rowEnNorm = normalizeFold(r.terme_en);
         const decList = parseJsonArray<z.infer<typeof TermeDeconseilleSchema>>(
           r.termes_deconseilles_json,
         );
@@ -327,10 +382,10 @@ export async function terminologieLookup(
         const matchesVariant = (s: string) => qVariantSet.has(normalizeFold(s));
         const isHeadwordExact =
           sourceLang === "fr"
-            ? qVariantSet.has(r.terme_fr_norm)
+            ? qVariantSet.has(rowFrNorm)
             : sourceLang === "en"
-              ? qVariantSet.has(r.terme_en_norm)
-              : qVariantSet.has(r.terme_fr_norm) || qVariantSet.has(r.terme_en_norm);
+              ? qVariantSet.has(rowEnNorm)
+              : qVariantSet.has(rowFrNorm) || qVariantSet.has(rowEnNorm);
         const isDeconseilleExact = decList.some((d) => matchesVariant(d.terme));
         const isSynExact =
           sourceLang === "fr"
@@ -340,10 +395,10 @@ export async function terminologieLookup(
               : synFr.some(matchesVariant) || synEn.some(matchesVariant);
         const isLangMatch =
           sourceLang === "fr"
-            ? qVariants.some((v) => r.terme_fr_norm.includes(v))
+            ? qVariants.some((v) => rowFrNorm.includes(v))
             : sourceLang === "en"
-              ? qVariants.some((v) => r.terme_en_norm.includes(v))
-              : qVariants.some((v) => r.terme_fr_norm.includes(v) || r.terme_en_norm.includes(v));
+              ? qVariants.some((v) => rowEnNorm.includes(v))
+              : qVariants.some((v) => rowFrNorm.includes(v) || rowEnNorm.includes(v));
         const tier =
           isHeadwordExact || (r.rang_source === 1 && (isDeconseilleExact || isSynExact))
             ? 0
@@ -486,15 +541,18 @@ function normalizeQuotesAndSpaces(s: string): string {
 }
 
 function buildExactPhraseRegex(term: string): RegExp {
-  const escaped = normalizeQuotesAndSpaces(term.trim()).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const flexQuotes = escaped
+  const normTerm = expandLigatures(normalizeQuotesAndSpaces(term.trim()));
+  const escaped = normTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const flexQuotesAndLigatures = escaped
     .replace(/'/g, "['\\u2018\\u2019\\u02bc]")
-    .replace(/-/g, "[-\\u2010\\u2011]");
+    .replace(/-/g, "[-\\u2010\\u2011]")
+    .replace(/oe/gi, "(?:oe|œ|Œ)")
+    .replace(/ae/gi, "(?:ae|æ|Æ)");
   const startsWord = /^[\p{L}\p{N}]/u.test(term.trim());
   const endsWord = /[\p{L}\p{N}]$/u.test(term.trim());
   const pre = startsWord ? "(?<![\\p{L}\\p{N}])" : "";
   const post = endsWord ? "(?![\\p{L}\\p{N}])" : "";
-  return new RegExp(`${pre}${flexQuotes}${post}`, "iu");
+  return new RegExp(`${pre}${flexQuotesAndLigatures}${post}`, "iu");
 }
 
 function extractAroundMatch(text: string, regex: RegExp, maxLen = 300): string {
@@ -553,20 +611,52 @@ export async function terminologieAttestations(
   const lawFilter = input.law_filter?.trim() ?? null;
 
   // Charger les 97 lois une seule fois afin d'éviter toute répétition de métadonnées et tout plafond arbitraire
-  let lawsSql = `
-    SELECT law_id, jurisdiction, name_fr, name_en, official_cite, consol_date_fr, consol_date_en
-      FROM lois_bilingues
-  `;
-  const lawsParams: unknown[] = [];
-  if (lawFilter) {
-    lawsSql += " WHERE LOWER(law_id) = LOWER(?) OR LOWER(official_cite) LIKE LOWER(?)";
-    lawsParams.push(lawFilter, `%${lawFilter}%`);
+  let lawRows: LoiBilingueRow[];
+  if (!lawFilter) {
+    lawRows = (
+      await db
+        .prepare(
+          `SELECT law_id, jurisdiction, name_fr, name_en, official_cite, consol_date_fr, consol_date_en
+             FROM lois_bilingues`,
+        )
+        .all<LoiBilingueRow>()
+    ).results;
+  } else {
+    // 1) Correspondance exacte sur identifiant ou cote officielle (évite p. ex. que 'ccq' tire 'ccq-r.6' ou que 'b-1' tire 'b-1.1')
+    lawRows = (
+      await db
+        .prepare(
+          `SELECT law_id, jurisdiction, name_fr, name_en, official_cite, consol_date_fr, consol_date_en
+             FROM lois_bilingues
+            WHERE LOWER(law_id) = LOWER(?)
+               OR LOWER(official_cite) = LOWER(?)
+               OR LOWER(COALESCE(official_cite_en, '')) = LOWER(?)
+               OR LOWER(official_cite) = LOWER('RLRQ, c. ' || ?)
+               OR LOWER(official_cite) = LOWER('L.R.C. (1985), ch. ' || ?)`,
+        )
+        .bind(lawFilter, lawFilter, lawFilter, lawFilter, lawFilter)
+        .all<LoiBilingueRow>()
+    ).results;
+
+    // 2) Repli par sous-chaîne échappée si aucun identifiant/cote exact ne correspond
+    if (lawRows.length === 0) {
+      const escapedLike = `%${lawFilter.replace(/[\\%_]/g, "\\$&")}%`;
+      lawRows = (
+        await db
+          .prepare(
+            `SELECT law_id, jurisdiction, name_fr, name_en, official_cite, consol_date_fr, consol_date_en
+               FROM lois_bilingues
+              WHERE LOWER(official_cite) LIKE LOWER(?) ESCAPE '\\'
+                 OR LOWER(COALESCE(official_cite_en, '')) LIKE LOWER(?) ESCAPE '\\'
+                 OR LOWER(name_fr) LIKE LOWER(?) ESCAPE '\\'
+                 OR LOWER(name_en) LIKE LOWER(?) ESCAPE '\\'`,
+          )
+          .bind(escapedLike, escapedLike, escapedLike, escapedLike)
+          .all<LoiBilingueRow>()
+      ).results;
+    }
   }
-  const lawsRes = await db
-    .prepare(lawsSql)
-    .bind(...lawsParams)
-    .all<LoiBilingueRow>();
-  const lawMap = new Map<string, LoiBilingueRow>(lawsRes.results.map((l) => [l.law_id, l]));
+  const lawMap = new Map<string, LoiBilingueRow>(lawRows.map((l) => [l.law_id, l]));
 
   const verifiedRows: VerifiedAttestationRow[] = [];
   const phraseRegex = buildExactPhraseRegex(input.term);
@@ -1221,10 +1311,35 @@ export async function terminologieScanText(
         continue;
       }
 
-      // Exception : « avis d'assignation » est le terme officiel de l'art. 145 C.p.c.
-      if (normalizeFold(regle.pattern_term) === "assignation") {
-        const prefixWindow = input.text.slice(Math.max(0, start - 32), start);
-        if (/\bavis\s+d['\u2018\u2019\u02bc]\s*$/iu.test(prefixWindow)) {
+      const normPattern = normalizeFold(regle.pattern_term);
+      const prefixWindow = input.text.slice(Math.max(0, start - 40), start);
+
+      // Exceptions du C.p.c. : « avis d'assignation », « répondre à l'assignation », « délai / mode d'assignation » (art. 145, 149 C.p.c.)
+      if (normPattern === "assignation") {
+        if (
+          /\b(?:avis\s+d|r[ée]pondre\s+[àa]\s+l|r[ée]ponse\s+[àa]\s+l|d[ée]lai\s+d|mode\s+d)['\u2018\u2019\u02bc]\s*$/iu.test(
+            prefixWindow,
+          )
+        ) {
+          continue;
+        }
+      }
+
+      // Exception québécoise : « tribunaux judiciaires » (Loi sur les tribunaux judiciaires, RLRQ c. T-16 ; art. 2807 C.c.Q.)
+      // et emploi générique indéfini (« un / autre / tout / aucun tribunal judiciaire » par opposition à administratif)
+      if (normPattern === "tribunal judiciaire") {
+        if (/tribunaux/iu.test(m[0]) || /\b(?:un|autre|tout|aucun)\s+$/iu.test(prefixWindow)) {
+          continue;
+        }
+      }
+
+      // Exception dénomination statutaire fédérale : « Canada Mortgage and Housing Corporation » (art. 1339 C.c.Q. EN)
+      if (normPattern === "mortgage") {
+        const around = input.text.slice(
+          Math.max(0, start - 20),
+          Math.min(input.text.length, end + 30),
+        );
+        if (/\bCanada\s+Mortgage\s+and\s+Housing\b/iu.test(around)) {
           continue;
         }
       }
