@@ -1,0 +1,18 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "mcp-outils",
+  "displayName": "MCP Outils",
+  "version": "0.3.0",
+  "description": "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Calcule les délais procéduraux à compter d'une notification technologique transmise à 17 h 45 selon le C.p.c.",
+    "Calcule l'intérêt légal et l'indemnité additionnelle (art. 1619 C.c.Q.) sur un capital de 50 000 $ du 2024-06-15 au 2026-09-30",
+    "Vérifie au REQ une société par actions québécoise, normalise son adresse au RQA et contrôle la terminologie civiliste d'un projet d'acte"
+  ],
+  "author": {
+    "name": "Jason Poirier Lavoie"
+  },
+  "homepage": "https://outils.poirierlavoie.ca/",
+  "repository": "https://github.com/jpoirierlavoie/MCP-Outils"
+}

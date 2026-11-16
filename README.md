@@ -1,6 +1,6 @@
-# pratique-civile-outils
+# MCP-Outils
 
-Serveur MCP (**Model Context Protocol**) public, sans journalisation et déterministe, conçu pour outiller la pratique du litige civil et commercial québécois et les compétences du greffon [`pratique-civile-quebecoise`](https://github.com/jpoirierlavoie/pratique-civile-quebecoise).
+Serveur MCP (**Model Context Protocol**) public, sans journalisation et déterministe (`mcp-outils`, Worker Cloudflare `outils`), conçu pour outiller la pratique du litige civil et commercial québécois et les compétences du greffon [`pratique-civile-quebecoise`](https://github.com/jpoirierlavoie/pratique-civile-quebecoise).
 
 Point d'accès public (Streamable HTTP) : `https://outils.poirierlavoie.ca/mcp`
 
@@ -38,7 +38,7 @@ Ce serveur est conçu pour être interrogé publiquement sans secret tout en pro
 ```json
 {
   "mcpServers": {
-    "pratique-civile-outils": {
+    "outils": {
       "type": "http",
       "url": "https://outils.poirierlavoie.ca/mcp"
     }
@@ -46,12 +46,12 @@ Ce serveur est conçu pour être interrogé publiquement sans secret tout en pro
 }
 ```
 
-### Antigravity (`mcp_config.json`)
+### Antigravity (`mcp_config.json` / `plugin.json`)
 
 ```json
 {
   "mcpServers": {
-    "pratique-civile-outils": {
+    "outils": {
       "url": "https://outils.poirierlavoie.ca/mcp"
     }
   }
@@ -63,7 +63,7 @@ Ce serveur est conçu pour être interrogé publiquement sans secret tout en pro
 ```json
 {
   "mcpServers": {
-    "pratique-civile-outils": {
+    "outils": {
       "httpUrl": "https://outils.poirierlavoie.ca/mcp"
     }
   }
@@ -73,19 +73,24 @@ Ce serveur est conçu pour être interrogé publiquement sans secret tout en pro
 ### Inspection avec MCP Inspector / Client générique
 
 - **URL Streamable HTTP** : `https://outils.poirierlavoie.ca/mcp`
+- **Fiche de découverte publique SEP-2127** : `GET https://outils.poirierlavoie.ca/mcp/server-card`
 - **Page documentaire publique** : `GET https://outils.poirierlavoie.ca/` (HTML bilingue FR/EN généré dynamiquement depuis les schémas et tables compilées)
 - **Vérification de santé** : `GET https://outils.poirierlavoie.ca/healthz`
 
 ## Architecture du dépôt
 
 ```text
+assets/logo.svg      Icône SVG carrée des manifestes Antigravity / Gemini
+plugin.json          Manifeste autonome Google Antigravity
+mcp_config.json      Configuration Streamable HTTP Antigravity (`outils`)
+gemini-extension.json Manifeste autonome Gemini CLI (`outils`, `contextFileName: []`)
 src/
   core/              Logique pure TypeScript + Zod (`holidays`, `deadlines`, `interest1619`, `qcTools`, `registres`, `adresses`, `terminologie`, `gardes`)
   data/              Tables statiques versionnées (`laf_art28_rates.json`, `glossaire_bijuridique_qc.json`)
   qc/                Tables et parseur de nomenclature judiciaire QC (dossiers, greffes, palais, lieux MJQ)
   mcp/               Serveur McpServer agnostique du transport (`createOutilsMcpServer`, `listToolDescriptors`)
   site.ts            Page HTML publique (`GET /`) et traductions (`site.i18n.ts`)
-  index.ts           Entrée Cloudflare Worker (`createMcpHandler`, D1 lecture seule, `RATE_LIMITER`, `/healthz`, `/`)
+  index.ts           Entrée Cloudflare Worker (`createMcpHandler`, D1 lecture seule, `RATE_LIMITER`, `/mcp/server-card`, `/healthz`, `/`)
 pipeline/
   common/            Exportateur SQL par lots et bascule bleu-vert D1 (`d1_batch.py`, `blue_green.py`)
   terminologie/      Schéma, index FTS5 et ingestion (`build_glossaire.py`, `ingest_terminologie.py`)
@@ -93,7 +98,7 @@ pipeline/
   adresses/          Schéma normalisé 3 tables, index FTS5 odonymes et ingestion RQA (`ingest_adresses.py`)
 sources-officielles/ Instantané HTML officiel du ministère de la Justice (greffes et points de service)
 scripts/             Générateur de `src/qc/lieux.ts` à partir de l'instantané MJQ (`extraire-lieux-mjq.mjs`)
-test/                250 tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`)
+test/                Suite de tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`, parité des manifestes)
 ```
 
 ## Développement local, pipelines D1 et déploiement (Wrangler)

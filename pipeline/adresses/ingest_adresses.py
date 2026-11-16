@@ -167,7 +167,7 @@ def _http_get_json(url: str) -> dict:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "pratique-civile-outils-pipeline/0.3",
+            "User-Agent": "mcp-outils-pipeline/0.3",
             "Accept": "application/json",
         },
     )
@@ -200,7 +200,7 @@ def _download_stream(url: str, dest: Path, label: str) -> Path:
 
     # Vérifier si le serveur prend en charge HTTP Range pour les archives > 50 Mo
     head_req = urllib.request.Request(
-        url, method="HEAD", headers={"User-Agent": "pratique-civile-outils-pipeline/0.3"}
+        url, method="HEAD", headers={"User-Agent": "mcp-outils-pipeline/0.3"}
     )
     total_len = 0
     accepts_ranges = False
@@ -231,7 +231,7 @@ def _download_stream(url: str, dest: Path, label: str) -> Path:
                     rreq = urllib.request.Request(
                         url,
                         headers={
-                            "User-Agent": "pratique-civile-outils-pipeline/0.3",
+                            "User-Agent": "mcp-outils-pipeline/0.3",
                             "Range": f"bytes={start}-{end}",
                         },
                     )
@@ -262,7 +262,7 @@ def _download_stream(url: str, dest: Path, label: str) -> Path:
                 pf.unlink()
     else:
         print(f"[{label}] Téléchargement depuis {url} ...", flush=True)
-        req = urllib.request.Request(url, headers={"User-Agent": "pratique-civile-outils-pipeline/0.3"})
+        req = urllib.request.Request(url, headers={"User-Agent": "mcp-outils-pipeline/0.3"})
         downloaded = 0
         next_report = 50 * 1024 * 1024
         with urllib.request.urlopen(req, timeout=600) as resp, open(tmp_dest, "wb") as out_f:

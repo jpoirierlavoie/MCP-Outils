@@ -121,7 +121,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
 } as const;
 
 export const EN = {
-  titre: "Pratique civile — deterministic Québec practice tools",
+  titre: "MCP Outils",
 
   intro: [
     "A public, zero-logging, deterministic MCP server for Québec civil and commercial litigation: " +
@@ -241,8 +241,10 @@ export const EN = {
     "Public Streamable HTTP endpoint (no secret or authentication required): " +
       "https://outils.poirierlavoie.ca/mcp — designed to be paired with the « pratique-civile-quebecoise » " +
       "skill plugin alongside authenticated primary-source connectors.",
-    "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz. Edge rate " +
-      "limiting protects availability (60 req / 60 s per IP) without storing application content.",
+    "The public discovery card (SEP-2127) is served at " +
+      "https://outils.poirierlavoie.ca/mcp/server-card; the repository includes manifests " +
+      "for Google Antigravity (plugin.json, mcp_config.json) and Gemini CLI (gemini-extension.json). " +
+      "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz (edge rate limit: 60 req / 60 s per IP).",
     "The source code is public (CC BY-NC-SA 4.0 licence), and the entire test suite runs locally with no network access.",
   ],
 

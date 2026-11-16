@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="MCP Outils">
+  <!-- Deterministic calendar grid, legal scale/compass rule, and verification mark, 18px+ margin -->
+  <g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Outer frame (site terracotta palette, legible on light & dark UI) -->
+    <rect x="20" y="26" width="88" height="82" rx="10" stroke="#c25438" />
+    <!-- Calendar binding rings -->
+    <line x1="42" y1="18" x2="42" y2="34" stroke="#d97706" />
+    <line x1="86" y1="18" x2="86" y2="34" stroke="#d97706" />
+    <!-- Header divider -->
+    <line x1="20" y1="46" x2="108" y2="46" stroke="#e08b6a" />
+    <!-- Deterministic reference grid dots / ticks -->
+    <line x1="34" y1="62" x2="46" y2="62" stroke="#e08b6a" />
+    <line x1="34" y1="76" x2="46" y2="76" stroke="#e08b6a" />
+    <line x1="34" y1="90" x2="46" y2="90" stroke="#e08b6a" />
+    <!-- Exact verification checkmark -->
+    <path d="M58 76 L70 88 L94 60" stroke="#d97706" />
+  </g>
+</svg>

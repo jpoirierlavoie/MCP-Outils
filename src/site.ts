@@ -13,6 +13,7 @@ import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
   listToolDescriptors,
   SERVER_NAME,
+  SERVER_TITLE,
   SERVER_VERSION,
   type ToolDescriptor,
 } from "./mcp/server.js";
@@ -287,7 +288,7 @@ function etat(t: string, fr: string, en: string): string {
 function entete(): string {
   return `<header>
 <div class="bar">
-<h1>${bi("Pratique civile — outils déterministes (Québec)", EN.titre)}</h1>
+<h1>${bi(SERVER_TITLE, EN.titre)}</h1>
 <div class="btns">
 <button id="theme" type="button" title="Thème / Theme">${etat("auto", "◐ Auto", "◐ Auto")}${etat("light", `${SOLEIL} Clair`, `${SOLEIL} Light`)}${etat("dark", "☾ Sombre", "☾ Dark")}</button>
 <button id="bascule" type="button" title="Français / English">FR&nbsp;·&nbsp;EN</button>
@@ -683,14 +684,16 @@ ${biP(
     "Point d'accès Streamable HTTP public (aucun secret requis) : " +
       "https://outils.poirierlavoie.ca/mcp — conçu pour accompagner les compétences du greffon " +
       "« pratique-civile-quebecoise » aux côtés des connecteurs de sources primaires authentifiés.",
-    "Vérification de santé sans journalisation des charges utiles : " +
-      "https://outils.poirierlavoie.ca/healthz. Une limitation de débit à la périphérie " +
-      "(60 requêtes / 60 s par IP) protège la disponibilité sans conserver de contenu applicatif.",
+    "La fiche publique de découverte (SEP-2127) est publiée sur " +
+      "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut les manifestes " +
+      "pour Google Antigravity (plugin.json, mcp_config.json) et Gemini CLI (gemini-extension.json). " +
+      "Vérification de santé sans journalisation des charges utiles : " +
+      "https://outils.poirierlavoie.ca/healthz (limitation de débit à 60 requêtes / 60 s par IP).",
     "Le code source est public (licence CC BY-NC-SA 4.0) et l'ensemble des tests s'exécute localement sans accès réseau.",
   ],
   EN.acces,
 )}
-<p><a href="https://github.com/jpoirierlavoie/pratique-civile-outils">github.com/jpoirierlavoie/pratique-civile-outils</a>
+<p><a href="https://github.com/jpoirierlavoie/MCP-Outils">github.com/jpoirierlavoie/MCP-Outils</a>
  · <a href="https://github.com/jpoirierlavoie/pratique-civile-quebecoise">pratique-civile-quebecoise</a>
  · <a href="mailto:jason@poirierlavoie.ca">jason@poirierlavoie.ca</a></p>
 </section>`;
@@ -720,7 +723,7 @@ export function renderSite(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pratique-civile-outils — délais, intérêts art. 1619 C.c.Q., greffes, registres, adresses et terminologie</title>
+<title>MCP Outils — délais, intérêts art. 1619 C.c.Q., greffes, registres, adresses et terminologie</title>
 <meta name="description" content="Serveur MCP public et sans journalisation : jours fériés, délais procéduraux (C.p.c. / L.I.), intérêts art. 1619 C.c.Q., greffes et palais, registres d'entreprises, adresses RQA et terminologie juridique bilingue.">
 <style>${CSS}</style>
 <script>${BOOT}</script>
