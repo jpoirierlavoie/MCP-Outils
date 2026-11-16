@@ -1,0 +1,3070 @@
+{
+  "metadata": {
+    "source": "Glossaire curé de pratique civile et commerciale québécoise (pratique-civile-outils)",
+    "table_version": "2026.11.1",
+    "verified_at": "2026-11-15",
+    "license": "CC-BY-NC-SA-4.0",
+    "rang_source": 1,
+    "entry_count": 169
+  },
+  "entries": [
+    {
+      "id": "hypotheque",
+      "terme_fr": "hypothèque",
+      "synonymes_fr": [],
+      "terme_en": "hypothec",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "mortgage",
+          "origine": "common_law",
+          "motif": "Emprunt de common law impropre en droit civil québécois (art. 2660 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "mortgage",
+          "origine": "common_law",
+          "motif": "Faux ami de common law : le C.c.Q. emploie exclusivement « hypothec » (art. 2660 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2660 C.c.Q.",
+      "note_explicative": "Droit réel sur un bien meuble ou immeuble affecté à l'exécution d'une obligation. En anglais civiliste québécois, le terme légal au C.c.Q. est toujours « hypothec », jamais « mortgage » (qui désigne la sûreté de common law)."
+    },
+    {
+      "id": "hypotheque-mobiliere",
+      "terme_fr": "hypothèque mobilière",
+      "synonymes_fr": [
+        "hypothèque mobilière sans dépossession",
+        "hypothèque mobilière avec dépossession"
+      ],
+      "terme_en": "movable hypothec",
+      "synonymes_en": [
+        "movable hypothec without delivery",
+        "movable hypothec with delivery",
+        "pledge"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "nantissement commercial",
+          "origine": "droit_francais",
+          "motif": "Terminologie française ; employer « hypothèque mobilière » (ou « gage » avec dépossession, art. 2665 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "chattel mortgage",
+          "origine": "common_law",
+          "motif": "Institution de common law inexistante au C.c.Q. ; employer « movable hypothec »."
+        },
+        {
+          "terme": "security interest",
+          "origine": "common_law",
+          "motif": "Terme des lois PPSA des provinces de common law (sauf texte fédéral bijuridique) ; employer « movable hypothec »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2696 et 2702 C.c.Q.",
+      "note_explicative": "Sûreté réelle grevant un ou plusieurs biens meubles, avec ou sans dépossession (gage). Remplace les anciennes sûretés mobilières disparates et correspond fonctionnellement mais non conceptuellement au « security interest » des PPSA."
+    },
+    {
+      "id": "hypotheque-legale-construction",
+      "terme_fr": "hypothèque légale de la construction",
+      "synonymes_fr": [
+        "hypothèque légale des personnes ayant participé à la construction"
+      ],
+      "terme_en": "legal hypothec of construction",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "privilège ouvrier",
+          "origine": "archaïsme_qc",
+          "motif": "Ancienne terminologie du Code civil du Bas Canada ; employer « hypothèque légale de la construction » (art. 2726 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "mechanic's lien",
+          "origine": "common_law",
+          "motif": "Institution de common law ; au C.c.Q., employer « legal hypothec of construction »."
+        },
+        {
+          "terme": "construction lien",
+          "origine": "common_law",
+          "motif": "Terme des lois provinciales de common law (p. ex. Construction Act ontarien) ; au Québec, « legal hypothec »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2726 à 2728 C.c.Q.",
+      "note_explicative": "Hypothèque légale en faveur des personnes ayant participé à la construction ou à la rénovation d'un immeuble (architectes, ingénieurs, fournisseurs de matériaux, ouvriers, entrepreneurs, sous-entrepreneurs)."
+    },
+    {
+      "id": "priorite",
+      "terme_fr": "priorité",
+      "synonymes_fr": [],
+      "terme_en": "prior claim",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "statutory lien",
+          "origine": "common_law",
+          "motif": "Calque de common law ; la version anglaise officielle du C.c.Q. emploie « prior claim »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2650 et 2651 C.c.Q.",
+      "note_explicative": "Droit conféré par la loi à un créancier d'être préféré aux autres créanciers, même hypothécaires, suivant la cause de sa créance."
+    },
+    {
+      "id": "preavis-exercice-droit-hypothecaire",
+      "terme_fr": "préavis d'exercice d'un droit hypothécaire",
+      "synonymes_fr": [],
+      "terme_en": "prior notice of the exercise of a hypothecary right",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "notice of default and foreclosure",
+          "origine": "common_law",
+          "motif": "Terminologie étrangère au régime des droits hypothécaires du Livre sixième du C.c.Q."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2757 et 2758 C.c.Q.",
+      "note_explicative": "Préavis obligatoire inscrit au registre approprié et signifié au débiteur avant l'exercice d'un recours hypothécaire (20 jours pour un meuble, 60 jours pour un immeuble, 10 jours prise de possession à fins d'administration)."
+    },
+    {
+      "id": "prise-en-paiement",
+      "terme_fr": "prise en paiement",
+      "synonymes_fr": [],
+      "terme_en": "taking in payment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "foreclosure",
+          "origine": "common_law",
+          "motif": "Institution d'equity de common law distincte ; la version anglaise du C.c.Q. emploie « taking in payment »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2778 à 2783 C.c.Q.",
+      "note_explicative": "Recours hypothécaire éteignant l'obligation garantie par l'acquisition de la propriété du bien grevé (soumis à autorisation du tribunal si plus de la moitié de l'obligation a été acquittée, art. 2779 C.c.Q.)."
+    },
+    {
+      "id": "delaissement",
+      "terme_fr": "délaissement",
+      "synonymes_fr": [],
+      "terme_en": "surrender",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2763 à 2772 C.c.Q.",
+      "note_explicative": "Abandon de la détention du bien grevé par le constituant ou le tiers détenteur (volontaire ou forcé par jugement en délaissement) afin que le créancier exerce son droit hypothécaire."
+    },
+    {
+      "id": "cautionnement",
+      "terme_fr": "cautionnement",
+      "synonymes_fr": [],
+      "terme_en": "suretyship",
+      "synonymes_en": [
+        "contract of suretyship"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "guaranty",
+          "origine": "common_law",
+          "motif": "Le C.c.Q. distingue la garantie (« warranty ») du cautionnement (« suretyship », art. 2333 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2333 à 2366 C.c.Q.",
+      "note_explicative": "Contrat par lequel une personne, la caution (« surety »), s'oblige envers le créancier, gratuitement ou contre rémunération, à exécuter l'obligation du débiteur si celui-ci n'y satisfait pas."
+    },
+    {
+      "id": "caution",
+      "terme_fr": "caution",
+      "synonymes_fr": [],
+      "terme_en": "surety",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "dépôt de caution",
+          "origine": "droit_francais",
+          "motif": "En droit du logement québécois, le locateur ne peut exiger d'autre somme que le loyer (art. 1904 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2333 C.c.Q.",
+      "note_explicative": "Personne qui s'oblige à titre de caution dans un contrat de cautionnement (ne pas confondre avec le dépôt de garantie en matière de louage, prohibé en bail résidentiel sous l'art. 1904 C.c.Q.)."
+    },
+    {
+      "id": "registre-foncier",
+      "terme_fr": "registre foncier",
+      "synonymes_fr": [],
+      "terme_en": "land register",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "conservation des hypothèques",
+          "origine": "droit_francais",
+          "motif": "Institution française (service de la publicité foncière) ; au Québec, « registre foncier »."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2970 C.c.Q.",
+      "note_explicative": "Registre public des droits réels immobiliers tenu pour chaque circonscription foncière du Québec."
+    },
+    {
+      "id": "rdprm",
+      "terme_fr": "Registre des droits personnels et réels mobiliers",
+      "synonymes_fr": [
+        "RDPRM"
+      ],
+      "terme_en": "register of personal and movable real rights",
+      "synonymes_en": [
+        "RPMRR"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "PPSA registry",
+          "origine": "common_law",
+          "motif": "Propre aux provinces de common law ; au Québec, « register of personal and movable real rights (RPMRR / RDPRM) »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2969 C.c.Q.",
+      "note_explicative": "Registre public québécois (RDPRM) où sont publiés les droits réels mobiliers (hypothèques mobilières, réserves de propriété, crédits-bails) et certains droits personnels (régimes matrimoniaux, mandats)."
+    },
+    {
+      "id": "obligation-solidaire",
+      "terme_fr": "obligation solidaire",
+      "synonymes_fr": [
+        "solidarité parfaite",
+        "solidairement"
+      ],
+      "terme_en": "solidary obligation",
+      "synonymes_en": [
+        "solidarily",
+        "solidarity"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "conjointement et solidairement",
+          "origine": "archaïsme_common_law",
+          "motif": "Pléonasme contradictoire au C.c.Q. : une obligation est soit conjointe (divisible, art. 1518 C.c.Q.), soit solidaire (art. 1523 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "joint and several",
+          "origine": "common_law",
+          "motif": "Concept de common law ; la version anglaise du C.c.Q. emploie « solidary obligation / solidarily » (art. 1523 C.c.Q.)."
+        },
+        {
+          "terme": "jointly and severally",
+          "origine": "common_law",
+          "motif": "Locution de common law ; la version anglaise officielle du C.c.Q. emploie « solidarily » (art. 1523 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1523 à 1540 C.c.Q.",
+      "note_explicative": "Obligation par laquelle plusieurs débiteurs sont tenus chacun pour le tout d'une même prestation (présumée dans l'exploitation d'une entreprise, art. 1525 al. 2 C.c.Q., mais non présumée en matière civile, art. 1525 al. 1 C.c.Q.)."
+    },
+    {
+      "id": "formation-contrat-consentement",
+      "terme_fr": "échange de consentements",
+      "synonymes_fr": [],
+      "terme_en": "exchange of consents",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "en contrepartie de la somme de 1 $",
+          "origine": "common_law",
+          "motif": "Calque de la « nominal consideration » de common law, inutile en droit civil québécois (art. 1385 et 1410 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "in consideration of the sum of $1.00",
+          "origine": "common_law",
+          "motif": "Formule de common law (« peppercorn consideration ») étrangère à la cause civiliste (art. 1385 et 1410 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1385 C.c.Q.",
+      "note_explicative": "En droit civil québécois, le contrat se forme par le seul échange de consentements entre personnes capables de contracter, avec cause et objet, sans exigence de « consideration » (contrepartie)."
+    },
+    {
+      "id": "dol",
+      "terme_fr": "dol",
+      "synonymes_fr": [],
+      "terme_en": "fraud",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "fraudulent misrepresentation",
+          "origine": "common_law",
+          "motif": "Catégorie de common law des torts/contrats ; au C.c.Q., l'art. 1401 emploie « fraud »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1401 C.c.Q.",
+      "note_explicative": "Erreur provoquée par le dol d'une partie ou d'un tiers à la connaissance du cocontractant (y compris le silence ou la réticence). Vise toujours le vice du consentement, rendant le contrat annulable (nullité relative) avec réduction d'obligation ou dommages-intérêts (art. 1407 C.c.Q.)."
+    },
+    {
+      "id": "lesion",
+      "terme_fr": "lésion",
+      "synonymes_fr": [],
+      "terme_en": "lesion",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "unconscionability",
+          "origine": "common_law",
+          "motif": "Doctrine d'equity de common law plus large que la lésion codifiée aux art. 1405–1406 C.c.Q. (voir plutôt art. 1437 C.c.Q. pour les clauses abusives)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1405 et 1406 C.c.Q.",
+      "note_explicative": "Exploitation de l'une des parties entraînant une disproportion importante entre les prestations ; en droit civil québécois, la lésion ne vicie le consentement qu'à l'égard des mineurs, majeurs protégés ou dans les cas expressément prévus par la loi (p. ex. art. 8 L.p.c., art. 2332 C.c.Q.)."
+    },
+    {
+      "id": "contrat-adhesion",
+      "terme_fr": "contrat d'adhésion",
+      "synonymes_fr": [],
+      "terme_en": "contract of adhesion",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1379 et 1435 à 1437 C.c.Q.",
+      "note_explicative": "Contrat dont les stipulations essentielles ont été imposées par l'une des parties et ne pouvaient être librement discutées ; permet l'annulation ou la réduction d'une clause abusive (art. 1437 C.c.Q.)."
+    },
+    {
+      "id": "clause-abusive",
+      "terme_fr": "clause abusive",
+      "synonymes_fr": [],
+      "terme_en": "abusive clause",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1437 C.c.Q.",
+      "note_explicative": "Clause d'un contrat de consommation ou d'adhésion qui désavantage le consommateur ou l'adhérent d'une manière excessive et déraisonnable, allant ainsi à l'encontre de la bonne foi."
+    },
+    {
+      "id": "nullite-absolue",
+      "terme_fr": "nullité absolue",
+      "synonymes_fr": [],
+      "terme_en": "absolute nullity",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "void ab initio",
+          "origine": "common_law",
+          "motif": "En droit civil québécois, la nullité (absolue ou relative) doit être prononcée et emporte restitution (art. 1422 C.c.Q.) ; le C.c.Q. emploie « absolute nullity »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1417 et 1418 C.c.Q.",
+      "note_explicative": "Sanction d'un contrat qui déroge à l'ordre public de direction ; doit être soulevée d'office par le tribunal et n'est pas susceptible de confirmation."
+    },
+    {
+      "id": "nullite-relative",
+      "terme_fr": "nullité relative",
+      "synonymes_fr": [],
+      "terme_en": "relative nullity",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "voidable",
+          "origine": "common_law",
+          "motif": "Terminologie de common law ; la version anglaise du C.c.Q. emploie « relative nullity » (art. 1419 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1419 et 1420 C.c.Q.",
+      "note_explicative": "Sanction d'un contrat qui viole une condition de formation édictée pour la protection d'intérêts particuliers ; ne peut être invoquée que par la personne protégée et est susceptible de confirmation."
+    },
+    {
+      "id": "divisibilite-contrat",
+      "terme_fr": "nullité partielle",
+      "synonymes_fr": [],
+      "terme_en": "partial nullity",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1438 C.c.Q.",
+      "note_explicative": "Au Québec, une clause nulle ne rend pas le contrat invalide pour le reste, à moins qu'il n'apparaisse que le contrat forme un tout indivisible (la divisibilité est donc la règle supplétive de l'art. 1438 C.c.Q.)."
+    },
+    {
+      "id": "bonne-foi",
+      "terme_fr": "bonne foi",
+      "synonymes_fr": [],
+      "terme_en": "good faith",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 6, 7 et 1375 C.c.Q.",
+      "note_explicative": "Norme générale impérative gouvernant l'exercice des droits civils et la conduite des parties tant à la naissance du contrat qu'à son exécution et à son extinction."
+    },
+    {
+      "id": "force-majeure",
+      "terme_fr": "force majeure",
+      "synonymes_fr": [],
+      "terme_en": "superior force",
+      "synonymes_en": [
+        "force majeure"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "act of God",
+          "origine": "common_law",
+          "motif": "Notion plus étroite de common law ne couvrant que les phénomènes naturels ; le C.c.Q. emploie « superior force » (art. 1470 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1470 C.c.Q.",
+      "note_explicative": "Événement imprévisible et irrésistible (y compris la cause étrangère qui a ces mêmes caractères). La version anglaise officielle du C.c.Q. emploie « superior force »."
+    },
+    {
+      "id": "faute-lourde",
+      "terme_fr": "faute lourde",
+      "synonymes_fr": [],
+      "terme_en": "gross fault",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "gross negligence",
+          "origine": "common_law",
+          "motif": "La version anglaise officielle de l'art. 1474 C.c.Q. emploie « gross fault »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1474 C.c.Q.",
+      "note_explicative": "Faute qui dénote une insouciance, une imprudence ou une négligence grossières ; nul ne peut exclure ou limiter sa responsabilité pour le préjudice matériel causé par une faute intentionnelle ou une faute lourde (art. 1474 al. 1 C.c.Q.)."
+    },
+    {
+      "id": "responsabilite-extracontractuelle",
+      "terme_fr": "responsabilité extracontractuelle",
+      "synonymes_fr": [],
+      "terme_en": "extracontractual liability",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "responsabilité délictuelle de l'article 1240",
+          "origine": "droit_francais",
+          "motif": "Numérotation du Code civil français (ancien art. 1382, nouvel art. 1240) ; au Québec, art. 1457 C.c.Q."
+        },
+        {
+          "terme": "duty of care",
+          "origine": "common_law",
+          "motif": "Concept du tort of negligence étranger à l'art. 1457 C.c.Q."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "tortious liability",
+          "origine": "common_law",
+          "motif": "En droit civil québécois, employer « extracontractual liability » ou « civil liability » (art. 1457 C.c.Q.), non « tort »."
+        },
+        {
+          "terme": "tortfeasor",
+          "origine": "common_law",
+          "motif": "Catégorie de common law ; employer « author of the fault » ou « person liable »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1457 C.c.Q.",
+      "note_explicative": "Régime général de responsabilité civile fondé sur le triptyque faute (manquement à une règle de conduite), préjudice (corporel, moral ou matériel) et lien de causalité, assorti de l'interdiction d'option (art. 1458 al. 2 C.c.Q.)."
+    },
+    {
+      "id": "mise-en-demeure",
+      "terme_fr": "mise en demeure",
+      "synonymes_fr": [],
+      "terme_en": "extrajudicial demand",
+      "synonymes_en": [
+        "formal notice",
+        "putting in default",
+        "default notice"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "cease and desist letter",
+          "origine": "common_law",
+          "motif": "Ne couvre que l'injonction d'abstention ; au C.c.Q., la demande extrajudiciaire (« extrajudicial demand » / « formal notice », art. 1595 C.c.Q.) a des effets juridiques précis de mise en demeure."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1594 à 1600 C.c.Q.",
+      "note_explicative": "Interpellation écrite exigeant du débiteur l'exécution de son obligation dans un délai raisonnable (art. 1595 C.c.Q.), faisant courir les intérêts moratoires (art. 1617–1618 C.c.Q.) et transférant les risques."
+    },
+    {
+      "id": "demeure-de-plein-droit",
+      "terme_fr": "demeure de plein droit",
+      "synonymes_fr": [],
+      "terme_en": "in default by operation of law",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "time is of the essence",
+          "origine": "common_law",
+          "motif": "Formule de common law ; en rédaction civiliste québécoise, viser expressément la demeure par le seul écoulement du temps (art. 1597 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1597 C.c.Q.",
+      "note_explicative": "Cas où le débiteur est constitué en demeure sans demande écrite préalable (stipulation que le seul écoulement du temps aura cet effet, urgence, inexécution d'obligation ne pouvant être exécutée utilement que dans un certain temps, violation d'obligation de ne pas faire, refus clair)."
+    },
+    {
+      "id": "execution-en-nature",
+      "terme_fr": "exécution en nature",
+      "synonymes_fr": [],
+      "terme_en": "specific performance",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1590 et 1601 C.c.Q.",
+      "note_explicative": "Droit primaire du créancier en droit civil québécois (contrairement à la common law où la « specific performance » est un remède discrétionnaire d'equity). En anglais, « specific performance » est bien le terme officiel de l'art. 1601 C.c.Q."
+    },
+    {
+      "id": "resolution-contrat",
+      "terme_fr": "résolution",
+      "synonymes_fr": [],
+      "terme_en": "resolution",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "rescission",
+          "origine": "common_law",
+          "motif": "Le C.c.Q. distingue strictement « nullity » (formation), « resolution » (inexécution rétroactive, art. 1606 al. 1) et « resiliation » (pour l'avenir, art. 1606 al. 2)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1604 et 1606 C.c.Q.",
+      "note_explicative": "Anéantissement rétroactif du contrat synallagmatique pour inexécution fautive sans justification sérieuse : le contrat est réputé n'avoir jamais existé et les parties se restituent les prestations (art. 1699 C.c.Q.)."
+    },
+    {
+      "id": "resiliation-contrat",
+      "terme_fr": "résiliation",
+      "synonymes_fr": [],
+      "terme_en": "resiliation",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1606 al. 2 C.c.Q.",
+      "note_explicative": "Extinction pour l'avenir seulement (sans effet rétroactif) d'un contrat à exécution successive en raison de son inexécution ou en vertu d'une faculté légale ou conventionnelle (p. ex. art. 2125 C.c.Q.)."
+    },
+    {
+      "id": "clause-penale",
+      "terme_fr": "clause pénale",
+      "synonymes_fr": [],
+      "terme_en": "penal clause",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "liquidated damages not a penalty",
+          "origine": "common_law",
+          "motif": "Formule défensive de common law inutile et trompeuse sous les art. 1622–1623 C.c.Q. où la « penal clause » est expressément licite."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1622 à 1625 C.c.Q.",
+      "note_explicative": "Clause par laquelle les parties évaluent par anticipation les dommages-intérêts ; contrairement à la common law qui annule les « penalty clauses », la clause pénale est valide au Québec mais réductible si elle est abusive (art. 1623 al. 2 C.c.Q.)."
+    },
+    {
+      "id": "dommages-interets-punitifs",
+      "terme_fr": "dommages-intérêts punitifs",
+      "synonymes_fr": [],
+      "terme_en": "punitive damages",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "dommages exemplaires de droit commun",
+          "origine": "common_law",
+          "motif": "Les dommages punitifs n'existent au Québec qu'en vertu d'un texte habilitant exprès (art. 1621 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1621 C.c.Q.",
+      "note_explicative": "En droit québécois, les dommages-intérêts punitifs ne peuvent être accordés QUE lorsque la loi prévoit expressément leur attribution (p. ex. art. 49 al. 2 Charte québécoise, art. 272 L.p.c., art. 1899 et 1902 C.c.Q.)."
+    },
+    {
+      "id": "indemnite-additionnelle",
+      "terme_fr": "indemnité additionnelle",
+      "synonymes_fr": [],
+      "terme_en": "additional indemnity",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1619 C.c.Q. et art. 28 L.A.F.",
+      "note_explicative": "Indemnité s'ajoutant aux intérêts au taux légal (5 %, art. 3 Loi sur l'intérêt), calculée en appliquant à la dette un pourcentage égal à l'excédent du taux fixé suivant l'art. 28 L.A.F. sur le taux légal."
+    },
+    {
+      "id": "action-oblique",
+      "terme_fr": "action oblique",
+      "synonymes_fr": [],
+      "terme_en": "oblique action",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1627 à 1630 C.c.Q.",
+      "note_explicative": "Recours permettant au créancier dont la créance est certaine, liquide et exigible d'exercer, au nom de son débiteur négligent, les droits et actions appartenant à celui-ci (sauf ceux strictement personnels)."
+    },
+    {
+      "id": "action-en-inopposabilite",
+      "terme_fr": "action en inopposabilité",
+      "synonymes_fr": [
+        "action paulienne"
+      ],
+      "terme_en": "action in declaration of inopposability",
+      "synonymes_en": [
+        "paulian action"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "fraudulent conveyance action",
+          "origine": "common_law",
+          "motif": "Terminologie des Fraudulent Conveyances Acts de common law ; au C.c.Q., « action in declaration of inopposability » (art. 1631 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1631 à 1636 C.c.Q.",
+      "note_explicative": "Ancienne action paulienne : permet au créancier qui en subit un préjudice de faire déclarer inopposable à son égard l'acte juridique fait par son débiteur en fraude de ses droits (délai de déchéance d'un an à compter de la connaissance, art. 1635 C.c.Q.)."
+    },
+    {
+      "id": "cession-de-creance",
+      "terme_fr": "cession de créance",
+      "synonymes_fr": [],
+      "terme_en": "assignment of claim",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "assignment of chose in action",
+          "origine": "common_law",
+          "motif": "Catégorie de common law (« chose in action ») ; la version anglaise du C.c.Q. emploie « assignment of claim »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1637 à 1650 C.c.Q.",
+      "note_explicative": "Transfert conventionnel d'une créance par le cédant au cessionnaire, opposable au débiteur et aux tiers dès l'acquiescement du débiteur ou la réception d'une copie de l'acte ou d'une preuve probante de la cession (art. 1641 C.c.Q.)."
+    },
+    {
+      "id": "subrogation",
+      "terme_fr": "subrogation",
+      "synonymes_fr": [],
+      "terme_en": "subrogation",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1651 à 1659 C.c.Q.",
+      "note_explicative": "Transmission des droits du créancier au profit d'un tiers qui le paie, par effet de la convention ou de la loi."
+    },
+    {
+      "id": "novation",
+      "terme_fr": "novation",
+      "synonymes_fr": [],
+      "terme_en": "novation",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1660 à 1666 C.c.Q.",
+      "note_explicative": "Extinction d'une obligation ancienne remplacée par une obligation nouvelle (changement de dette, de débiteur ou de créancier) ; la novation ne se présume pas (art. 1661 C.c.Q.)."
+    },
+    {
+      "id": "compensation",
+      "terme_fr": "compensation",
+      "synonymes_fr": [],
+      "terme_en": "compensation",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "equitable set-off",
+          "origine": "common_law",
+          "motif": "Au C.c.Q., employer « compensation » (légale sous l'art. 1673 C.c.Q. ou judiciaire sous l'art. 1673 al. 2 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1672 à 1682 C.c.Q.",
+      "note_explicative": "Extinction réciproque de deux dettes certaines, liquides et exigibles ayant pour objet une somme d'argent ou des biens fongibles de même espèce (compensation légale ou judiciaire)."
+    },
+    {
+      "id": "quittance",
+      "terme_fr": "quittance",
+      "synonymes_fr": [],
+      "terme_en": "acquittance",
+      "synonymes_en": [
+        "release",
+        "discharge"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1568 et 1690 C.c.Q.",
+      "note_explicative": "Écrit constatant le paiement d'une obligation (art. 1568 C.c.Q.) ou remise de dette libératoire (« release », art. 1687 C.c.Q.). En pratique transactionnelle, on jumelle souvent transaction (art. 2631 C.c.Q.) et quittance."
+    },
+    {
+      "id": "transaction",
+      "terme_fr": "transaction",
+      "synonymes_fr": [
+        "entente de règlement hors cour"
+      ],
+      "terme_en": "transaction",
+      "synonymes_en": [
+        "settlement agreement"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2631 à 2637 C.c.Q.",
+      "note_explicative": "Contrat nommé par lequel les parties préviennent une contestation à naître ou mettent fin à un procès au moyen de concessions ou de réserves réciproques ; a entre les parties l'autorité de la chose jugée (art. 2633 C.c.Q.)."
+    },
+    {
+      "id": "dation-en-paiement",
+      "terme_fr": "dation en paiement",
+      "synonymes_fr": [],
+      "terme_en": "giving in payment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1561 et 1799 à 1801 C.c.Q.",
+      "note_explicative": "Convention par laquelle le débiteur transfère la propriété d'un bien à son créancier qui accepte de le recevoir à la place de la somme d'argent ou de l'autre bien dû (assimilée à la vente et parfaite par la délivrance)."
+    },
+    {
+      "id": "vice-cache",
+      "terme_fr": "vice caché",
+      "synonymes_fr": [
+        "garantie de qualité"
+      ],
+      "terme_en": "latent defect",
+      "synonymes_en": [
+        "warranty of quality"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "vice caché de l'article 1641",
+          "origine": "droit_francais",
+          "motif": "Numérotation du Code civil français (art. 1641) ; au Québec, art. 1726 C.c.Q."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1726 à 1731 C.c.Q.",
+      "note_explicative": "Défaut caché, antérieur à la vente, grave (rendant le bien impropre à l'usage ou diminuant tellement son utilité que l'acheteur ne l'aurait pas acheté ou n'aurait pas donné si haut prix) et inconnu de l'acheteur prudent et diligent."
+    },
+    {
+      "id": "promesse-achat-vente",
+      "terme_fr": "promesse de vente",
+      "synonymes_fr": [
+        "promesse d'achat",
+        "offre d'achat acceptée"
+      ],
+      "terme_en": "promise of sale",
+      "synonymes_en": [
+        "promise to purchase"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "compromis de vente",
+          "origine": "droit_francais",
+          "motif": "Terminologie notariale française ; au Québec, « promesse d'achat » ou « promesse de vente » (le mot « compromis » désigne la convention d'arbitrage d'un différend né)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1396 et 1710 C.c.Q.",
+      "note_explicative": "Avant-contrat bilatéral ou unilatéral engageant à conclure une vente ; n'emporte transfert de propriété que s'il y a délivrance et possession actuelle, sauf intention contraire (art. 1710 C.c.Q.)."
+    },
+    {
+      "id": "mandat",
+      "terme_fr": "mandat",
+      "synonymes_fr": [
+        "procuration"
+      ],
+      "terme_en": "mandate",
+      "synonymes_en": [
+        "power of attorney"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "agency",
+          "origine": "common_law",
+          "motif": "Catégorie de common law ; la version anglaise du C.c.Q. emploie « mandate », « mandator » et « mandatary » (art. 2130 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2130 à 2185 C.c.Q.",
+      "note_explicative": "Contrat par lequel le mandant (« mandator ») donne le pouvoir de le représenter dans l'accomplissement d'un acte juridique avec un tiers au mandataire (« mandatary »). L'écrit constatant le mandat est la procuration (« power of attorney »)."
+    },
+    {
+      "id": "depot",
+      "terme_fr": "dépôt",
+      "synonymes_fr": [],
+      "terme_en": "deposit",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "bailment",
+          "origine": "common_law",
+          "motif": "Institution propre à la common law regroupant dépôt, prêt à usage, louage et transport ; absente du droit civil québécois."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2280 à 2304 C.c.Q.",
+      "note_explicative": "Contrat par lequel le déposant remet un bien meuble au dépositaire qui s'oblige à garder le bien pendant un certain temps et à le restituer."
+    },
+    {
+      "id": "garantir-prendre-fait-et-cause",
+      "terme_fr": "garantir et prendre fait et cause",
+      "synonymes_fr": [],
+      "terme_en": "indemnify and take up the defence",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "indemnify, defend and hold harmless",
+          "origine": "common_law",
+          "motif": "Triplet redondant de common law américaine ; privilégier en rédaction québécoise « indemnify and take up the defence » ou « hold harmless » clairement circonscrit."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1723 C.c.Q. et art. 184 C.p.c.",
+      "note_explicative": "Formule québécoise exprimant l'obligation d'indemniser et d'intervenir à l'instance (intervention forcée en garantie) pour assumer la défense du garanti."
+    },
+    {
+      "id": "patrimoine",
+      "terme_fr": "patrimoine",
+      "synonymes_fr": [],
+      "terme_en": "patrimony",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 2 C.c.Q.",
+      "note_explicative": "Universalité de droits et d'obligations appréciables en argent dont toute personne est titulaire ; peut faire l'objet d'une division ou d'une affectation dans la mesure prévue par la loi."
+    },
+    {
+      "id": "fiducie",
+      "terme_fr": "fiducie",
+      "synonymes_fr": [],
+      "terme_en": "trust",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "equitable beneficial ownership",
+          "origine": "common_law",
+          "motif": "En droit civil québécois, il n'y a aucun dédoublement entre « legal title » et « equitable title » (art. 1261 C.c.Q. ; Banque de Montréal c. Kucharski)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "personnes et fiducies",
+      "base_legale": "Art. 1260 à 1298 C.c.Q.",
+      "note_explicative": "En droit civil québécois, la fiducie constitue un patrimoine d'affectation autonome et distinct de celui du constituant (« settlor »), du fiduciaire (« trustee ») et du bénéficiaire, sur lequel aucun d'eux n'a de droit réel (art. 1261 C.c.Q.) — contrairement au trust d'equity."
+    },
+    {
+      "id": "bien-immeuble",
+      "terme_fr": "immeuble",
+      "synonymes_fr": [
+        "bien immeuble"
+      ],
+      "terme_en": "immovable",
+      "synonymes_en": [
+        "immovable property"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "real property",
+          "origine": "common_law",
+          "motif": "Catégorie de common law ; en droit civil québécois, employer « immovable » (sauf texte fédéral bijuridique jumelant les deux)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 900 à 904 C.c.Q.",
+      "note_explicative": "Fonds de terre, constructions et ouvrages à caractère permanent qui s'y trouvent et tout ce qui en fait partie intégrante."
+    },
+    {
+      "id": "bien-meuble",
+      "terme_fr": "meuble",
+      "synonymes_fr": [
+        "bien meuble"
+      ],
+      "terme_en": "movable",
+      "synonymes_en": [
+        "movable property"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "personal property",
+          "origine": "common_law",
+          "motif": "Catégorie de common law ; la version anglaise du C.c.Q. emploie « movable property » ou « movable »."
+        },
+        {
+          "terme": "chattels",
+          "origine": "common_law",
+          "motif": "Terme de common law ; employer « corporeal movables »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 905 à 907 C.c.Q.",
+      "note_explicative": "Choses qui peuvent être transportées (meubles corporels) ainsi que droits et actions qui ne portent pas sur un immeuble (meubles incorporels)."
+    },
+    {
+      "id": "droit-de-propriete",
+      "terme_fr": "propriété",
+      "synonymes_fr": [],
+      "terme_en": "ownership",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "fee simple",
+          "origine": "common_law",
+          "motif": "Domaine féodal de common law (« estate in fee simple ») étranger au droit civil québécois ; employer « ownership »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 947 C.c.Q.",
+      "note_explicative": "Droit réel d'user, de jouir et de disposer librement et complètement d'un bien, sous réserve des limites et conditions fixées par la loi."
+    },
+    {
+      "id": "copropriete-indivise",
+      "terme_fr": "copropriété par indivision",
+      "synonymes_fr": [
+        "copropriété indivise",
+        "indivision"
+      ],
+      "terme_en": "undivided co-ownership",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "tenancy in common",
+          "origine": "common_law",
+          "motif": "Institution de common law ; au C.c.Q., employer « undivided co-ownership »."
+        },
+        {
+          "terme": "joint tenancy",
+          "origine": "common_law",
+          "motif": "Comporte en common law un droit d'accroissement (« right of survivorship ») étranger à l'indivision du C.c.Q."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1010 et 1012 à 1037 C.c.Q.",
+      "note_explicative": "Propriété d'un même bien exercée conjointement par plusieurs personnes sans division matérielle du bien, chacune ayant une quote-part indivise."
+    },
+    {
+      "id": "copropriete-divise",
+      "terme_fr": "copropriété divise",
+      "synonymes_fr": [],
+      "terme_en": "divided co-ownership",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "strata corporation",
+          "origine": "common_law",
+          "motif": "Terme de Colombie-Britannique ; au Québec, la personne morale est le « syndicate of co-owners » (syndicat des copropriétaires, art. 1039 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1010 et 1038 à 1109 C.c.Q.",
+      "note_explicative": "Copropriété d'un immeuble établie par publication d'une déclaration de copropriété, répartissant l'immeuble en fractions comprenant chacune une partie privative (« private portion ») et une quote-part des parties communes (« common portions »)."
+    },
+    {
+      "id": "usufruit",
+      "terme_fr": "usufruit",
+      "synonymes_fr": [],
+      "terme_en": "usufruct",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "life estate",
+          "origine": "common_law",
+          "motif": "Institution de common law ; la version anglaise du C.c.Q. emploie « usufruct »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1120 à 1171 C.c.Q.",
+      "note_explicative": "Démembrement du droit de propriété conférant le droit d'user et de jouir, pendant un certain temps, d'un bien dont un autre a la nue-propriété (« bare ownership »), à charge d'en conserver la substance."
+    },
+    {
+      "id": "servitude",
+      "terme_fr": "servitude",
+      "synonymes_fr": [],
+      "terme_en": "servitude",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "easement",
+          "origine": "common_law",
+          "motif": "En common law, un « easement » peut notamment s'acquérir par prescription, ce qu'interdit l'art. 1181 C.c.Q. ; employer exclusivement « servitude »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1177 à 1194 C.c.Q.",
+      "note_explicative": "Charge imposée sur un immeuble, le fonds servant (« servient land »), en faveur d'un autre immeuble, le fonds dominant (« dominant land ») (ou servitude personnelle). Il n'existe au Québec aucune acquisition de servitude par prescription (« pas de servitude sans titre », art. 1181 C.c.Q.)."
+    },
+    {
+      "id": "emphyteose",
+      "terme_fr": "emphytéose",
+      "synonymes_fr": [],
+      "terme_en": "emphyteusis",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "ground lease",
+          "origine": "common_law",
+          "motif": "Un simple bail foncier est un droit personnel, alors que l'emphytéose (art. 1195 C.c.Q.) est un véritable droit réel immobilier (« emphyteusis »)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1195 à 1211 C.c.Q.",
+      "note_explicative": "Droit réel permettant, pendant un temps de 10 à 100 ans, d'utiliser pleinement un immeuble appartenant à autrui et d'en tirer tous les avantages, à condition de ne pas en compromettre l'existence et d'y faire des constructions, ouvrages ou plantations qui en augmentent durablement la valeur."
+    },
+    {
+      "id": "universalite-de-biens",
+      "terme_fr": "universalité de biens",
+      "synonymes_fr": [],
+      "terme_en": "universality of property",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "fonds de commerce",
+          "origine": "droit_francais",
+          "motif": "Institution du Code de commerce français ; le C.c.Q. parle d'« entreprise » et d'« universalité de biens » (art. 1525 al. 3 et 1785 s. C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 2684 et 1785 C.c.Q.",
+      "note_explicative": "Ensemble de biens meubles ou immeubles considéré comme un tout (p. ex. pour une hypothèque ouverte ou la vente d'entreprise)."
+    },
+    {
+      "id": "liquidateur-succession",
+      "terme_fr": "liquidateur de la succession",
+      "synonymes_fr": [],
+      "terme_en": "liquidator of the succession",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "exécuteur testamentaire",
+          "origine": "archaïsme_qc",
+          "motif": "Remplacé au C.c.Q. par « liquidateur de la succession » (art. 776 s. C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "executor of the estate",
+          "origine": "common_law",
+          "motif": "Au C.c.Q., employer « liquidator of the succession »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "personnes et fiducies",
+      "base_legale": "Art. 776 à 807 C.c.Q.",
+      "note_explicative": "Personne chargée de liquider la succession (anciennement « exécuteur testamentaire » sous le C.c.B.C.)."
+    },
+    {
+      "id": "verification-testament",
+      "terme_fr": "vérification de testament",
+      "synonymes_fr": [],
+      "terme_en": "probate of a will",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "personnes et fiducies",
+      "base_legale": "Art. 772 C.c.Q. et art. 458 C.p.c.",
+      "note_explicative": "Procédure devant le tribunal ou un notaire pour vérifier les testaments olographes ou devant témoins (le testament notarié en minute est dispensé de vérification). Noter que la version anglaise du C.c.Q. emploie officiellement « probate » à l'art. 772."
+    },
+    {
+      "id": "prescription-extinctive",
+      "terme_fr": "prescription extinctive",
+      "synonymes_fr": [],
+      "terme_en": "extinctive prescription",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "prescription quinquennale de l'article 2224",
+          "origine": "droit_francais",
+          "motif": "Délai français de 5 ans (art. 2224 C. civ. fr.) ; au Québec, la prescription de droit commun d'un droit personnel est de 3 ans sous l'art. 2925 C.c.Q."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "statute of limitations",
+          "origine": "common_law",
+          "motif": "Concept de common law ; la version anglaise du C.c.Q. emploie « extinctive prescription » (art. 2921 C.c.Q.)."
+        },
+        {
+          "terme": "limitation period",
+          "origine": "common_law",
+          "motif": "Préférer « prescriptive period » ou « extinctive prescription » en droit civil québécois."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "prescription",
+      "base_legale": "Art. 2875 et 2921 à 2933 C.c.Q.",
+      "note_explicative": "Moyen d'éteindre un droit par le non-usage ou d'opposer une fin de non-recevoir à une action ; contrairement à la « limitation period » purement procédurale de common law, la prescription extinctive québécoise est une règle de droit substantiel éteignant le droit lui-même (art. 2875 C.c.Q.). Délai de droit commun des droits personnels : 3 ans (art. 2925 C.c.Q.)."
+    },
+    {
+      "id": "prescription-acquisitive",
+      "terme_fr": "prescription acquisitive",
+      "synonymes_fr": [
+        "usucapion"
+      ],
+      "terme_en": "acquisitive prescription",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "adverse possession",
+          "origine": "common_law",
+          "motif": "Notion de common law ; la version anglaise du C.c.Q. emploie « acquisitive prescription » (art. 2910 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "prescription",
+      "base_legale": "Art. 2910 à 2920 C.c.Q.",
+      "note_explicative": "Moyen d'acquérir le droit de propriété ou l'un de ses démembrements par l'effet de la possession utile pendant le délai légal (10 ans pour un immeuble, sous réserve du jugement requis par l'art. 2918 C.c.Q. ; 3 ans de bonne foi pour un meuble, art. 2919 C.c.Q.)."
+    },
+    {
+      "id": "delai-de-decheance",
+      "terme_fr": "délai de déchéance",
+      "synonymes_fr": [],
+      "terme_en": "forfeiture period",
+      "synonymes_en": [
+        "period of forfeiture"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "prescription",
+      "base_legale": "Art. 2878 C.c.Q.",
+      "note_explicative": "Délai préfix qui ne souffre ni suspension ni interruption, relevé d'office par le tribunal (art. 2878 al. 1 C.c.Q.)."
+    },
+    {
+      "id": "acte-authentique",
+      "terme_fr": "acte authentique",
+      "synonymes_fr": [],
+      "terme_en": "authentic act",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "preuve",
+      "base_legale": "Art. 2813 à 2821 C.c.Q.",
+      "note_explicative": "Écrit reçu ou attesté par un officier public compétent selon les lois du Québec ou du Canada (notamment l'acte notarié en minute ou en brevet), faisant preuve à l'égard de tous des faits que l'officier avait mission de constater."
+    },
+    {
+      "id": "acte-sous-seing-prive",
+      "terme_fr": "acte sous seing privé",
+      "synonymes_fr": [],
+      "terme_en": "private writing",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "preuve",
+      "base_legale": "Art. 2826 à 2830 C.c.Q.",
+      "note_explicative": "Écrit constatant un acte juridique qui porte la signature des parties et n'est revêtu d'aucune formalité authentique."
+    },
+    {
+      "id": "commencement-de-preuve",
+      "terme_fr": "commencement de preuve",
+      "synonymes_fr": [],
+      "terme_en": "commencement of proof",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "preuve",
+      "base_legale": "Art. 2862 et 2865 C.c.Q.",
+      "note_explicative": "Aveu, écrit émanant de la partie adverse ou fait matériel démontré rendant vraisemblable le fait allégué et ouvrant la porte à la preuve testimoniale d'un acte juridique excédant 1 500 $."
+    },
+    {
+      "id": "aveu-judiciaire",
+      "terme_fr": "aveu judiciaire",
+      "synonymes_fr": [],
+      "terme_en": "judicial admission",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "preuve",
+      "base_legale": "Art. 2850 à 2852 C.c.Q.",
+      "note_explicative": "Reconnaissance d'un fait de nature à produire des conséquences juridiques contre son auteur, faite au cours de l'instance où il est invoqué ; fait pleine foi contre son auteur et est en principe irrévocable sauf erreur de fait."
+    },
+    {
+      "id": "chose-jugee",
+      "terme_fr": "autorité de la chose jugée",
+      "synonymes_fr": [
+        "chose jugée"
+      ],
+      "terme_en": "authority of a final judgment",
+      "synonymes_en": [
+        "res judicata"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "preuve",
+      "base_legale": "Art. 2848 C.c.Q.",
+      "note_explicative": "Présomption absolue attachée au jugement passé en force de chose jugée (« res judicata ») lorsqu'il y a triple identité de parties (agissant en mêmes qualités), d'objet et de cause."
+    },
+    {
+      "id": "demande-introductive-instance",
+      "terme_fr": "demande introductive d'instance",
+      "synonymes_fr": [],
+      "terme_en": "originating application",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "assignation",
+          "origine": "droit_francais",
+          "motif": "En France, « assignation » désigne l'acte introductif ; au Québec, on dépose une « demande introductive d'instance » accompagnée d'un « avis d'assignation » (art. 141 et 145 C.p.c.)."
+        },
+        {
+          "terme": "requête introductive d'instance",
+          "origine": "archaïsme_qc",
+          "motif": "Ancien C.p.c. (c. C-25) abrogé en 2016 ; employer « demande introductive d'instance » (art. 141 C.p.c.)."
+        },
+        {
+          "terme": "bref d'assignation",
+          "origine": "archaïsme_qc",
+          "motif": "Terminologie antérieure à 2003 ; employer « demande introductive d'instance » et « avis d'assignation »."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "statement of claim",
+          "origine": "common_law",
+          "motif": "Règles de procédure des provinces de common law ; la version anglaise officielle du C.p.c. emploie « originating application » (art. 141 C.p.c.)."
+        },
+        {
+          "terme": "writ of summons",
+          "origine": "common_law",
+          "motif": "Terminologie abolie ; employer « originating application » et « summons »."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 99 et 141 C.p.c.",
+      "note_explicative": "Acte de procédure écrit par lequel une demande en justice est formée, accompagnée d'un avis d'assignation au défendeur (« summons », art. 145 C.p.c.)."
+    },
+    {
+      "id": "acte-de-procedure",
+      "terme_fr": "acte de procédure",
+      "synonymes_fr": [],
+      "terme_en": "pleading",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "conclusions récapitulatives",
+          "origine": "droit_francais",
+          "motif": "Procédure française ; au Québec, « conclusions » désigne uniquement le dispositif demandé au tribunal à la fin d'un acte de procédure."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 99 C.p.c.",
+      "note_explicative": "Tout écrit déposé en justice par une partie pour faire valoir ses prétentions ; doit énoncer les faits de façon claire, précise et concise sans argumenter le droit. En anglais, « pleading » est le terme officiel de l'art. 99 C.p.c."
+    },
+    {
+      "id": "demande-en-cours-instance",
+      "terme_fr": "demande en cours d'instance",
+      "synonymes_fr": [],
+      "terme_en": "application in the course of a proceeding",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "motion",
+          "origine": "common_law",
+          "motif": "Terme aboli au C.p.c. ; employer « demande » ou « demande en cours d'instance » (art. 101 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "notice of motion",
+          "origine": "common_law",
+          "motif": "La version anglaise du C.p.c. emploie « application » (art. 101 C.p.c.), bien que « motion » subsiste à la Cour suprême du Canada et à la Cour fédérale."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 101 C.p.c.",
+      "note_explicative": "Demande présentée incidemment pendant l'instance (remplace l'ancienne « requête » ou « motion »)."
+    },
+    {
+      "id": "signification",
+      "terme_fr": "signification",
+      "synonymes_fr": [],
+      "terme_en": "service",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "exploit d'huissier",
+          "origine": "droit_francais",
+          "motif": "Terminologie française ; au Québec, « signification par huissier » et « procès-verbal de signification » (art. 116 et 129 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 110 et 116 à 131 C.p.c.",
+      "note_explicative": "Mode solennel de notification exécuté par un huissier de justice (obligatoire notamment pour la demande introductive d'instance et la citation à comparaître, sauf exception)."
+    },
+    {
+      "id": "notification",
+      "terme_fr": "notification",
+      "synonymes_fr": [],
+      "terme_en": "notification",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 109 à 115 et 132 à 140 C.p.c.",
+      "note_explicative": "Portée d'un document à la connaissance des intéressés par tout mode approprié permettant de constituer une preuve de remise ou d'envoi (dont le moyen technologique selon l'art. 133 C.p.c., réputé reçu à 8 h 00 le jour ouvrable suivant s'il est transmis après 17 h 00, art. 111 al. 2 C.p.c.)."
+    },
+    {
+      "id": "declaration-sous-serment",
+      "terme_fr": "déclaration sous serment",
+      "synonymes_fr": [],
+      "terme_en": "affidavit",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "affidavit",
+          "origine": "archaïsme_common_law",
+          "motif": "Remplacé en français dans le C.p.c. (art. 105) par « déclaration sous serment » (alors qu'« affidavit » reste officiel dans la version anglaise)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 105 et 106 C.p.c.",
+      "note_explicative": "En français au C.p.c., le terme consacré depuis 2016 est « déclaration sous serment » (remplaçant « affidavit »). En revanche, dans la version anglaise officielle du C.p.c., « affidavit » demeure le terme légal."
+    },
+    {
+      "id": "protocole-de-l-instance",
+      "terme_fr": "protocole de l'instance",
+      "synonymes_fr": [],
+      "terme_en": "case protocol",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "ordonnance de clôture du juge de la mise en état",
+          "origine": "droit_francais",
+          "motif": "Procédure française ; au Québec, « protocole de l'instance » et « inscription pour instruction et jugement » (art. 148 et 174 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 148 à 152 C.p.c.",
+      "note_explicative": "Convention procédurale obligatoire par laquelle les parties établissent les étapes et échéances de mise en état du dossier dans le respect du délai de rigueur d'inscription (6 mois en matière civile générale, art. 173 C.p.c.)."
+    },
+    {
+      "id": "moyen-irrecevabilite",
+      "terme_fr": "moyen d'irrecevabilité",
+      "synonymes_fr": [
+        "irrecevabilité",
+        "fin de non-recevoir"
+      ],
+      "terme_en": "ground for dismissal",
+      "synonymes_en": [
+        "inadmissibility"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "estoppel",
+          "origine": "common_law",
+          "motif": "Doctrine de common law non reçue telle quelle en droit civil québécois ; employer « fin de non-recevoir » ou invoquer le devoir de cohérence / bonne foi (art. 6, 7 et 1375 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "motion to strike pleadings",
+          "origine": "common_law",
+          "motif": "Au C.p.c., employer « application for dismissal (inadmissibility) » sous l'art. 168 C.p.c. ou abus de procédure sous l'art. 51 C.p.c."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 168 C.p.c.",
+      "note_explicative": "Moyen préliminaire tendant au rejet total ou partiel de la demande (litispendance, chose jugée, incapacité, absence d'intérêt ou demande non fondée en droit quoique les faits allégués puissent être vrais)."
+    },
+    {
+      "id": "abus-de-procedure",
+      "terme_fr": "abus de la procédure",
+      "synonymes_fr": [],
+      "terme_en": "abuse of procedure",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 51 à 56 C.p.c.",
+      "note_explicative": "Demande ou acte de procédure manifestement mal fondé, frivole ou dilatoire, ou comportement vexatoire ou quérulent (incluant les poursuites-bâillons)."
+    },
+    {
+      "id": "ordonnance-de-sauvegarde",
+      "terme_fr": "ordonnance de sauvegarde",
+      "synonymes_fr": [],
+      "terme_en": "safeguard order",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "ordonnance de référé",
+          "origine": "droit_francais",
+          "motif": "Le « référé » est une procédure française inexistante au Québec ; employer « ordonnance de sauvegarde » (art. 49 C.p.c.) ou « injonction interlocutoire provisoire » (art. 510 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 49 C.p.c.",
+      "note_explicative": "Ordonnance d'urgence rendue en cours d'instance (pour au plus 6 mois renouvelables) afin de conserver les droits des parties ou de parer à un préjudice sérieux ou irréparable."
+    },
+    {
+      "id": "injonction-interlocutoire",
+      "terme_fr": "injonction interlocutoire",
+      "synonymes_fr": [],
+      "terme_en": "interlocutory injunction",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 509 à 515 C.p.c.",
+      "note_explicative": "Ordonnance relevant de la compétence exclusive de la Cour supérieure (art. 509 C.p.c.) enjoignant de ne pas faire ou de faire un acte déterminé pendant l'instance (provisoire pour au plus 10 jours en cas d'urgence, art. 510 C.p.c.)."
+    },
+    {
+      "id": "saisie-avant-jugement",
+      "terme_fr": "saisie avant jugement",
+      "synonymes_fr": [],
+      "terme_en": "seizure before judgment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "pre-judgment attachment",
+          "origine": "common_law",
+          "motif": "La version anglaise officielle du C.p.c. emploie « seizure before judgment » (art. 516 C.p.c.)."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 516 à 526 C.p.c.",
+      "note_explicative": "Mesure provisionnelle permettant, avec l'autorisation du juge (ou de droit dans les cas de l'art. 517 C.p.c.), de mettre sous la main de la justice les biens du défendeur lorsqu'il est à craindre que le recouvrement de la créance ne soit mis en péril."
+    },
+    {
+      "id": "interrogatoire-prealable",
+      "terme_fr": "interrogatoire préalable à l'instruction",
+      "synonymes_fr": [],
+      "terme_en": "pre-trial examination",
+      "synonymes_en": [
+        "examination on discovery"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "discovery",
+          "origine": "common_law",
+          "motif": "Anglicisme de procédure ; employer « interrogatoire préalable à l'instruction » (art. 221 C.p.c.) ou « communication de la preuve »."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 221 à 230 C.p.c.",
+      "note_explicative": "Interrogatoire écrit ou oral hors cour portant sur tous les faits se rapportant au litige et aux éléments de preuve qui les soutiennent (sujet au seuil de 30 000 $ de l'art. 229 C.p.c. pour l'interrogatoire oral)."
+    },
+    {
+      "id": "citation-a-comparaitre",
+      "terme_fr": "citation à comparaître",
+      "synonymes_fr": [],
+      "terme_en": "subpoena",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "subpoena",
+          "origine": "archaïsme_common_law",
+          "motif": "Remplacé en français à l'art. 269 C.p.c. par « citation à comparaître » (tandis que « subpoena » reste le terme officiel anglais)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 269 C.p.c.",
+      "note_explicative": "Ordre enjoignant à un témoin de se présenter devant le tribunal pour témoigner ou communiquer des documents (*subpoena duces tecum*). En français au C.p.c., le terme officiel est « citation à comparaître » ; en anglais, « subpoena »."
+    },
+    {
+      "id": "expertise-commune",
+      "terme_fr": "expertise commune",
+      "synonymes_fr": [],
+      "terme_en": "joint expert opinion",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 232 C.p.c.",
+      "note_explicative": "Principe directeur québécois favorisant la désignation d'un seul expert commun aux parties, sauf autorisation du tribunal."
+    },
+    {
+      "id": "inscription-pour-instruction-et-jugement",
+      "terme_fr": "inscription pour instruction et jugement",
+      "synonymes_fr": [],
+      "terme_en": "setting down for trial and judgment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 173 et 174 C.p.c.",
+      "note_explicative": "Déclaration commune attestant que le dossier est complet et prêt à être instruit, devant être déposée dans le délai de rigueur de 6 mois en première instance (sous peine de présomption de désistement, art. 177 C.p.c.)."
+    },
+    {
+      "id": "dispositif-pour-ces-motifs",
+      "terme_fr": "POUR CES MOTIFS, PLAISE AU TRIBUNAL",
+      "synonymes_fr": [],
+      "terme_en": "FOR THESE REASONS, MAY IT PLEASE THE COURT",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "PAR CES MOTIFS",
+          "origine": "droit_francais",
+          "motif": "Formule française réservée en outre au Québec au dispositif des jugements des tribunaux ; dans un acte de procédure d'une partie, écrire « POUR CES MOTIFS, PLAISE AU TRIBUNAL : »."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "WHEREFORE PLAINTIFF PRAYS FOR JUDGMENT",
+          "origine": "common_law",
+          "motif": "Formule américaine ; au Québec, employer « FOR THESE REASONS, MAY IT PLEASE THE COURT: »."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 99 C.p.c.",
+      "note_explicative": "Formule consacrée introduisant les conclusions recherchées à la fin d'un acte de procédure québécois."
+    },
+    {
+      "id": "execution-provisoire-nonobstant-appel",
+      "terme_fr": "exécution provisoire malgré l'appel",
+      "synonymes_fr": [
+        "exécution provisoire nonobstant appel"
+      ],
+      "terme_en": "provisional execution despite appeal",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 660 et 661 C.p.c.",
+      "note_explicative": "Exécution immédiate du jugement de première instance malgré l'introduction d'un appel, soit de plein droit (art. 660 C.p.c.), soit sur ordonnance en cas de préjudice sérieux ou irréparable (art. 661 C.p.c.)."
+    },
+    {
+      "id": "permission-appeler",
+      "terme_fr": "permission d'appeler",
+      "synonymes_fr": [],
+      "terme_en": "leave to appeal",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "pourvoi en cassation",
+          "origine": "droit_francais",
+          "motif": "Institution française (Cour de cassation) ; au Québec, « appel » devant la Cour d'appel du Québec ou « demande d'autorisation d'appel / pourvoi » devant la Cour suprême du Canada."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 30 et 31 C.p.c.",
+      "note_explicative": "Autorisation préalable d'un juge de la Cour d'appel requise lorsque l'appel n'est pas de plein droit (p. ex. intérêt en jeu inférieur à 60 000 $, jugements en cours d'instance, exécution)."
+    },
+    {
+      "id": "memoire-appel",
+      "terme_fr": "mémoire d'appel",
+      "synonymes_fr": [],
+      "terme_en": "brief",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 370 C.p.c.",
+      "note_explicative": "Exposé argumenté et recueil d'annexes déposé devant la Cour d'appel du Québec (« appellate brief » ou « brief » dans le C.p.c. ; devant la Cour suprême du Canada, le terme bilingue est « mémoire / factum »)."
+    },
+    {
+      "id": "outrage-au-tribunal",
+      "terme_fr": "outrage au tribunal",
+      "synonymes_fr": [],
+      "terme_en": "contempt of court",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "astreinte journalière",
+          "origine": "droit_francais",
+          "motif": "L'astreinte comminatoire française n'existe pas au C.p.c. québécois : la sanction d'une injonction relève de l'outrage au tribunal (art. 58 et 62 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 57 à 62 C.p.c.",
+      "note_explicative": "Transgression d'une ordonnance ou d'une injonction du tribunal ou entrave au bon déroulement de la justice ; la preuve doit être établie hors de tout doute raisonnable (art. 60 al. 2 C.p.c., aucun témoignage contraint de l'intimé)."
+    },
+    {
+      "id": "cour-superieure-quebec",
+      "terme_fr": "Cour supérieure du Québec",
+      "synonymes_fr": [],
+      "terme_en": "Superior Court of Québec",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "tribunal judiciaire",
+          "origine": "droit_francais",
+          "motif": "Juridiction française ayant remplacé le TGI ; au Québec, « Cour supérieure » ou « Cour du Québec »."
+        },
+        {
+          "terme": "tribunal de commerce",
+          "origine": "droit_francais",
+          "motif": "Juridiction consulaire française ; au Québec, la Chambre commerciale est une division de la Cour supérieure."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 33 C.p.c.",
+      "note_explicative": "Tribunal de droit commun au Québec compétent en première instance dans toute demande que la loi n'attribue pas formellement et exclusivement à une autre juridiction (compétence pécuniaire civile générale à partir de 75 000 $ sous réserve de compétence concurrente/indexation, art. 35 C.p.c.)."
+    },
+    {
+      "id": "tribunal-administratif-travail",
+      "terme_fr": "Tribunal administratif du travail",
+      "synonymes_fr": [],
+      "terme_en": "Administrative Labour Tribunal",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "conseil de prud'hommes",
+          "origine": "droit_francais",
+          "motif": "Juridiction paritaire française inexistante au Québec ; employer « Tribunal administratif du travail (TAT) » ou les tribunaux civils selon le recours."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Loi instituant le Tribunal administratif du travail (RLRQ, c. T-15.1)",
+      "note_explicative": "Tribunal administratif québécois compétent en relations du travail, normes du travail, santé et sécurité du travail."
+    },
+    {
+      "id": "litispendance",
+      "terme_fr": "litispendance",
+      "synonymes_fr": [],
+      "terme_en": "lis pendens",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 168 al. 1 par. 1° C.p.c. et art. 3137 C.c.Q.",
+      "note_explicative": "Situation où une autre instance est déjà pendante entre les mêmes parties, agissant dans les mêmes qualités, fondée sur les mêmes faits et ayant le même objet."
+    },
+    {
+      "id": "action-collective",
+      "terme_fr": "action collective",
+      "synonymes_fr": [],
+      "terme_en": "class action",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "recours collectif",
+          "origine": "archaïsme_qc",
+          "motif": "Ancien terme de l'ancien C.p.c. ; depuis 2016, le Livre VI du C.p.c. emploie « action collective » (art. 571 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 571 à 604 C.p.c.",
+      "note_explicative": "Moyen procédural permettant à un représentant d'agir sans mandat au nom de tous les membres d'un groupe, soumis à l'autorisation préalable de la Cour supérieure (art. 574–575 C.p.c.)."
+    },
+    {
+      "id": "en-liasse",
+      "terme_fr": "en liasse",
+      "synonymes_fr": [],
+      "terme_en": "filed jointly",
+      "synonymes_en": [
+        "as a bundle",
+        "in a bundle",
+        "collectively as Exhibit"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "correspondance et pratique",
+      "base_legale": "Usage judiciaire québécois (art. 247 C.p.c.)",
+      "note_explicative": "Locution désignant plusieurs documents regroupés et communiqués sous une seule et même cote de pièce (p. ex. « communiquées en liasse sous la cote P-3 » / « communicated as a bundle as Exhibit P-3 »)."
+    },
+    {
+      "id": "piece",
+      "terme_fr": "pièce",
+      "synonymes_fr": [],
+      "terme_en": "exhibit",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 246 à 252 C.p.c.",
+      "note_explicative": "Document ou élément matériel invoqué au soutien d'un acte de procédure, inventorié et communiqué aux autres parties (coté P-1, D-1, etc.)."
+    },
+    {
+      "id": "sous-toutes-reserves",
+      "terme_fr": "sous toutes réserves",
+      "synonymes_fr": [],
+      "terme_en": "without prejudice / under all reserves",
+      "synonymes_en": [
+        "without prejudice",
+        "under all reserves"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "correspondance et pratique",
+      "base_legale": "Usage du Barreau du Québec et privilège relatif aux règlements",
+      "note_explicative": "En pratique québécoise, « SOUS TOUTES RÉSERVES » en tête d'une mise en demeure réserve tous les droits et recours (« without prejudice / under all reserves ») mais ne rend PAS une mise en demeure confidentielle lorsqu'elle doit être produite en preuve ; pour des pourparlers de règlement couverts par le privilège relatif aux règlements, inscrire expressément « SANS PRÉJUDICE — POUR FINS DE RÈGLEMENT SEULEMENT » (« WITHOUT PREJUDICE — FOR SETTLEMENT PURPOSES ONLY »)."
+    },
+    {
+      "id": "delai-francs-jours",
+      "terme_fr": "dans un délai de X jours",
+      "synonymes_fr": [],
+      "terme_en": "within X days",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "sous huitaine",
+          "origine": "droit_francais",
+          "motif": "Formule épistolaire française ; au Québec, fixer un délai précis en jours ou une date précise avec heure."
+        },
+        {
+          "terme": "sous quinzaine",
+          "origine": "droit_francais",
+          "motif": "Formule française ambiguë (14 ou 15 jours) ; écrire « dans un délai de 15 jours » ou indiquer la date exacte."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "correspondance et pratique",
+      "base_legale": "Art. 83 C.p.c.",
+      "note_explicative": "Le C.p.c. compte les délais en jours civils (le jour qui marque le point de départ n'est pas compté, mais celui de l'échéance l'est, avec report du jour non juridique au jour ouvrable suivant, art. 83 C.p.c.)."
+    },
+    {
+      "id": "societe-par-actions",
+      "terme_fr": "société par actions",
+      "synonymes_fr": [],
+      "terme_en": "business corporation",
+      "synonymes_en": [
+        "corporation"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "SARL",
+          "origine": "droit_francais",
+          "motif": "Forme sociale française (« société à responsabilité limitée ») inexistante en droit québécois ou canadien ; employer « société par actions (inc.) »."
+        },
+        {
+          "terme": "SAS",
+          "origine": "droit_francais",
+          "motif": "Forme sociale française (« société par actions simplifiée ») inexistante au Québec."
+        },
+        {
+          "terme": "extrait Kbis",
+          "origine": "droit_francais",
+          "motif": "Document du greffe du tribunal de commerce français ; au Québec, « état des informations au registre des entreprises (REQ) »."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Loi sur les sociétés par actions (RLRQ, c. S-31.1) et L.C.S.A. (L.R.C. (1985), ch. C-44)",
+      "note_explicative": "Personne morale à capital-actions constituée sous la L.S.A.Q. (Québec) ou la L.C.S.A. (Canada), dont le nom comporte notamment « inc. » ou « ltée »."
+    },
+    {
+      "id": "societe-en-nom-collectif",
+      "terme_fr": "société en nom collectif",
+      "synonymes_fr": [
+        "S.E.N.C."
+      ],
+      "terme_en": "general partnership",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 2186 à 2235 C.c.Q.",
+      "note_explicative": "Contrat de société (« S.E.N.C. » ou « S.E.N.C.R.L. » à responsabilité limitée, « LLP ») sans personnalité morale distincte mais pouvant ester en justice sous son nom (art. 2225 C.c.Q.), où les associés répondent solidairement des dettes sociales après discussion des biens de la société (art. 2221 C.c.Q.)."
+    },
+    {
+      "id": "societe-en-commandite",
+      "terme_fr": "société en commandite",
+      "synonymes_fr": [
+        "S.E.C."
+      ],
+      "terme_en": "limited partnership",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 2236 à 2249 C.c.Q.",
+      "note_explicative": "Société (« S.E.C. » / « L.P. ») composée d'un ou plusieurs commandités (« general partners ») tenus indéfiniment et solidairement et de commanditaires (« limited partners ») tenus jusqu'à concurrence de leur apport."
+    },
+    {
+      "id": "societe-en-participation",
+      "terme_fr": "société en participation",
+      "synonymes_fr": [],
+      "terme_en": "undeclared partnership",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 2250 à 2266 C.c.Q.",
+      "note_explicative": "Société non immatriculée résultant d'un contrat écrit, verbal ou du seul comportement des associés (couvre souvent la coentreprise contractuelle non incorporée / « joint venture »)."
+    },
+    {
+      "id": "convention-unanime-actionnaires",
+      "terme_fr": "convention unanime des actionnaires",
+      "synonymes_fr": [],
+      "terme_en": "unanimous shareholder agreement",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 213 L.S.A.Q. (RLRQ, c. S-31.1) et art. 146 L.C.S.A.",
+      "note_explicative": "Convention écrite conclue entre tous les actionnaires d'une société par actions qui restreint, en tout ou en partie, les pouvoirs du conseil d'administration, transférant aux actionnaires les droits, pouvoirs, devoirs et responsabilités correspondants."
+    },
+    {
+      "id": "redressement-abus-oppression",
+      "terme_fr": "demande de redressement en cas d'abus de pouvoir ou d'iniquité",
+      "synonymes_fr": [
+        "recours en oppression"
+      ],
+      "terme_en": "oppression remedy",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 450 L.S.A.Q. et art. 241 L.C.S.A.",
+      "note_explicative": "Recours ouvert à tout demandeur (actionnaire, administrateur, créancier reconnu apte) contre une conduite abusive, injuste ou qui ne tient pas compte de ses attentes raisonnables."
+    },
+    {
+      "id": "action-derivee",
+      "terme_fr": "action dérivée",
+      "synonymes_fr": [],
+      "terme_en": "derivative action",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 445 L.S.A.Q. et art. 239 L.C.S.A.",
+      "note_explicative": "Action intentée au nom et pour le compte d'une société par actions, avec l'autorisation préalable de la Cour supérieure, pour faire valoir un droit de la société elle-même."
+    },
+    {
+      "id": "administrateur-societe",
+      "terme_fr": "administrateur",
+      "synonymes_fr": [],
+      "terme_en": "director",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "gérant de SARL",
+          "origine": "droit_francais",
+          "motif": "En droit québécois des sociétés par actions, employer « administrateur » (membre du C.A.) et « dirigeant » (« officer »)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 321 C.c.Q. et art. 119 L.S.A.Q.",
+      "note_explicative": "Membre du conseil d'administration (« board of directors »), considéré en droit civil québécois comme mandataire de la personne morale (art. 321 C.c.Q.). Ne jamais traduire « director » par « directeur » (qui désigne un cadre ou dirigeant, « officer »)."
+    },
+    {
+      "id": "dirigeant-societe",
+      "terme_fr": "dirigeant",
+      "synonymes_fr": [],
+      "terme_en": "officer",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 116 L.S.A.Q.",
+      "note_explicative": "Président, vice-président, chef de la direction, chef de l'exploitation, chef des finances, secrétaire ou trésorier désigné par le conseil d'administration."
+    },
+    {
+      "id": "numero-entreprise-quebec",
+      "terme_fr": "numéro d'entreprise du Québec",
+      "synonymes_fr": [
+        "NEQ"
+      ],
+      "terme_en": "Québec enterprise number",
+      "synonymes_en": [
+        "NEQ"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 37 Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1)",
+      "note_explicative": "Identifiant numérique à 10 chiffres (NEQ) attribué par le Registraire des entreprises du Québec lors de l'immatriculation."
+    },
+    {
+      "id": "bijuridisme-principe-complementarite",
+      "terme_fr": "complémentarité du droit civil et de la common law",
+      "synonymes_fr": [],
+      "terme_en": "complementarity of civil law and common law",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Art. 8.1 et 8.2 Loi d'interprétation (L.R.C. (1985), ch. I-21)",
+      "note_explicative": "Lorsqu'il est nécessaire de recourir à des règles, principes ou notions du droit privé provincial pour appliquer un texte fédéral au Québec, ce sont les règles du droit civil du Québec qui s'appliquent (et non la common law), sauf règle de droit fédérale contraire."
+    },
+    {
+      "id": "doublet-hypotheque-immobiliere-mortgage",
+      "terme_fr": "hypothèque immobilière ou mortgage sur bien réel",
+      "synonymes_fr": [],
+      "terme_en": "mortgage on real property or hypothec on immovables",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Art. 8.2 Loi d'interprétation (L.R.C. (1985), ch. I-21) ; L.F.I. / L.I.R.",
+      "note_explicative": "Doublet bijuridique fédéral harmonisé désignant simultanément l'hypothèque immobilière du droit civil québécois et le « mortgage on real property » des provinces de common law."
+    },
+    {
+      "id": "doublet-surete-mobiliere-hypotheque",
+      "terme_fr": "hypothèque mobilière ou sûreté sur bien personnel",
+      "synonymes_fr": [],
+      "terme_en": "security interest in personal property or movable hypothec",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Art. 8.2 Loi d'interprétation (L.R.C. (1985), ch. I-21) ; art. 2 L.F.I.",
+      "note_explicative": "Doublet bijuridique fédéral harmonisé couvrant à la fois l'hypothèque mobilière du C.c.Q. et le « security interest » des lois PPSA de common law."
+    },
+    {
+      "id": "doublet-biens-meubles-personnels",
+      "terme_fr": "biens meubles ou biens personnels",
+      "synonymes_fr": [],
+      "terme_en": "personal property or movables",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Art. 8.2 Loi d'interprétation (L.R.C. (1985), ch. I-21)",
+      "note_explicative": "Doublet bijuridique fédéral adressant les deux traditions juridiques canadiennes dans un acte ou une loi d'application pancanadienne."
+    },
+    {
+      "id": "doublet-biens-immeubles-reels",
+      "terme_fr": "biens immeubles ou biens réels",
+      "synonymes_fr": [],
+      "terme_en": "real property or immovables",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Art. 8.2 Loi d'interprétation (L.R.C. (1985), ch. I-21)",
+      "note_explicative": "Doublet bijuridique fédéral couvrant les immeubles en droit civil québécois et les « real property » en common law."
+    },
+    {
+      "id": "doublet-responsabilite-civile-delictuelle",
+      "terme_fr": "responsabilité civile extracontractuelle ou responsabilité délictuelle",
+      "synonymes_fr": [],
+      "terme_en": "tort or extracontractual civil liability",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Loi sur la responsabilité civile de l'État et le contentieux administratif (L.R.C. (1985), ch. C-50, art. 3)",
+      "note_explicative": "Doublet bijuridique fédéral distinguant la responsabilité extracontractuelle au Québec de la responsabilité délictuelle (« tort ») dans les autres provinces."
+    },
+    {
+      "id": "doublet-cautionnement-garantie",
+      "terme_fr": "cautionnement ou garantie",
+      "synonymes_fr": [],
+      "terme_en": "guarantee or suretyship",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "bijuridique_federal",
+      "domaine": "bijuridisme fédéral",
+      "base_legale": "Législation fédérale harmonisée",
+      "note_explicative": "Doublet bijuridique employé dans les contrats pancanadiens pour viser simultanément le cautionnement du C.c.Q. (« suretyship ») et la « guarantee » de common law."
+    },
+    {
+      "id": "louage",
+      "terme_fr": "louage",
+      "synonymes_fr": [],
+      "terme_en": "lease",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "bail commercial 3-6-9",
+          "origine": "droit_francais",
+          "motif": "Régime statutaire des baux commerciaux du Code de commerce français (propriété commerciale et indemnité d'éviction) inexistant au Québec."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "leasehold estate",
+          "origine": "common_law",
+          "motif": "En common law, le bail crée un droit réel (« estate in land ») ; au C.c.Q., le bail ne confère qu'un droit personnel (« personal right under a lease »)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1851 à 2000 C.c.Q.",
+      "note_explicative": "Contrat par lequel le locateur (« lessor ») s'engage envers le locataire (« lessee ») à lui procurer la jouissance d'un bien meuble ou immeuble moyennant un loyer (« rent »). Au Québec, le bail commercial est régi par les règles supplétives et impératives du C.c.Q. et confère un droit personnel (publiable au registre foncier pour opposabilité aux tiers acquéreurs, art. 1887 et 2999.1 C.c.Q.)."
+    },
+    {
+      "id": "tribunal-administratif-du-logement",
+      "terme_fr": "Tribunal administratif du logement",
+      "synonymes_fr": [
+        "TAL"
+      ],
+      "terme_en": "Administrative Housing Tribunal",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "Régie du logement",
+          "origine": "archaïsme_qc",
+          "motif": "Devenue le « Tribunal administratif du logement (TAL) » le 31 août 2020."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Loi sur le Tribunal administratif du logement (RLRQ, c. T-15.01)",
+      "note_explicative": "Tribunal administratif ayant compétence exclusive en première instance sur les demandes relatives au bail d'un logement (anciennement « Régie du logement » avant le 31 août 2020)."
+    },
+    {
+      "id": "contrat-entreprise-ou-service",
+      "terme_fr": "contrat d'entreprise ou de service",
+      "synonymes_fr": [],
+      "terme_en": "contract of enterprise or for services",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "louage d'ouvrage",
+          "origine": "archaïsme_droit_francais",
+          "motif": "Ancien terme remplacé au C.c.Q. par « contrat d'entreprise ou de service » (art. 2098 C.c.Q.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2098 à 2129 C.c.Q.",
+      "note_explicative": "Contrat par lequel l'entrepreneur ou le prestataire de services s'engage sans lien de subordination à réaliser un ouvrage ou fournir un service avec libre choix des moyens ; résiliable unilatéralement par le client sous réserve d'indemnisation (art. 2125 et 2129 C.c.Q., règle supplétive)."
+    },
+    {
+      "id": "contrat-de-travail",
+      "terme_fr": "contrat de travail",
+      "synonymes_fr": [],
+      "terme_en": "contract of employment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "employment at will",
+          "origine": "common_law",
+          "motif": "Doctrine américaine contraire à l'art. 2091–2092 C.c.Q. qui prohibe la renonciation au délai de congé raisonnable ou à l'indemnité compensatrice."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2085 à 2097 C.c.Q.",
+      "note_explicative": "Contrat caractérisé par la prestation d'un travail rémunéré sous la direction ou le contrôle de l'employeur (subordination juridique) ; comporte le délai de congé raisonnable d'ordre public relatif (art. 2091–2092 C.c.Q.) et l'obligation de loyauté (art. 2088 C.c.Q.)."
+    },
+    {
+      "id": "delai-de-conge",
+      "terme_fr": "délai de congé",
+      "synonymes_fr": [],
+      "terme_en": "notice of termination",
+      "synonymes_en": [
+        "reasonable notice of termination"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2091 et 2092 C.c.Q.",
+      "note_explicative": "Préavis raisonnable (ou indemnité en tenant lieu) dû en vertu du C.c.Q. lors de la résiliation d'un contrat de travail à durée indéterminée sans motif sérieux (art. 2094 C.c.Q.), distinct du simple minimum statutaire de l'art. 82 L.n.t."
+    },
+    {
+      "id": "motif-serieux-congediement",
+      "terme_fr": "motif sérieux",
+      "synonymes_fr": [],
+      "terme_en": "serious reason",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "summary dismissal for cause",
+          "origine": "common_law",
+          "motif": "La version anglaise de l'art. 2094 C.c.Q. emploie « serious reason » (« unilateral resiliation for a serious reason »)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2094 C.c.Q.",
+      "note_explicative": "Critère de résiliation unilatérale immédiate sans préavis du contrat de travail au C.c.Q. (à rapprocher de la « cause juste et suffisante » sous l'art. 124 L.n.t.)."
+    },
+    {
+      "id": "credit-bail",
+      "terme_fr": "crédit-bail",
+      "synonymes_fr": [],
+      "terme_en": "leasing",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1842 à 1850 C.c.Q.",
+      "note_explicative": "Contrat nommé tripartite par lequel le crédit-bailleur acquiert d'un tiers un bien meuble à la demande du crédit-preneur et le met à sa disposition à des fins d'entreprise ; les droits de propriété du crédit-bailleur doivent être publiés au RDPRM dans les 15 jours (art. 1847 C.c.Q.)."
+    },
+    {
+      "id": "reserve-de-propriete",
+      "terme_fr": "vente sous réserve de propriété",
+      "synonymes_fr": [
+        "vente à tempérament"
+      ],
+      "terme_en": "instalment sale",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "conditional sale",
+          "origine": "common_law",
+          "motif": "Ancien terme remplacé dans la version anglaise du C.c.Q. par « instalment sale » (art. 1745 C.c.Q.), distinct de la vente sous condition suspensive."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1745 à 1749 C.c.Q.",
+      "note_explicative": "Vente à tempérament (« instalment sale » dans la version anglaise du C.c.Q.) par laquelle le vendeur se réserve la propriété du bien jusqu'au paiement total du prix ; soumise à publication au RDPRM dans les 15 jours (art. 1745 al. 2 C.c.Q.)."
+    },
+    {
+      "id": "faculte-de-rachat",
+      "terme_fr": "vente à réméré",
+      "synonymes_fr": [
+        "vente avec faculté de rachat"
+      ],
+      "terme_en": "sale with a right of redemption",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 1750 à 1756 C.c.Q.",
+      "note_explicative": "Vente sous condition résolutoire par laquelle le vendeur se réserve le droit de racheter le bien dans un délai d'au plus 5 ans (assimilée aux droits hypothécaires lorsqu'elle vise à garantir un emprunt, art. 1756 C.c.Q.)."
+    },
+    {
+      "id": "pret-simple",
+      "terme_fr": "prêt de consommation",
+      "synonymes_fr": [
+        "prêt simple"
+      ],
+      "terme_en": "simple loan",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2314 C.c.Q.",
+      "note_explicative": "Prêt d'une somme d'argent ou d'une certaine quantité de biens qui se consomment par l'usage, à charge de rendre autant de même espèce et qualité (par opposition au prêt à usage / « loan for use », art. 2313 C.c.Q.)."
+    },
+    {
+      "id": "rente",
+      "terme_fr": "rente",
+      "synonymes_fr": [],
+      "terme_en": "annuity",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2367 à 2388 C.c.Q.",
+      "note_explicative": "Contrat par lequel le débirentier s'oblige envers le crédirentier à fournir périodiquement une redevance en argent ou en nature (viagère ou non viagère)."
+    },
+    {
+      "id": "assurance-dommages",
+      "terme_fr": "assurance de dommages",
+      "synonymes_fr": [],
+      "terme_en": "damage insurance",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2463 à 2504 C.c.Q.",
+      "note_explicative": "Comprend l'assurance de biens (« property insurance ») et l'assurance de responsabilité (« liability insurance », où les frais de défense de l'assuré s'ajoutent au montant d'assurance, art. 2503 C.c.Q.)."
+    },
+    {
+      "id": "appel-en-garantie",
+      "terme_fr": "intervention forcée en garantie",
+      "synonymes_fr": [
+        "appel en garantie"
+      ],
+      "terme_en": "forced intervention in warranty",
+      "synonymes_en": [
+        "impleader in warranty",
+        "call in warranty"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "third party claim",
+          "origine": "common_law",
+          "motif": "Règles de common law ; la version anglaise officielle du C.p.c. emploie « forced intervention » / « impleader » et « claim in warranty » (art. 184 et 187 C.p.c.)."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 184 et 187 à 190 C.p.c.",
+      "note_explicative": "Mise en cause d'un tiers afin d'exercer contre lui un recours en garantie simple ou formelle."
+    },
+    {
+      "id": "demande-reconventionnelle",
+      "terme_fr": "demande reconventionnelle",
+      "synonymes_fr": [],
+      "terme_en": "cross-application",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "counterclaim",
+          "origine": "common_law",
+          "motif": "La version anglaise officielle de l'art. 172 C.p.c. emploie « cross-application »."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 172 C.p.c.",
+      "note_explicative": "Demande formée par le défendeur contre le demandeur dans sa défense écrite, résultant de la même source que la demande principale ou d'une source connexe."
+    },
+    {
+      "id": "expose-sommaire-moyens-defense",
+      "terme_fr": "exposé sommaire des moyens de défense",
+      "synonymes_fr": [],
+      "terme_en": "outline of the defence",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "statement of defence",
+          "origine": "common_law",
+          "motif": "Dans le C.p.c., l'acte écrit du défendeur s'intitule simplement « defence » (défense écrite, art. 170 C.p.c.), non « statement of defence »."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 148 et 170 C.p.c.",
+      "note_explicative": "Indication des moyens de défense lorsque la défense est orale plutôt qu'écrite."
+    },
+    {
+      "id": "offres-reelles-consignation",
+      "terme_fr": "offres réelles et consignation",
+      "synonymes_fr": [],
+      "terme_en": "tender and deposit",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1573 à 1589 C.c.Q.",
+      "note_explicative": "Mécanisme permettant au débiteur de se libérer lorsque le créancier refuse ou néglige de recevoir le paiement."
+    },
+    {
+      "id": "enrichissement-injustifie",
+      "terme_fr": "enrichissement injustifié",
+      "synonymes_fr": [],
+      "terme_en": "unjust enrichment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "quantum meruit",
+          "origine": "common_law",
+          "motif": "Remède quasi-contractuel de common law ; au Québec, raisonner sous le contrat (art. 2106 C.c.Q.), la réception de l'indu (art. 1491 C.c.Q.) ou l'enrichissement injustifié (art. 1493 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1493 à 1496 C.c.Q.",
+      "note_explicative": "Source subsidiaire d'obligation (anciennement « enrichissement sans cause » / *de in rem verso*) supposant un enrichissement, un appauvrissement corrélatif, l'absence de justification et l'absence de tout autre recours."
+    },
+    {
+      "id": "reception-de-l-indu",
+      "terme_fr": "réception de l'indu",
+      "synonymes_fr": [],
+      "terme_en": "receipt of a payment not due",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1491 et 1492 C.c.Q.",
+      "note_explicative": "Paiement fait par erreur ou pour éviter un préjudice sous protêt, obligeant celui qui le reçoit à la restitution."
+    },
+    {
+      "id": "gestion-d-affaires",
+      "terme_fr": "gestion d'affaires",
+      "synonymes_fr": [],
+      "terme_en": "management of the business of another",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1482 à 1490 C.c.Q.",
+      "note_explicative": "Fait pour le gérant (« manager ») de s'immiscer spontanément et sans y être obligé dans la gestion de l'affaire d'autrui (*negotiorum gestio*)."
+    },
+    {
+      "id": "solidarite-imparfaite",
+      "terme_fr": "obligation in solidum",
+      "synonymes_fr": [
+        "solidarité imparfaite"
+      ],
+      "terme_en": "obligation in solidum",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1480 et 1526 C.c.Q. ; jurisprudence québécoise",
+      "note_explicative": "Obligation au tout de codébiteurs tenus en vertu de causes distinctes (p. ex. une faute contractuelle et une faute extracontractuelle ayant concouru à un préjudice unique), sans les effets secondaires de représentation de la solidarité parfaite."
+    },
+    {
+      "id": "simulation-contre-lettre",
+      "terme_fr": "simulation",
+      "synonymes_fr": [
+        "contre-lettre"
+      ],
+      "terme_en": "simulation",
+      "synonymes_en": [
+        "counter-letter"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "obligations",
+      "base_legale": "Art. 1451 et 1452 C.c.Q.",
+      "note_explicative": "Accord par lequel les parties conviennent d'exprimer leur volonté réelle dans un acte secret, la contre-lettre (« counter-letter »), et non dans le contrat apparent."
+    },
+    {
+      "id": "representation-apparente",
+      "terme_fr": "mandat apparent",
+      "synonymes_fr": [],
+      "terme_en": "apparent mandate",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "ostensible authority by estoppel",
+          "origine": "common_law",
+          "motif": "Au C.c.Q., le fondement codifié est l'art. 2163 C.c.Q. (« apparent mandate »)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2163 C.c.Q.",
+      "note_explicative": "Responsabilité de la personne qui a laissé croire qu'une autre personne était son mandataire envers le tiers de bonne foi qui a contracté avec celle-ci."
+    },
+    {
+      "id": "reddition-de-compte",
+      "terme_fr": "reddition de compte",
+      "synonymes_fr": [],
+      "terme_en": "rendering of account",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "equitable accounting of profits",
+          "origine": "common_law",
+          "motif": "Au Québec, distinguer la reddition de compte de l'administrateur du bien d'autrui (art. 1363 C.c.Q.) de l'évaluation du préjudice ou de la restitution."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1363 C.c.Q. et art. 679 C.p.c.",
+      "note_explicative": "Obligation de tout administrateur du bien d'autrui ou mandataire de rendre un compte définitif à la fin de son administration."
+    },
+    {
+      "id": "administration-du-bien-d-autrui",
+      "terme_fr": "administration du bien d'autrui",
+      "synonymes_fr": [],
+      "terme_en": "administration of the property of another",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "fiduciary duty in equity",
+          "origine": "common_law",
+          "motif": "En droit civil québécois, les obligations d'honnêteté et de loyauté découlent du Code civil (art. 322, 1309, 2088 et 2138 C.c.Q.) et non de l'equity."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "biens",
+      "base_legale": "Art. 1299 à 1370 C.c.Q.",
+      "note_explicative": "Régime commun du Livre quatrième du C.c.Q. (simple ou pleine administration) gouvernant tuteurs, liquidateurs, fiduciaires, mandataires et administrateurs de sociétés (devoirs de prudence, diligence, honnêteté et loyauté, art. 1309 C.c.Q.)."
+    },
+    {
+      "id": "jugement-declaratoire",
+      "terme_fr": "jugement déclaratoire",
+      "synonymes_fr": [],
+      "terme_en": "declaratory judgment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 142 C.p.c.",
+      "note_explicative": "Demande visant à faire déterminer l'état, un pouvoir ou un droit résultant d'un acte juridique afin de résoudre une difficulté réelle, même en l'absence d'inexécution consommée."
+    },
+    {
+      "id": "pourvoi-en-controle-judiciaire",
+      "terme_fr": "pourvoi en contrôle judiciaire",
+      "synonymes_fr": [],
+      "terme_en": "application for judicial review",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "recours pour excès de pouvoir devant le Conseil d'État",
+          "origine": "droit_francais",
+          "motif": "Juridiction administrative française ; au Québec, « pourvoi en contrôle judiciaire » devant la Cour supérieure (art. 529 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 529 à 535 C.p.c.",
+      "note_explicative": "Recours unifié relevant du pouvoir de surveillance et de contrôle de la Cour supérieure (remplaçant les anciens brefs de prérogative : *certiorari*, *mandamus*, *prohibition*, *quo warranto*), devant être signifié dans un délai raisonnable (art. 529 al. 3 C.p.c.)."
+    },
+    {
+      "id": "petites-creances",
+      "terme_fr": "division des petites créances",
+      "synonymes_fr": [],
+      "terme_en": "small claims division",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "juge de proximité",
+          "origine": "droit_francais",
+          "motif": "Institution française ; au Québec, « Cour du Québec, division des petites créances » (art. 536 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 536 à 570 C.p.c.",
+      "note_explicative": "Division de la Cour du Québec instruisant sans représentation par avocat (sauf exception, art. 542 C.p.c.) les créances n'excédant pas 15 000 $ (en capital) dues à une personne physique ou à une personne morale employant au plus 10 personnes."
+    },
+    {
+      "id": "procedure-simplifiee-cour-du-quebec",
+      "terme_fr": "règles simplifiées particulières au recouvrement de certaines créances civiles",
+      "synonymes_fr": [],
+      "terme_en": "simplified particular rules for the recovery of certain civil claims",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 535.1 à 535.15 C.p.c.",
+      "note_explicative": "Régime procédural applicable devant la Cour du Québec aux demandes visées aux art. 35 et s. C.p.c. (exposé sommaire de 5 pages max., divulgation accélérée des pièces, échéances fixes)."
+    },
+    {
+      "id": "frais-de-justice",
+      "terme_fr": "frais de justice",
+      "synonymes_fr": [],
+      "terme_en": "legal costs",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "entiers dépens dont distraction",
+          "origine": "archaïsme_droit_francais",
+          "motif": "Depuis 2016, le C.p.c. emploie « frais de justice » (art. 339–340 C.p.c.) et non « dépens »."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "solicitor-and-client costs",
+          "origine": "common_law",
+          "motif": "En droit québécois, les honoraires extrajudiciaires d'avocat ne font pas partie des « legal costs » (art. 339 C.p.c.), sauf sanction d'un abus de procédure sous l'art. 54 C.p.c."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 339 à 344 C.p.c.",
+      "note_explicative": "Débours judiciaires, droits de greffe, frais de signification, indemnités des témoins et frais d'expertise supportés en principe par la partie qui succombe (remplace l'ancien terme « dépens » depuis 2016)."
+    },
+    {
+      "id": "cautionnement-frais-justice",
+      "terme_fr": "cautionnement pour frais de justice",
+      "synonymes_fr": [],
+      "terme_en": "suretyship for legal costs",
+      "synonymes_en": [
+        "security for costs"
+      ],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "cautio judicatum solvi",
+          "origine": "archaïsme_droit_francais",
+          "motif": "Locution latine désuète ; employer « cautionnement pour frais de justice » (art. 492 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 492 à 495 C.p.c.",
+      "note_explicative": "Garantie que le demandeur non domicilié ni résident au Québec (ou dans les cas de l'art. 492 al. 2 C.p.c.) peut être tenu de fournir pour sûreté des frais de justice."
+    },
+    {
+      "id": "homologation",
+      "terme_fr": "homologation",
+      "synonymes_fr": [],
+      "terme_en": "homologation",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 528, 623 et 645 C.p.c.",
+      "note_explicative": "Acte judiciaire conférant force exécutoire à une transaction, une entente issue de médiation ou une sentence arbitrale (« arbitration award »)."
+    },
+    {
+      "id": "sentence-arbitrale",
+      "terme_fr": "sentence arbitrale",
+      "synonymes_fr": [],
+      "terme_en": "arbitration award",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 642 à 648 C.p.c. et art. 2638 C.c.Q.",
+      "note_explicative": "Décision rendue par un arbitre en vertu d'une convention d'arbitrage, exécutoire après homologation par le tribunal (seuls motifs de refus d'homologation ou d'annulation : art. 646 C.p.c.)."
+    },
+    {
+      "id": "secret-professionnel-avocat",
+      "terme_fr": "secret professionnel de l'avocat",
+      "synonymes_fr": [],
+      "terme_en": "professional secrecy",
+      "synonymes_en": [
+        "solicitor-client privilege",
+        "lawyer-client privilege"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "preuve",
+      "base_legale": "Art. 9 Charte des droits et libertés de la personne ; art. 2858 C.c.Q. ; art. 131 Loi sur le Barreau",
+      "note_explicative": "Droit fondamental quasi absolu au Québec, que le tribunal doit soulever d'office (art. 2858 C.c.Q.), distinct du privilège relatif au litige (« litigation privilege »)."
+    },
+    {
+      "id": "privilege-relatif-au-litige",
+      "terme_fr": "privilège relatif au litige",
+      "synonymes_fr": [],
+      "terme_en": "litigation privilege",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "attorney work product doctrine",
+          "origine": "common_law",
+          "motif": "Doctrine américaine ; au Canada et au Québec, employer « litigation privilege » (privilège relatif au litige)."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "preuve",
+      "base_legale": "Jurisprudence (Blank c. Canada ; Lizotte c. Aviva)",
+      "note_explicative": "Immunité temporaire de divulgation protégeant les documents et communications préparés avec pour objet principal un litige en cours ou raisonnablement appréhendé ; prend fin avec le litige (et les litiges étroitement connexes)."
+    },
+    {
+      "id": "saisie-en-mains-tierces",
+      "terme_fr": "saisie en mains tierces",
+      "synonymes_fr": [],
+      "terme_en": "seizure in the hands of a third person",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [
+        {
+          "terme": "saisie-attribution",
+          "origine": "droit_francais",
+          "motif": "Procédure française des procédures civiles d'exécution ; au Québec, « saisie en mains tierces » (art. 711 C.p.c.)."
+        },
+        {
+          "terme": "saisie-arrêt",
+          "origine": "archaïsme_qc",
+          "motif": "Ancien C.p.c. ; depuis 2016, « saisie en mains tierces » (art. 711 C.p.c.)."
+        }
+      ],
+      "termes_deconseilles_en": [
+        {
+          "terme": "garnishment",
+          "origine": "common_law",
+          "motif": "Terme courant mais la version anglaise officielle du C.p.c. emploie « seizure in the hands of a third person » (tout en désignant le tiers saisi par « garnishee »)."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 711 à 721 C.p.c.",
+      "note_explicative": "Exécution forcée sur les sommes ou biens appartenant au débiteur détenus par un tiers saisi (« garnishee »), telle une institution financière ou un employeur (anciennement « saisie-arrêt »)."
+    },
+    {
+      "id": "interrogatoire-apres-jugement",
+      "terme_fr": "interrogatoire après jugement",
+      "synonymes_fr": [],
+      "terme_en": "examination after judgment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "judgment debtor examination in aid of execution",
+          "origine": "common_law",
+          "motif": "La version anglaise du C.p.c. emploie « examination after judgment » (art. 688 C.p.c.)."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 688 C.p.c.",
+      "note_explicative": "Interrogatoire du débiteur ou d'un tiers sur le patrimoine et les revenus du débiteur afin d'assurer l'exécution forcée d'un jugement."
+    },
+    {
+      "id": "retractation-de-jugement",
+      "terme_fr": "rétractation de jugement",
+      "synonymes_fr": [],
+      "terme_en": "revocation of judgment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "motion to set aside default judgment",
+          "origine": "common_law",
+          "motif": "Au C.p.c., l'art. 345 emploie « revocation of judgment »."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 345 à 350 C.p.c.",
+      "note_explicative": "Voie de recours devant le tribunal qui a rendu le jugement (notamment lorsqu'une partie condamnée par défaut a été empêchée de se défendre sans faute de sa part, ou tierce opposition sous l'art. 349 C.p.c.)."
+    },
+    {
+      "id": "desaveu",
+      "terme_fr": "désaveu",
+      "synonymes_fr": [],
+      "terme_en": "disavowal",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 193 à 195 C.p.c.",
+      "note_explicative": "Procédure par laquelle une partie répudie un acte de procédure ou une offre faits en son nom sans autorisation par un avocat ou mandataire."
+    },
+    {
+      "id": "reprise-d-instance",
+      "terme_fr": "continuation d'instance",
+      "synonymes_fr": [
+        "reprise d'instance"
+      ],
+      "terme_en": "continuance of suit",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 196 à 200 C.p.c.",
+      "note_explicative": "Poursuite de l'instance par les héritiers, le liquidateur ou le nouveau représentant lorsqu'une partie décède ou change d'état ou de qualité (anciennement « reprise d'instance »)."
+    },
+    {
+      "id": "desistement",
+      "terme_fr": "désistement",
+      "synonymes_fr": [],
+      "terme_en": "discontinuance",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "dismissal with prejudice",
+          "origine": "common_law",
+          "motif": "Le désistement simple au C.p.c. (« discontinuance », art. 213–214 C.p.c.) n'éteint pas le droit d'action ; pour éteindre définitivement le droit, il faut une renonciation ou une transaction (« settlement and release »)."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 213 et 214 C.p.c.",
+      "note_explicative": "Acte unilatéral mettant fin à la demande en justice et remettant les choses dans l'état où elles auraient été si la demande n'avait pas été faite (n'emporte pas renonciation au droit substantiel, contrairement à l'acquiescement ou à la quittance)."
+    },
+    {
+      "id": "acquiescement-a-la-demande",
+      "terme_fr": "acquiescement à la demande",
+      "synonymes_fr": [],
+      "terme_en": "acquiescence in a demand",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 215 à 219 C.p.c.",
+      "note_explicative": "Acte par lequel le défendeur reconnaît le bien-fondé total ou partiel des conclusions recherchées contre lui, permettant l'inscription d'un jugement par le greffier ou le juge."
+    },
+    {
+      "id": "scission-d-instance",
+      "terme_fr": "scission de l'instance",
+      "synonymes_fr": [],
+      "terme_en": "splitting of a proceeding",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "bifurcation of trial",
+          "origine": "common_law",
+          "motif": "La version anglaise de l'art. 211 C.p.c. emploie « splitting of a proceeding »."
+        }
+      ],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 211 C.p.c.",
+      "note_explicative": "Décision exceptionnelle du tribunal divisant l'instruction (p. ex. responsabilité d'abord, quantum des dommages ensuite)."
+    },
+    {
+      "id": "jonction-d-instances",
+      "terme_fr": "jonction d'instances",
+      "synonymes_fr": [],
+      "terme_en": "joinder of proceedings",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 210 C.p.c.",
+      "note_explicative": "Ordonnance réunissant deux ou plusieurs instances dont les questions en litige sont en substance les mêmes ou peuvent convenablement être instruites ensemble."
+    },
+    {
+      "id": "arret-des-procedures",
+      "terme_fr": "suspension de l'instance",
+      "synonymes_fr": [],
+      "terme_en": "stay of proceedings",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "procedure_qc",
+      "domaine": "procédure civile",
+      "base_legale": "Art. 49 et 158 C.p.c. ; art. 69 L.F.I.",
+      "note_explicative": "Mesure suspendant temporairement le cours d'une instance (distincte du rejet définitif)."
+    },
+    {
+      "id": "domicile-elu",
+      "terme_fr": "élection de domicile",
+      "synonymes_fr": [],
+      "terme_en": "election of domicile",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "personnes et fiducies",
+      "base_legale": "Art. 83 C.c.Q.",
+      "note_explicative": "Choix écrit et exprès par les parties à un acte juridique d'un domicile particulier en vue de l'exécution de cet acte ou de l'exercice des droits qui en découlent (ne se présume jamais)."
+    },
+    {
+      "id": "etablissement-entreprise",
+      "terme_fr": "établissement",
+      "synonymes_fr": [],
+      "terme_en": "establishment",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "personnes et fiducies",
+      "base_legale": "Art. 307 C.c.Q. et art. 125 C.p.c.",
+      "note_explicative": "Lieu où une personne morale ou une entreprise exerce ses activités de façon durable (pertinent pour la signification sous l'art. 125 C.p.c. et la compétence territoriale)."
+    },
+    {
+      "id": "solidarite-administrateurs-salaires",
+      "terme_fr": "responsabilité des administrateurs pour salaires impayés",
+      "synonymes_fr": [],
+      "terme_en": "directors' liability for unpaid wages",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 154 L.S.A.Q. et art. 119 L.C.S.A.",
+      "note_explicative": "Responsabilité solidaire des administrateurs envers les employés jusqu'à concurrence de six mois de salaire impayé pour services rendus à la société pendant leur mandat."
+    },
+    {
+      "id": "levee-du-voile-corporatif",
+      "terme_fr": "inopposabilité de la personnalité juridique",
+      "synonymes_fr": [
+        "levée du voile corporatif"
+      ],
+      "terme_en": "disregarding the juridical personality",
+      "synonymes_en": [
+        "lifting the corporate veil",
+        "piercing the corporate veil"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sociétés",
+      "base_legale": "Art. 317 C.c.Q.",
+      "note_explicative": "Règle codifiée interdisant d'invoquer la personnalité juridique d'une personne morale à l'encontre d'une personne de bonne foi dès lors qu'on invoque cette personnalité pour masquer la fraude, l'abus de droit ou une contravention à une règle intéressant l'ordre public."
+    },
+    {
+      "id": "acte-de-fiducie-obligataire",
+      "terme_fr": "hypothèque ouverte",
+      "synonymes_fr": [],
+      "terme_en": "floating hypothec",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "floating charge debenture",
+          "origine": "common_law",
+          "motif": "Ancien mécanisme de la Loi sur les pouvoirs spéciaux des corporations remplacé au C.c.Q. par la « floating hypothec » (art. 2715 C.c.Q.) et le fondé de pouvoir des créanciers (art. 2692 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2715 à 2723 C.c.Q.",
+      "note_explicative": "Hypothèque dont certains effets sont suspendus jusqu'à la clôture (publication d'un avis de clôture), permettant au constituant qui exploite une entreprise d'aliéner les biens grevés dans le cours normal de ses activités."
+    },
+    {
+      "id": "fonde-de-pouvoir-creanciers",
+      "terme_fr": "fondé de pouvoir des créanciers",
+      "synonymes_fr": [],
+      "terme_en": "hypothecary representative",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "collateral agent under common law trust",
+          "origine": "common_law",
+          "motif": "Sous l'art. 2692 C.c.Q., la sûreté québécoise doit être constituée expressément en faveur du « hypothecary representative » (fondé de pouvoir)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 2692 C.c.Q.",
+      "note_explicative": "Personne désignée pour détenir une hypothèque garantissant le paiement d'obligations ou autres titres d'emprunt (ou d'obligations syndiquées) pour le compte de l'ensemble des créanciers présents et futurs."
+    },
+    {
+      "id": "droit-de-retention",
+      "terme_fr": "droit de rétention",
+      "synonymes_fr": [],
+      "terme_en": "right of retention",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "possessory repairer's lien",
+          "origine": "common_law",
+          "motif": "Au C.c.Q., l'art. 1592 emploie « right of retention »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "sûretés",
+      "base_legale": "Art. 1592 et 1593 C.c.Q.",
+      "note_explicative": "Droit réel de détention permettant à la partie qui a amélioré ou réparé un bien avec le consentement du propriétaire d'en retenir la possession jusqu'au paiement total de sa créance exigible et connexe."
+    },
+    {
+      "id": "solidarite-entre-cautions",
+      "terme_fr": "bénéfice de discussion et bénéfice de division",
+      "synonymes_fr": [],
+      "terme_en": "benefit of discussion and benefit of division",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "contrats nommés",
+      "base_legale": "Art. 2347 à 2351 C.c.Q.",
+      "note_explicative": "Droits de la caution non solidaire d'exiger la discussion préalable des biens du débiteur principal (art. 2347 C.c.Q.) ou la division de la dette entre cofidéjusseurs solvables (art. 2349 C.c.Q.), auxquels la caution solidaire renonce usuellement."
+    },
+    {
+      "id": "prejudice-corporel",
+      "terme_fr": "préjudice corporel",
+      "synonymes_fr": [],
+      "terme_en": "bodily injury",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "personal injury",
+          "origine": "common_law",
+          "motif": "Bien que compris, la version anglaise officielle du C.c.Q. distingue rigoureusement « bodily, moral or material injury » (préjudice corporel, moral ou matériel, art. 1457 C.c.Q.)."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1457, 1474 al. 2 et 2926.1 C.c.Q.",
+      "note_explicative": "Atteinte à l'intégrité physique ou psychique d'une personne ; protégé par une interdiction absolue d'exonération (art. 1474 al. 2 C.c.Q.) et soumis à sa propre qualification autonome (Montréal c. Tarquini)."
+    },
+    {
+      "id": "prejudice-moral",
+      "terme_fr": "préjudice moral",
+      "synonymes_fr": [],
+      "terme_en": "moral injury",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [
+        {
+          "terme": "pain and suffering damages",
+          "origine": "common_law",
+          "motif": "Sous-catégorie de common law ; au C.c.Q., employer « moral injury » ou « non-pecuniary injury »."
+        }
+      ],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1457 C.c.Q.",
+      "note_explicative": "Souffrances psychologiques, troubles, ennuis, inconvénients, atteinte à la réputation ou perte de jouissance de la vie non pécuniaire."
+    },
+    {
+      "id": "perte-de-gain-manque-a-gagner",
+      "terme_fr": "perte subie et gain manqué",
+      "synonymes_fr": [],
+      "terme_en": "loss sustained and profit of which the creditor has been deprived",
+      "synonymes_en": [],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1611 C.c.Q.",
+      "note_explicative": "Les deux volets des dommages-intérêts compensatoires (*damnum emergens* et *lucrum cessans*), incluant le préjudice futur lorsqu'il est certain et susceptible d'être évalué."
+    },
+    {
+      "id": "obligation-de-minimiser-prejudice",
+      "terme_fr": "obligation de minimiser son préjudice",
+      "synonymes_fr": [],
+      "terme_en": "obligation to mitigate injury",
+      "synonymes_en": [
+        "duty to mitigate damages"
+      ],
+      "termes_deconseilles_fr": [],
+      "termes_deconseilles_en": [],
+      "systeme_juridique": "droit_civil_qc",
+      "domaine": "responsabilité civile",
+      "base_legale": "Art. 1479 C.c.Q.",
+      "note_explicative": "La personne tenue de réparer un préjudice ne répond pas de l'aggravation de ce préjudice que la victime pouvait éviter par des moyens raisonnables."
+    }
+  ]
+}

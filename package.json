@@ -1,8 +1,8 @@
 {
   "name": "pratique-civile-outils",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Serveur MCP public et sans état (Cloudflare Workers) pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.), analyse de numéros de dossier de cour (greffe) et répertoire des palais de justice du Québec (relevé MJQ).",
+  "description": "Serveur MCP public, déterministe et sans journalisation (Cloudflare Workers + bases D1 en lecture seule) pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.), numéros de dossier et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), vérification d'adresses (RQA) et terminologie juridique bilingue et bijuridique.",
   "license": "CC-BY-NC-SA-4.0",
   "type": "module",
   "main": "src/index.ts",

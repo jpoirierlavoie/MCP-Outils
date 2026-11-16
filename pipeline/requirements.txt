@@ -1,0 +1,3 @@
+# Les pipelines de pratique-civile-outils utilisent exclusivement la bibliothèque standard
+# de Python 3.12+ (sqlite3, csv, zipfile, json, urllib.request, unicodedata, xml.etree).
+# Aucun paquet externe à compilation native n'est requis.

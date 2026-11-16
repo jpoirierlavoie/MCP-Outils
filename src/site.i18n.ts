@@ -63,26 +63,84 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "communities served. Surveyed from the ministère de la Justice du Québec on 2026-07-15; a " +
       "missing address means UNKNOWN, never non-existent.",
   },
+  registre_search_entities: {
+    titre: "Business registries (QC / Canada) — search",
+    texte:
+      "Offline search across read-only open-data snapshots of the Registraire des entreprises du " +
+      "Québec (REQ, enriched with active RBQ contractor licences, OPC permits, and RENA public-contract " +
+      "ineligibility records) and Corporations Canada. Matches corporate names, trade names, numbered " +
+      "corporations ('9123-4567 Québec inc.'), NEQ, or federal corporation numbers. Natural-person " +
+      "directors and shareholders are excluded from REQ open data by statute: verify live official " +
+      "status before serving proceedings or naming a party.",
+  },
+  registre_get_entity: {
+    titre: "Business registries (QC / Canada) — full record",
+    texte:
+      "Retrieves an entity's full snapshot record by 10-digit NEQ (Québec registration status, legal " +
+      "form and governing statute, key dates, elected domicile or address exemption, current and " +
+      "former trade names, establishments, amalgamations/continuations, RBQ licences, OPC permits, " +
+      "and RENA listings) or by federal corporation number / 9-digit BN (Corporations Canada). " +
+      "Informational snapshot only — never an official certificate or attestation.",
+  },
+  adresse_verify: {
+    titre: "Québec address reference (RQA) — verification and normalization",
+    texte:
+      "Verifies municipal civic existence and normalizes Québec addresses against the Référentiel " +
+      "québécois des adresses (RQA, MRNF) and Odonymes et renvois. Recovers typos and common " +
+      "abbreviations ('boul', 'Mtl', 'St-', former street names), distinguishes confirmed condo " +
+      "subdivisions from unconfirmed suites, reports street civic ranges, postal codes, indicative " +
+      "cadastral lots/assessment roll numbers, and probable judicial district. Never proves a party's " +
+      "domicile or land ownership.",
+  },
+  terminologie_lookup: {
+    titre: "Bilingual and bijural legal terminology — lookup",
+    texte:
+      "Bilingual FR/EN search across four ranked legal terminology sources (rank 1: curated Québec " +
+      "civil and commercial litigation glossary; rank 2: aligned statutory concordance and federal " +
+      "bijural doublets; rank 3: TERMIUM Plus — Law and Justice; rank 4: OQLF legal domains). " +
+      "Flags common-law and continental-French false friends ('mortgage' vs 'hypothec', 'joint and " +
+      "several' vs 'solidary', 'assignation' vs 'demande introductive d'instance').",
+  },
+  terminologie_attestations: {
+    titre: "Legal terminology — bilingual statutory attestations (QC / CA)",
+    texte:
+      "Counts exact occurrences of a legal term or phrase across the aligned bilingual statutory " +
+      "concordance (Civil Code of Québec, Code of Civil Procedure, Québec statutes, and federal " +
+      "statutes under ss. 8.1–8.2 Interpretation Act) and returns side-by-side FR/EN statutory " +
+      "snippets by statute and section to ground drafting choices in attested legislative usage.",
+  },
+  terminologie_scan_text: {
+    titre: "Legal terminology — draft contamination scanner",
+    texte:
+      "Read-only scan of a draft pleading, contract, letter, or memo excerpt (up to 32,000 characters, " +
+      "FR or EN) to flag continental-French legalisms, common-law calques and false friends in Québec " +
+      "civil-law drafting ('mortgage', 'statute of limitations', 'joint and several', 'consideration', " +
+      "'easement'), and pre-2016 C.C.P. archaisms. Reports offsets, rationale, suggested civil-law " +
+      "replacement, and statutory basis without ever rewriting the text.",
+  },
 } as const;
 
 export const EN = {
   titre: "Pratique civile — deterministic Québec practice tools",
 
   intro: [
-    "A public, stateless, deterministic MCP server for Québec civil and commercial litigation: " +
+    "A public, zero-logging, deterministic MCP server for Québec civil and commercial litigation: " +
       "statutory holidays, procedural deadlines, legal interest and additional indemnity, court file " +
-      "number parsing, and Québec courthouse directory.",
+      "number parsing and courthouses, business registries (REQ / RBQ / OPC / RENA / Corporations " +
+      "Canada), Québec civic addresses (RQA), and bilingual bijural legal terminology.",
   ],
 
   avertissement: [
-    "Every computation and lookup is strictly offline and stateless: zero database, zero outbound " +
-      "HTTP calls, zero logging of request payloads, dates, amounts, or file numbers.",
-    "This server performs arithmetic and reads dated reference tables only: it never establishes " +
-      "whether a court file exists, never qualifies legal deadlines automatically, and carries no " +
-      "courthouse telephone numbers or opening hours. Verify official sources before serving or filing.",
+    "Every computation and lookup executes locally with zero outbound HTTP calls, read-only D1 " +
+      "open-data snapshots, zero runtime writes, and zero logging of request payloads, party names, " +
+      "addresses, draft excerpts, dates, amounts, or file numbers.",
+    "This server performs arithmetic and reads dated snapshots only: it never establishes whether " +
+      "a court file exists, never replaces live Registraire des entreprises or Land Register " +
+      "verifications, never proves a party's domicile, and never qualifies legal deadlines automatically. " +
+      "Verify official primary sources before serving or filing.",
   ],
 
-  // ── Les deux familles d'outils ─────────────────────────────────────────────
+  // ── Les cinq familles d'outils ─────────────────────────────────────────────
   familleCalcul: "Deterministic calculators (holidays, deadlines, art. 1619 C.C.Q. interest)",
   familleCalculTexte: [
     "Three pure arithmetic tools built around the Code of Civil Procedure, Québec and federal " +
@@ -94,6 +152,25 @@ export const EN = {
     "Three tools that read reference tables compiled into the Worker, surveyed from the " +
       "ministère de la Justice du Québec (courthouses 2026-07-15, registry attachments 2026-07-22). " +
       "They make no outbound calls, consult no court docket (plumitif), and write nothing.",
+  ],
+  familleRegistre:
+    "Business registries (QC / Canada) — REQ, RBQ, OPC, RENA and Corporations Canada",
+  familleRegistreTexte: [
+    "Two tools backed by a read-only D1 snapshot of public corporate open data. Natural-person " +
+      "directors, officers, and shareholders are excluded from the REQ public dataset pursuant to " +
+      "the Act respecting the legal publicity of enterprises (CQLR, c. P-44.1).",
+  ],
+  familleAdresse: "Québec civic addresses — Référentiel québécois des adresses (RQA)",
+  familleAdresseTexte: [
+    "One tool backed by a normalized read-only D1 snapshot of the ~5M-address Référentiel québécois " +
+      "des adresses (MRNF) and Odonymes et renvois. Confirms municipal civic existence without ever " +
+      "establishing domicile or land title.",
+  ],
+  familleTerminologie: "Bilingual and bijural legal terminology (FR / EN)",
+  familleTerminologieTexte: [
+    "Three tools backed by a read-only D1 terminology database combining a curated Québec civil-law " +
+      "glossary, aligned bilingual statutory concordances, TERMIUM Plus (Law and Justice), and OQLF " +
+      "legal entries to prevent common-law and continental-French terminology contamination.",
   ],
 
   // ── Schémas ────────────────────────────────────────────────────────────────
@@ -170,8 +247,10 @@ export const EN = {
   ],
 
   pied: [
-    "Jason Poirier Lavoie, lawyer (Québec). Statutory interest rates: Revenu Québec (art. 28 T.A.A.). " +
-      "Registry and courthouse data: ministère de la Justice du Québec.",
+    "Jason Poirier Lavoie, lawyer (Québec). Open-data sources: Revenu Québec (art. 28 T.A.A.), " +
+      "ministère de la Justice du Québec, Registraire des entreprises (CC BY-NC-SA 4.0), RBQ / OPC / " +
+      "AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada & TERMIUM Plus® (OGL-Canada), " +
+      "and Office québécois de la langue française (CC BY-NC-SA 4.0).",
     "No legal advice. This tool replaces neither verification at the source nor professional " +
       "judgment.",
   ],

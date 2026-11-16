@@ -4,12 +4,13 @@ import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
   createOutilsMcpServer,
   listToolDescriptors,
+  type OutilsBindings,
   SERVER_NAME,
   SERVER_VERSION,
 } from "./mcp/server.js";
 import { pagePubliqueHtml } from "./site.js";
 
-export interface Env {
+export interface Env extends OutilsBindings {
   RATE_LIMITER?: RateLimit;
   ALLOWED_HOSTNAMES?: string;
 }
@@ -51,15 +52,13 @@ function buildAllowedHostnames(extraCsv?: string): string[] {
     : DEFAULT_ALLOWED_HOSTNAMES;
 }
 
-function buildHandler(allowedHostnames: string[]) {
-  return createMcpHandler(() => createOutilsMcpServer(), {
+function buildHandler(allowedHostnames: string[], env: Env) {
+  return createMcpHandler(() => createOutilsMcpServer(env), {
     route: "/mcp",
     allowedHostnames,
     allowedOriginHostnames: "*",
   });
 }
-
-const defaultMcpHandler = buildHandler(DEFAULT_ALLOWED_HOSTNAMES);
 
 function rateLimitExceededResponse(): Response {
   return Response.json(
@@ -76,7 +75,7 @@ function rateLimitExceededResponse(): Response {
   );
 }
 
-function healthzResponse(): Response {
+function healthzResponse(env: Env): Response {
   return Response.json(
     {
       status: "ok",
@@ -86,6 +85,11 @@ function healthzResponse(): Response {
       stateless: true,
       request_payload_logging: false,
       laf_table_last_quarter: lafRatesJson.metadata.last_quarter,
+      databases: {
+        terminologie: Boolean(env.DB_TERMINOLOGIE),
+        registres: Boolean(env.DB_REGISTRES),
+        adresses: Boolean(env.DB_ADRESSES),
+      },
       tools: listToolDescriptors().map((t) => t.name),
     },
     {
@@ -125,7 +129,7 @@ export default {
 
     const url = new URL(request.url);
     if (url.pathname === "/healthz" && (request.method === "GET" || request.method === "HEAD")) {
-      return healthzResponse();
+      return healthzResponse(env);
     }
     if (url.pathname === "/") {
       if (request.method !== "GET" && request.method !== "HEAD") {
@@ -162,7 +166,7 @@ export default {
         });
       }
 
-      const handler = env.ALLOWED_HOSTNAMES ? buildHandler(allowedHostnames) : defaultMcpHandler;
+      const handler = buildHandler(allowedHostnames, env);
 
       const rawAccept = request.headers.get("accept");
       const wantsSse = Boolean(rawAccept?.includes("text/event-stream"));
