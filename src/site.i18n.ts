@@ -12,7 +12,7 @@ export interface OutilEn {
 }
 
 export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
-  calendrier_list_holidays: {
+  calendrier_holidays: {
     titre: "Holidays and non-juridical days (QC / CA)",
     texte:
       "Lists statutory holidays and non-juridical days for a calendar year under 'qc_cpc' " +
@@ -20,7 +20,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "'qc_li' (Québec Interpretation Act), or 'ca_li' (federal Interpretation Act, including " +
       "Sept 30 and Nov 11).",
   },
-  calendrier_compute_deadlines: {
+  calendrier_deadlines: {
     titre: "Deterministic deadline calculator (C.C.P. / I.A.)",
     texte:
       "Computes 1 to 25 procedural or statutory deadlines purely arithmetically (without " +
@@ -29,7 +29,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "(art. 111 al. 2 C.C.P.), backward deadlines before a hearing (preceding_business_day), " +
       "and non-sitting periods (art. 82 al. 2 C.C.P.).",
   },
-  interets_compute_1619: {
+  interets_1619: {
     titre: "Legal interest and additional indemnity calculator (art. 1619 C.C.Q.)",
     texte:
       "Computes simple interest (art. 1620 C.C.Q.) under Exact/Exact (365/366) convention " +
@@ -38,7 +38,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "art. 28 T.A.A. rates (Revenu Québec), or fixed contractual rate. Never extrapolates past " +
       "the latest published quarter.",
   },
-  greffe_parse_court_file_number: {
+  greffe_parse_number: {
     titre: "Québec court file number (offline)",
     texte:
       "Reads NNN-NN-NNNNNN-NNN into its registry — courthouse and judicial district — and its " +
@@ -63,7 +63,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "communities served. Surveyed from the ministère de la Justice du Québec on 2026-07-15; a " +
       "missing address means UNKNOWN, never non-existent.",
   },
-  registre_search_entities: {
+  registre_search: {
     titre: "Business registries (QC / Canada) — search",
     texte:
       "Offline search across read-only open-data snapshots of the Registraire des entreprises du " +
@@ -101,7 +101,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "Flags common-law and continental-French false friends ('mortgage' vs 'hypothec', 'joint and " +
       "several' vs 'solidary', 'assignation' vs 'demande introductive d'instance').",
   },
-  terminologie_attestations: {
+  termino_attestations: {
     titre: "Legal terminology — bilingual statutory attestations (QC / CA)",
     texte:
       "Counts exact occurrences of a legal term or phrase across the aligned bilingual statutory " +
@@ -109,7 +109,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "statutes under ss. 8.1–8.2 Interpretation Act) and returns side-by-side FR/EN statutory " +
       "snippets by statute and section to ground drafting choices in attested legislative usage.",
   },
-  terminologie_scan_text: {
+  terminologie_scan: {
     titre: "Legal terminology — draft contamination scanner",
     texte:
       "Read-only scan of a draft pleading, contract, letter, or memo excerpt (up to 32,000 characters, " +
@@ -239,7 +239,7 @@ export const EN = {
   // ── Accès & pied ───────────────────────────────────────────────────────────
   acces: [
     "Public Streamable HTTP endpoint (no secret or authentication required): " +
-      "https://outils.poirierlavoie.ca/mcp — designed to be paired with the « pratique-civile-quebecoise » " +
+      "https://outils.poirierlavoie.ca/mcp — designed to be paired with the « droit-civil-quebecois » " +
       "skill plugin alongside authenticated primary-source connectors.",
     "The public discovery card (SEP-2127) is served at " +
       "https://outils.poirierlavoie.ca/mcp/server-card; the repository includes manifests " +

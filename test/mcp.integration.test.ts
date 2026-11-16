@@ -86,7 +86,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("0.3.0");
+    expect(healthJson.version).toBe("2.0.0");
     expect(healthJson.request_payload_logging).toBe(false);
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
     expect(healthJson.databases).toEqual({
@@ -95,18 +95,18 @@ describe("Worker HTTP & intégration MCP", () => {
       adresses: false,
     });
     expect(healthJson.tools).toEqual([
-      "calendrier_list_holidays",
-      "calendrier_compute_deadlines",
-      "interets_compute_1619",
-      "greffe_parse_court_file_number",
+      "calendrier_holidays",
+      "calendrier_deadlines",
+      "interets_1619",
+      "greffe_parse_number",
       "palais_list",
       "palais_get",
-      "registre_search_entities",
+      "registre_search",
       "registre_get_entity",
       "adresse_verify",
       "terminologie_lookup",
-      "terminologie_attestations",
-      "terminologie_scan_text",
+      "termino_attestations",
+      "terminologie_scan",
     ]);
 
     const landing = await worker.fetch(
@@ -120,7 +120,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const html = await landing.text();
     expect(html).toContain("mcp-outils");
     expect(html).toContain("MCP Outils");
-    expect(html).toContain("greffe_parse_court_file_number");
+    expect(html).toContain("greffe_parse_number");
 
     const headLanding = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/", { method: "HEAD" }),
@@ -180,7 +180,7 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("0.3.0");
+    expect(cardBody.version).toBe("2.0.0");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",
@@ -306,17 +306,17 @@ describe("Worker HTTP & intégration MCP", () => {
       }>) ?? [];
     expect(tools.map((t) => t.name).sort()).toEqual([
       "adresse_verify",
-      "calendrier_compute_deadlines",
-      "calendrier_list_holidays",
-      "greffe_parse_court_file_number",
-      "interets_compute_1619",
+      "calendrier_deadlines",
+      "calendrier_holidays",
+      "greffe_parse_number",
+      "interets_1619",
       "palais_get",
       "palais_list",
       "registre_get_entity",
-      "registre_search_entities",
-      "terminologie_attestations",
+      "registre_search",
+      "termino_attestations",
       "terminologie_lookup",
-      "terminologie_scan_text",
+      "terminologie_scan",
     ]);
     for (const t of tools) {
       expect(t.annotations?.openWorldHint).toBe(false);
@@ -324,7 +324,7 @@ describe("Worker HTTP & intégration MCP", () => {
     }
 
     const holidaysCall = await mcpPost("tools/call", {
-      name: "calendrier_list_holidays",
+      name: "calendrier_holidays",
       arguments: { year: 2026, regime: "qc_cpc" },
     });
     expect(holidaysCall.status).toBe(200);
@@ -333,7 +333,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(hStructured.count).toBe(11);
 
     const deadlinesCall = await mcpPost("tools/call", {
-      name: "calendrier_compute_deadlines",
+      name: "calendrier_deadlines",
       arguments: {
         event_date: "2026-07-03",
         event_time: "17:40",
@@ -350,7 +350,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(dStructured.results[0]!.effective_date).toBe("2026-07-21");
 
     const interestCall = await mcpPost("tools/call", {
-      name: "interets_compute_1619",
+      name: "interets_1619",
       arguments: {
         mode: "legal_plus_1619",
         end_date: "2025-12-31",
@@ -365,7 +365,7 @@ describe("Worker HTTP & intégration MCP", () => {
 
     // Date invalide via MCP -> isError: true sans plantage HTTP 500
     const badDateCall = await mcpPost("tools/call", {
-      name: "calendrier_compute_deadlines",
+      name: "calendrier_deadlines",
       arguments: {
         event_date: "2025-02-29",
         deadlines: [{ amount: 10, unit: "days" }],
@@ -375,7 +375,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(badDateCall.body.result?.isError).toBe(true);
 
     const dossierCall = await mcpPost("tools/call", {
-      name: "greffe_parse_court_file_number",
+      name: "greffe_parse_number",
       arguments: { court_file_number: "500-05-123456-241" },
     });
     expect(dossierCall.status).toBe(200);
@@ -419,12 +419,12 @@ describe("Worker HTTP & intégration MCP", () => {
 
   it("renvoie isError: true (jamais HTTP 500 ni -32602 fatal) si un binding D1 est absent ou si une clé inconnue est fournie", async () => {
     for (const [toolName, args] of [
-      ["registre_search_entities", { query: "Québec" }],
+      ["registre_search", { query: "Québec" }],
       ["registre_get_entity", { neq: "1170123456" }],
       ["adresse_verify", { address: "1 rue Notre-Dame Est, Montréal" }],
       ["terminologie_lookup", { query: "hypothèque" }],
-      ["terminologie_attestations", { term: "hypothec", lang: "en" }],
-      ["terminologie_scan_text", { text: "A mortgage on land.", lang: "en" }],
+      ["termino_attestations", { term: "hypothec", lang: "en" }],
+      ["terminologie_scan", { text: "A mortgage on land.", lang: "en" }],
     ] as const) {
       const missingRes = await mcpPost("tools/call", { name: toolName, arguments: args });
       expect(missingRes.status).toBe(200);
@@ -528,7 +528,7 @@ describe("Worker HTTP & intégration MCP", () => {
 
       const rSearch = await mcpPost(
         "tools/call",
-        { name: "registre_search_entities", arguments: { query: "9123 4567" } },
+        { name: "registre_search", arguments: { query: "9123 4567" } },
         10,
         "https://outils.poirierlavoie.ca/mcp",
         boundEnv,
@@ -576,7 +576,7 @@ describe("Worker HTTP & intégration MCP", () => {
 
       const tAtt = await mcpPost(
         "tools/call",
-        { name: "terminologie_attestations", arguments: { term: "hypothec", lang: "en" } },
+        { name: "termino_attestations", arguments: { term: "hypothec", lang: "en" } },
         14,
         "https://outils.poirierlavoie.ca/mcp",
         boundEnv,
@@ -590,7 +590,7 @@ describe("Worker HTTP & intégration MCP", () => {
       const tScan = await mcpPost(
         "tools/call",
         {
-          name: "terminologie_scan_text",
+          name: "terminologie_scan",
           arguments: { text: "The debtor grants a mortgage on the immovable.", lang: "en" },
         },
         15,

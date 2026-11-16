@@ -57,17 +57,17 @@ import {
 
 export const SERVER_NAME = "mcp-outils";
 export const SERVER_TITLE = "MCP Outils";
-export const SERVER_VERSION = "0.3.0";
+export const SERVER_VERSION = "2.0.0";
 export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
 
 export const INSTRUCTIONS =
   "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de trois bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
-  "1) Calculs — calendrier_list_holidays, calendrier_compute_deadlines et interets_compute_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
-  "2) Greffes et palais du Québec — greffe_parse_court_file_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses relevées le 2026-07-15, table des lieux 2026-07-22) sans consulter aucun plumitif ni porter de coordonnées téléphoniques ou courriels. " +
-  "3) Registres d'entreprises — registre_search_entities et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1) : consulter le portail officiel du Registraire avant toute signification ou désignation finale d'une partie. " +
+  "1) Calculs — calendrier_holidays, calendrier_deadlines et interets_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
+  "2) Greffes et palais du Québec — greffe_parse_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses relevées le 2026-07-15, table des lieux 2026-07-22) sans consulter aucun plumitif ni porter de coordonnées téléphoniques ou courriels. " +
+  "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1) : consulter le portail officiel du Registraire avant toute signification ou désignation finale d'une partie. " +
   "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
-  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, terminologie_attestations et terminologie_scan_text assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « Legislation » ; pour la jurisprudence, employer « Jurisprudence »).";
+  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « Legislation » ; pour la jurisprudence, employer « Jurisprudence »).";
 
 const READ_ONLY_LOCAL_ANNOTATIONS = {
   readOnlyHint: true,
@@ -101,7 +101,7 @@ const TOOL_SPECS: ReadonlyArray<{
   readonly inputSchema: z.ZodType;
 }> = [
   {
-    name: "calendrier_list_holidays",
+    name: "calendrier_holidays",
     title: "Jours fériés et non juridiques (QC / CA)",
     description:
       "Liste les jours fériés et non juridiques d'une année civile selon le régime choisi : 'qc_cpc' (art. 82 al. 1 C.p.c. et art. 61 par. 23° L.I., incluant samedis, 2 janvier et 26 décembre), 'qc_li' (Loi d'interprétation du Québec) ou 'ca_li' (Loi d'interprétation fédérale, incluant 30 septembre et 11 novembre).",
@@ -109,7 +109,7 @@ const TOOL_SPECS: ReadonlyArray<{
     inputSchema: ListHolidaysInputSchema,
   },
   {
-    name: "calendrier_compute_deadlines",
+    name: "calendrier_deadlines",
     title: "Calculateur déterministe de délais (C.p.c. / L.I.)",
     description:
       "Calcule de 1 à 25 délais procéduraux ou légaux de manière purement arithmétique (sans qualification juridique automatique). Gère le report des jours non juridiques (art. 83 al. 3 C.p.c., art. 52 L.I.), le déplacement d'une notification technologique après 17 h 00 ou un jour non juridique (art. 111 al. 2 C.p.c.), les délais à rebours avant audience (preceding_business_day) et le repérage des périodes hors séance (art. 82 al. 2 C.p.c.). Même pour un seul délai, passer un tableau deadlines d'un élément.",
@@ -117,7 +117,7 @@ const TOOL_SPECS: ReadonlyArray<{
     inputSchema: ComputeDeadlinesInputSchema,
   },
   {
-    name: "interets_compute_1619",
+    name: "interets_1619",
     title: "Calculateur d'intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.)",
     description:
       "Calcule en arithmétique exacte (intérêt simple art. 1620 C.c.Q., convention Exact/Exact 365/366, date de départ exclue / date de fin incluse, accumulation rationnelle BigInt arrondie une fois par tranche) les intérêts légaux (5 %) et l'indemnité additionnelle de l'art. 1619 C.c.Q. selon la table embarquée de l'art. 28 L.A.F. (Revenu Québec). Supporte 1 à 50 tranches datées et 3 modes ('legal_plus_1619', 'legal_only', 'contractual'). Ne fait jamais d'extrapolation au-delà du dernier trimestre publié.",
@@ -125,7 +125,7 @@ const TOOL_SPECS: ReadonlyArray<{
     inputSchema: ComputeInterest1619InputSchema,
   },
   {
-    name: "greffe_parse_court_file_number",
+    name: "greffe_parse_number",
     title: "Numéro de dossier de cour du Québec (hors ligne)",
     description:
       "Analyse un numéro de dossier de cour du Québec (NNN-NN-NNNNNN-NNN) et en tire le greffe — palais de justice et district judiciaire — puis la juridiction : tribunal, compétence, type de greffe. Un préfixe alphabétique (TAL, TAQ, C.F.…) désigne un tribunal administratif ou une cour fédérale, qui numérotent leurs dossiers eux-mêmes. Données de référence LOCALES, relevées auprès du ministère de la Justice du Québec : cet outil n'interroge aucun service externe ni aucun registre, et n'établit donc PAS que le dossier existe ou qu'il est actif. Les positions 7 et suivantes ne sont pas analysées ; aucune somme de contrôle n'est vérifiée.",
@@ -149,7 +149,7 @@ const TOOL_SPECS: ReadonlyArray<{
     inputSchema: PalaisGetInputSchema,
   },
   {
-    name: "registre_search_entities",
+    name: "registre_search",
     title: "Registres d'entreprises (QC / Canada) — recherche",
     description:
       "Recherche hors ligne dans les instantanés locaux de données ouvertes du Registraire des entreprises du Québec (REQ, enrichi des licences RBQ actives, permis OPC et inscriptions RENA) et de Corporations Canada (sociétés fédérales). Trouve une entité par dénomination sociale, autre nom utilisé, numéro de société à numéro (p. ex. '9123-4567 Québec inc.'), NEQ ou numéro fédéral. Exclut les dirigeants et actionnaires personnes physiques (restriction légale du jeu ouvert REQ) : vérifier l'état officiel à jour auprès du Registraire avant toute signification ou désignation d'une partie.",
@@ -181,7 +181,7 @@ const TOOL_SPECS: ReadonlyArray<{
     inputSchema: TerminologieLookupInputSchema,
   },
   {
-    name: "terminologie_attestations",
+    name: "termino_attestations",
     title: "Terminologie juridique — attestations statutaires bilingues (QC / CA)",
     description:
       "Compte les occurrences exactes d'un terme ou syntagme juridique dans le concordancier législatif bilingue aligné (Code civil du Québec, Code de procédure civile, lois québécoises et lois fédérales dont les art. 8.1-8.2 L.I.) et retourne les extraits FR et EN côte à côte par loi et article afin d'ancrer un choix rédactionnel dans l'usage législatif attesté.",
@@ -189,7 +189,7 @@ const TOOL_SPECS: ReadonlyArray<{
     inputSchema: TerminologieAttestationsInputSchema,
   },
   {
-    name: "terminologie_scan_text",
+    name: "terminologie_scan",
     title: "Terminologie juridique — détection des contaminations dans un projet d'acte",
     description:
       "Analyse en lecture seule un extrait de projet d'acte, contrat, correspondance ou note (jusqu'à 32 000 caractères, FR ou EN) pour repérer les francismes de droit français ('assignation' au sens d'acte introductif, 'référé', 'garde à vue'), les anglicismes et faux amis de common law en droit civil québécois ('mortgage', 'statute of limitations', 'joint and several', 'consideration', 'easement') et les archaïsmes procéduraux d'avant 2016 ('bref', 'comparution', 'défense et demande reconventionnelle'). Signale chaque occurrence avec motif, remplacement suggéré et base légale sans jamais réécrire le texte.",
@@ -332,9 +332,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "calendrier_list_holidays",
+    "calendrier_holidays",
     {
-      ...toolConfig("calendrier_list_holidays", ListHolidaysOutputSchema),
+      ...toolConfig("calendrier_holidays", ListHolidaysOutputSchema),
       inputSchema: ListHolidaysInputSchema,
     },
     async (args) => {
@@ -355,9 +355,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "calendrier_compute_deadlines",
+    "calendrier_deadlines",
     {
-      ...toolConfig("calendrier_compute_deadlines", ComputeDeadlinesOutputSchema),
+      ...toolConfig("calendrier_deadlines", ComputeDeadlinesOutputSchema),
       inputSchema: ComputeDeadlinesInputSchema,
     },
     async (args) => {
@@ -378,9 +378,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "interets_compute_1619",
+    "interets_1619",
     {
-      ...toolConfig("interets_compute_1619", ComputeInterest1619OutputSchema),
+      ...toolConfig("interets_1619", ComputeInterest1619OutputSchema),
       inputSchema: ComputeInterest1619InputSchema,
     },
     async (args) => {
@@ -401,9 +401,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "greffe_parse_court_file_number",
+    "greffe_parse_number",
     {
-      ...toolConfig("greffe_parse_court_file_number", ParseCourtFileOutputSchema),
+      ...toolConfig("greffe_parse_number", ParseCourtFileOutputSchema),
       inputSchema: ParseCourtFileInputSchema,
     },
     async (args) => {
@@ -476,9 +476,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "registre_search_entities",
+    "registre_search",
     {
-      ...toolConfig("registre_search_entities", RegistreSearchEntitiesOutputSchema),
+      ...toolConfig("registre_search", RegistreSearchEntitiesOutputSchema),
       inputSchema: RegistreSearchEntitiesInputSchema,
     },
     async (args) => {
@@ -592,9 +592,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "terminologie_attestations",
+    "termino_attestations",
     {
-      ...toolConfig("terminologie_attestations", TerminologieAttestationsOutputSchema),
+      ...toolConfig("termino_attestations", TerminologieAttestationsOutputSchema),
       inputSchema: TerminologieAttestationsInputSchema,
     },
     async (args) => {
@@ -618,9 +618,9 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
   );
 
   server.registerTool(
-    "terminologie_scan_text",
+    "terminologie_scan",
     {
-      ...toolConfig("terminologie_scan_text", TerminologieScanTextOutputSchema),
+      ...toolConfig("terminologie_scan", TerminologieScanTextOutputSchema),
       inputSchema: TerminologieScanTextInputSchema,
     },
     async (args) => {

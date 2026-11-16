@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ComputeDeadlinesOutputSchema, computeDeadlines } from "../src/core/deadlines.js";
 
-describe("calendrier_compute_deadlines", () => {
+describe("calendrier_deadlines", () => {
   it("enchaîne le report multi-jours (Noël, 26 décembre, dimanche) en qc_cpc vs qc_li", () => {
     const outCpc = ComputeDeadlinesOutputSchema.parse(
       computeDeadlines({

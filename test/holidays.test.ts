@@ -5,7 +5,7 @@ import {
   listHolidays,
 } from "../src/core/holidays.js";
 
-describe("calendrier_list_holidays", () => {
+describe("calendrier_holidays", () => {
   it("calcule Pâques selon l'algorithme grégorien pour des années connues", () => {
     expect(computeEasterSunday(2024)).toBe("2024-03-31");
     expect(computeEasterSunday(2025)).toBe("2025-04-20");

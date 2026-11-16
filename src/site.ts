@@ -683,7 +683,7 @@ ${biP(
   [
     "Point d'accès Streamable HTTP public (aucun secret requis) : " +
       "https://outils.poirierlavoie.ca/mcp — conçu pour accompagner les compétences du greffon " +
-      "« pratique-civile-quebecoise » aux côtés des connecteurs de sources primaires authentifiés.",
+      "« droit-civil-quebecois » aux côtés des connecteurs de sources primaires authentifiés.",
     "La fiche publique de découverte (SEP-2127) est publiée sur " +
       "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut les manifestes " +
       "pour Google Antigravity (plugin.json, mcp_config.json) et Gemini CLI (gemini-extension.json). " +
@@ -694,7 +694,7 @@ ${biP(
   EN.acces,
 )}
 <p><a href="https://github.com/jpoirierlavoie/MCP-Outils">github.com/jpoirierlavoie/MCP-Outils</a>
- · <a href="https://github.com/jpoirierlavoie/pratique-civile-quebecoise">pratique-civile-quebecoise</a>
+ · <a href="https://github.com/jpoirierlavoie/droit-civil-quebecois">droit-civil-quebecois</a>
  · <a href="mailto:jason@poirierlavoie.ca">jason@poirierlavoie.ca</a></p>
 </section>`;
 }
