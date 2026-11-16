@@ -170,6 +170,6 @@ Employer `npm.cmd`, `npx.cmd` et `$env:PYTHONUTF8 = "1"` :
 ```powershell
 npm.cmd run typecheck    # npx.cmd tsc --noEmit
 npm.cmd run lint         # npx.cmd biome check .
-npm.cmd test             # npx.cmd vitest run (250 tests hors réseau)
+npm.cmd test             # npx.cmd vitest run (suite complète hors réseau, PRAGMA query_only = ON)
 npm.cmd run build        # npx.cmd wrangler deploy --dry-run --outdir dist
 ```

@@ -17,6 +17,9 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
   const claudeMd = lire("CLAUDE.md");
   const geminiMd = lire("GEMINI.md");
   const securityMd = lire("SECURITY.md");
+  const licenseTxt = lire("LICENSE");
+  const issueCfg = lire(".github/ISSUE_TEMPLATE/config.yml");
+  const prTemplate = lire(".github/PULL_REQUEST_TEMPLATE.md");
   const packageRaw = lire("package.json");
   const pluginRaw = lire("plugin.json");
   const mcpConfigRaw = lire("mcp_config.json");
@@ -114,7 +117,26 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
     });
   });
 
-  it("assets/logo.svg est un SVG carré valide et plugin.json fournit 3 suggestedPrompts", () => {
+  it("assets/logo.svg est un SVG carré valide et plugin.json respecte strictement le schéma Antigravity", () => {
+    const allowedPluginKeys = new Set([
+      "$schema",
+      "name",
+      "displayName",
+      "version",
+      "description",
+      "logo",
+      "suggestedPrompts",
+      "author",
+      "homepage",
+      "repository",
+      "disabled",
+    ]);
+    for (const k of Object.keys(plugin)) {
+      expect(allowedPluginKeys.has(k), `Clé plugin.json non autorisée : ${k}`).toBe(true);
+    }
+    const author = (plugin as Record<string, unknown>).author as Record<string, unknown>;
+    expect(Object.keys(author)).toEqual(["name"]);
+
     expect(plugin.logo).toBe("assets/logo.svg");
     expect(logoSvg).toContain("<svg");
     expect(logoSvg).toContain('viewBox="0 0 128 128"');
@@ -128,7 +150,7 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
     expect(octets).toBeGreaterThan(1_000);
     expect(octets).toBeLessThan(24_000);
 
-    for (const doc of [readme, claudeMd, geminiMd, securityMd]) {
+    for (const doc of [readme, claudeMd, geminiMd, securityMd, licenseTxt, issueCfg, prTemplate]) {
       expect(doc).not.toContain("pratique-civile-outils");
       expect(doc).not.toContain("MCP-Socle-Juridique");
       expect(doc).not.toContain("socle-juridique");
