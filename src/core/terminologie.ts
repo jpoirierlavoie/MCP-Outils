@@ -471,7 +471,7 @@ export async function terminologieLookup(
   return { structured, text };
 }
 
-// ── 2. terminologie_attestations ─────────────────────────────────────────────
+// ── 2. termino_attestations ─────────────────────────────────────────────
 
 export const TerminologieAttestationsInputSchema = z.strictObject({
   term: z
@@ -837,7 +837,7 @@ export async function terminologieAttestations(
   return { structured, text };
 }
 
-// ── 3. terminologie_scan_text ────────────────────────────────────────────────
+// ── 3. terminologie_scan ────────────────────────────────────────────────
 
 export const TerminologieScanTextInputSchema = z.strictObject({
   text: z

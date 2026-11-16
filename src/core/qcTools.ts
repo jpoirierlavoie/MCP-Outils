@@ -223,7 +223,7 @@ function toPalaisAdresseOutput(
   };
 }
 
-// ── 1. greffe_parse_court_file_number ─────────────────────────────────────────
+// ── 1. greffe_parse_number ─────────────────────────────────────────
 
 export function parseCourtFile(input: ParseCourtFileInput): {
   structured: ParseCourtFileOutput;
@@ -253,7 +253,7 @@ export function parseCourtFile(input: ParseCourtFileInput): {
       lignes.push(
         "",
         "Une cour fédérale n'est PAS un tribunal administratif. Pour vérifier une de ses",
-        "décisions, employer le connecteur « Jurisprudence » (jurisprudence_verify_citations).",
+        "décisions, employer le connecteur « Jurisprudence » (verify_citations).",
       );
     }
     const text = [...lignes, "", GARDE_DOSSIER].join("\n");
@@ -741,7 +741,7 @@ export function palaisGet(input: PalaisGetInput): PalaisGetResult {
   lignes.push(
     "",
     "Les chambres et compétences ne se rattachent PAS au bâtiment mais au numéro de",
-    "dossier : employer greffe_parse_court_file_number pour les obtenir.",
+    "dossier : employer greffe_parse_number pour les obtenir.",
   );
 
   const gardes: Garde[] = [makeGarde("PALAIS_RELEVE_MJQ_DATE")];

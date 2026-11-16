@@ -283,7 +283,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     expect(oqlf.text).toContain("LICENCE_DONNEES_OUVERTES_NC_SA");
   });
 
-  it("terminologie_attestations compte exactement les occurrences, gère l'apostrophe typographique et respecte les frontières de mot", async () => {
+  it("termino_attestations compte exactement les occurrences, gère l'apostrophe typographique et respecte les frontières de mot", async () => {
     const hypCcq = await terminologieAttestations(harness.d1, {
       term: "hypothec",
       lang: "en",
@@ -326,7 +326,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     expect(dol.structured.attestations[0]!.article_number).toBe("1401");
   });
 
-  it("terminologie_scan_text détecte les contaminations FR/EN, épargne 'avis d\\'assignation' et gère les doublets bijuridiques fédéraux", async () => {
+  it("terminologie_scan détecte les contaminations FR/EN, épargne 'avis d\\'assignation' et gère les doublets bijuridiques fédéraux", async () => {
     const frDraft =
       "Attendu que la demanderesse a fait signifier une demande introductive d'instance avec avis d'assignation. " +
       "Subsidiairement, l'assignation délivrée en référé invoque l'article 1240 pour une contrepartie de 1 $.";
@@ -377,7 +377,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     expect(loneMort?.risk_category).toBe("omission_bijuridique");
   });
 
-  it("gère les formes plurielles dans terminologie_lookup et terminologie_scan_text sans faux positifs sur 'avis d\\'assignation' ou 'bref délai'", async () => {
+  it("gère les formes plurielles dans terminologie_lookup et terminologie_scan sans faux positifs sur 'avis d\\'assignation' ou 'bref délai'", async () => {
     const mortPl = await terminologieLookup(harness.d1, {
       query: "mortgages",
       source_lang: "en",
@@ -487,7 +487,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     }
   });
 
-  it("terminologie_attestations pagine par curseur FTS5 (> 4 000 et === 4 000 candidats) sans perte ni doublon sur les totaux par loi", async () => {
+  it("termino_attestations pagine par curseur FTS5 (> 4 000 et === 4 000 candidats) sans perte ni doublon sur les totaux par loi", async () => {
     const schemaSql = readFileSync(
       resolve(process.cwd(), "pipeline/terminologie/schema.sql"),
       "utf-8",
@@ -622,7 +622,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
 
     try {
-      // 1) Ligature œ <-> oe dans terminologie_lookup et terminologie_attestations
+      // 1) Ligature œ <-> oe dans terminologie_lookup et termino_attestations
       const lookLig = await terminologieLookup(ligHarness.d1, { query: "mise en œuvre" });
       const lookAscii = await terminologieLookup(ligHarness.d1, { query: "mise en oeuvre" });
       expect(lookLig.structured.count).toBe(1);
@@ -673,7 +673,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       ligHarness.close();
     }
 
-    // 3) terminologie_scan_text : zéro faux positif sur les tournures statutaires du C.p.c. / C.c.Q.
+    // 3) terminologie_scan : zéro faux positif sur les tournures statutaires du C.p.c. / C.c.Q.
     const cleanStatutesFr = await terminologieScanText(harness.d1, {
       text: "Le défendeur doit répondre à l’assignation dans le délai d'assignation devant les tribunaux judiciaires du Québec ou un autre tribunal judiciaire compétent.",
       lang: "fr",

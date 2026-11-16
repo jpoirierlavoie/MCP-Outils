@@ -75,9 +75,9 @@ const FORMULATIONS_INTERDITES = [
   "citation valide",
 ] as const;
 
-describe("greffe_parse_court_file_number", () => {
+describe("greffe_parse_number", () => {
   it("résout greffe, juridiction, adresse et structuredContent avec gardes", async () => {
-    const { result, text } = await callToolText("greffe_parse_court_file_number", {
+    const { result, text } = await callToolText("greffe_parse_number", {
       court_file_number: "500-05-123456-241",
     });
     expect(result.isError).not.toBe(true);
@@ -98,7 +98,7 @@ describe("greffe_parse_court_file_number", () => {
   });
 
   it("un préfixe TAL résout son tribunal et n'est PAS une erreur", async () => {
-    const { result, text } = await callToolText("greffe_parse_court_file_number", {
+    const { result, text } = await callToolText("greffe_parse_number", {
       court_file_number: "TAL-594531",
     });
     expect(result.isError).not.toBe(true);
@@ -110,7 +110,7 @@ describe("greffe_parse_court_file_number", () => {
   });
 
   it("une cour fédérale est annoncée comme telle et pointe vers « Jurisprudence »", async () => {
-    const { result, text } = await callToolText("greffe_parse_court_file_number", {
+    const { result, text } = await callToolText("greffe_parse_number", {
       court_file_number: "C.F.-T-1234-26",
     });
     expect(result.isError).not.toBe(true);
@@ -118,13 +118,13 @@ describe("greffe_parse_court_file_number", () => {
     expect(text).toContain("Cours et tribunaux fédéraux");
     expect(text).toContain("n'est PAS un tribunal administratif");
     expect(text).toContain("« Jurisprudence »");
-    expect(text).toContain("jurisprudence_verify_citations");
+    expect(text).toContain("verify_citations");
     const parsed = ParseCourtFileOutputSchema.parse(result.structuredContent);
     expect(parsed.is_administrative).toBe(false);
   });
 
   it("un préfixe inconnu ne devine AUCUN nom de tribunal", async () => {
-    const { result, text } = await callToolText("greffe_parse_court_file_number", {
+    const { result, text } = await callToolText("greffe_parse_number", {
       court_file_number: "XYZ-9999",
     });
     expect(result.isError).not.toBe(true);
@@ -135,7 +135,7 @@ describe("greffe_parse_court_file_number", () => {
   });
 
   it("un greffe itinérant : pas d'adresse, et l'inconnu n'est pas une inexistence", async () => {
-    const { result, text } = await callToolText("greffe_parse_court_file_number", {
+    const { result, text } = await callToolText("greffe_parse_number", {
       court_file_number: "614-05-000001-200",
     });
     expect(text).toContain("Chisasibi");
@@ -148,7 +148,7 @@ describe("greffe_parse_court_file_number", () => {
   });
 
   it("un code inconnu est NOMMÉ, pas deviné", async () => {
-    const { result, text } = await callToolText("greffe_parse_court_file_number", {
+    const { result, text } = await callToolText("greffe_parse_number", {
       court_file_number: "999-05-000001",
     });
     expect(text).toContain("999");
@@ -160,18 +160,14 @@ describe("greffe_parse_court_file_number", () => {
 
   it("refuse une entrée vide, blanche ou une propriété inconnue par le schéma fermé", async () => {
     expect(
-      isInputRejected(
-        await callToolRaw("greffe_parse_court_file_number", { court_file_number: "" }),
-      ),
+      isInputRejected(await callToolRaw("greffe_parse_number", { court_file_number: "" })),
+    ).toBe(true);
+    expect(
+      isInputRejected(await callToolRaw("greffe_parse_number", { court_file_number: "   " })),
     ).toBe(true);
     expect(
       isInputRejected(
-        await callToolRaw("greffe_parse_court_file_number", { court_file_number: "   " }),
-      ),
-    ).toBe(true);
-    expect(
-      isInputRejected(
-        await callToolRaw("greffe_parse_court_file_number", {
+        await callToolRaw("greffe_parse_number", {
           court_file_number: "500-05-123456-241",
           extra: true,
         }),
@@ -226,11 +222,11 @@ describe("palais_list", () => {
   it("rejette les propriétés inconnues sur tous les outils", async () => {
     expect(isInputRejected(await callToolRaw("palais_list", { extra: "nope" }))).toBe(true);
     expect(
-      isInputRejected(await callToolRaw("calendrier_list_holidays", { year: 2026, extra: 1 })),
+      isInputRejected(await callToolRaw("calendrier_holidays", { year: 2026, extra: 1 })),
     ).toBe(true);
     expect(
       isInputRejected(
-        await callToolRaw("calendrier_compute_deadlines", {
+        await callToolRaw("calendrier_deadlines", {
           event_date: "2026-07-03",
           deadlines: [{ amount: 10, extra: 1 }],
         }),
@@ -238,7 +234,7 @@ describe("palais_list", () => {
     ).toBe(true);
     expect(
       isInputRejected(
-        await callToolRaw("interets_compute_1619", {
+        await callToolRaw("interets_1619", {
           mode: "legal_only",
           end_date: "2026-01-10",
           tranches: [{ principal_cents: 1000, start_date: "2026-01-01", extra: 1 }],
@@ -342,12 +338,12 @@ describe("palais_get", () => {
 describe("contrat de vérité — formulations interdites", () => {
   it("aucune sortie des 3 outils QC ne contient de formulation de fausse certitude", async () => {
     const appels: Array<[string, Record<string, unknown>]> = [
-      ["greffe_parse_court_file_number", { court_file_number: "500-05-123456-241" }],
-      ["greffe_parse_court_file_number", { court_file_number: "TAL-594531" }],
-      ["greffe_parse_court_file_number", { court_file_number: "C.F.-T-1234-26" }],
-      ["greffe_parse_court_file_number", { court_file_number: "XYZ-9999" }],
-      ["greffe_parse_court_file_number", { court_file_number: "614-05-000001-200" }],
-      ["greffe_parse_court_file_number", { court_file_number: "999-05-000001" }],
+      ["greffe_parse_number", { court_file_number: "500-05-123456-241" }],
+      ["greffe_parse_number", { court_file_number: "TAL-594531" }],
+      ["greffe_parse_number", { court_file_number: "C.F.-T-1234-26" }],
+      ["greffe_parse_number", { court_file_number: "XYZ-9999" }],
+      ["greffe_parse_number", { court_file_number: "614-05-000001-200" }],
+      ["greffe_parse_number", { court_file_number: "999-05-000001" }],
       ["palais_list", {}],
       ["palais_list", { district: "Inconnu" }],
       ["palais_get", { greffe_number: "500" }],

@@ -148,7 +148,7 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     harness?.close();
   });
 
-  it("registre_search_entities normalise accents, suffixes juridiques (inc./ltée/S.E.N.C.R.L.) et sociétés à numéro sans tiret", async () => {
+  it("registre_search normalise accents, suffixes juridiques (inc./ltée/S.E.N.C.R.L.) et sociétés à numéro sans tiret", async () => {
     // Recherche d'une société à numéro sans tiret et avec « Ltée » au lieu de « Inc. »
     const numSearch = await registreSearchEntities(harness.d1, {
       query: "91234567 Quebec Ltee",

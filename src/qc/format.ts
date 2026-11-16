@@ -54,7 +54,7 @@ export function document(
   return [entete, corps, pied ?? ""].filter((s) => s.trim().length > 0).join("\n\n");
 }
 
-/** `greffe_parse_court_file_number` — pied du numéro judiciaire. */
+/** `greffe_parse_number` — pied du numéro judiciaire. */
 export const SANS_PLUMITIF =
   "Ce connecteur ne consulte AUCUN registre de dossiers : il n'a pas accès au plumitif.";
 
@@ -75,7 +75,7 @@ export const GARDE_SANS_ADRESSE =
   "Cela n'établit PAS qu'il n'en existe aucune : ce greffe siège en cour itinérante,\n" +
   "ou son adresse n'a pas été relevée. La demander au ministère de la Justice.";
 
-/** `greffe_parse_court_file_number` — pied, toute issue. */
+/** `greffe_parse_number` — pied, toute issue. */
 export const GARDE_DOSSIER =
   "Cet outil lit une NOMENCLATURE : il n'établit pas que ce dossier existe, ni qu'il\n" +
   "est actif. Les positions 7 et suivantes (séquence et contrôle) ne sont pas\n" +

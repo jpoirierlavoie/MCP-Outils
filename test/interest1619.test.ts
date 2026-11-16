@@ -6,7 +6,7 @@ import {
 } from "../src/core/interest1619.js";
 import lafRatesJson from "../src/data/laf_art28_rates.json" with { type: "json" };
 
-describe("interets_compute_1619", () => {
+describe("interets_1619", () => {
   it("contient une table art. 28 L.A.F. contiguë complète de 2001-Q1 à 2026-Q4", () => {
     const keys = Object.keys(lafRatesJson.quarters);
     expect(keys.length).toBe(26 * 4);
