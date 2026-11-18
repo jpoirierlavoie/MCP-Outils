@@ -652,16 +652,18 @@ ${biP(
 <p>${bi(GARDE_SANS_ADRESSE, GARDE_SANS_ADRESSE)}</p>
 </div>
 
-<h3>${bi("Aucune coordonnée", EN.aucuneCoordonnee)}</h3>
+<h3>${bi("Coordonnées et heures d'ouverture", EN.coordonneesTitre)}</h3>
 <div class="avert">
 ${biP(
   [
-    "Ce connecteur ne porte AUCUN numéro de téléphone, aucun courriel et aucune heure " +
-      "d'ouverture — pour aucun palais. C'est une propriété de la donnée, non un échec de la page.",
-    "Les numéros des greffes sont publiés par chambre (Montréal en publie au moins quatre), sur " +
-      "le site du Ministère. Les y obtenir.",
+    "L'outil palais_get (et la sortie structurée de greffe_parse_number) rend les numéros de " +
+      "téléphone, télécopieurs, adresses courriel par chambre ou service et heures d'ouverture " +
+      `relevés auprès du ministère de la Justice du Québec le ${RELEVE_LE} (44 palais de justice ` +
+      "et 9 points de service).",
+    "Les numéros et heures d'ouverture peuvent changer sans préavis : vérifier sur le site " +
+      "officiel du Ministère avant toute signification, tout dépôt ou toute audience.",
   ],
-  EN.aucuneCoordonneeTexte,
+  EN.coordonneesTexte,
 )}
 <p><a href="https://www.justice.gouv.qc.ca/nous-joindre/trouver-un-palais-de-justice/">justice.gouv.qc.ca</a></p>
 </div>

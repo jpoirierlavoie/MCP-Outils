@@ -86,7 +86,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("2.0.0");
+    expect(healthJson.version).toBe("2.1.0");
     expect(healthJson.request_payload_logging).toBe(false);
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
     expect(healthJson.databases).toEqual({
@@ -180,7 +180,7 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("2.0.0");
+    expect(cardBody.version).toBe("2.1.0");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",
@@ -395,7 +395,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const palaisListStructured = PalaisListOutputSchema.parse(
       palaisListCall.body.result?.structuredContent,
     );
-    expect(palaisListStructured.count).toBe(1);
+    expect(palaisListStructured.count).toBe(2);
 
     const palaisGetCall = await mcpPost("tools/call", {
       name: "palais_get",
@@ -407,6 +407,9 @@ describe("Worker HTTP & intégration MCP", () => {
       palaisGetCall.body.result?.structuredContent,
     );
     expect(palaisGetStructured.palais?.name).toBe("Montréal");
+    expect(palaisGetStructured.palais?.fax).toBe("514 873-4760");
+    expect(palaisGetStructured.palais?.opening_hours).toBeTruthy();
+    expect(palaisGetStructured.palais?.contacts.length).toBeGreaterThan(0);
 
     const palaisGetXor = await mcpPost("tools/call", {
       name: "palais_get",

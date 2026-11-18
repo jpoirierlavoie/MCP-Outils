@@ -59,17 +59,17 @@ export const SANS_PLUMITIF =
   "Ce connecteur ne consulte AUCUN registre de dossiers : il n'a pas accès au plumitif.";
 
 export const GARDE_PALAIS =
-  "Adresses relevées auprès du ministère de la Justice du Québec le 2026-07-15.\n" +
+  "Adresses relevées auprès du ministère de la Justice du Québec le 2026-11-17.\n" +
   "Les palais de justice déménagent : VÉRIFIER la liste officielle du Ministère\n" +
   "avant toute signification ou tout dépôt.";
 
 /**
  * Réserve sur l'ABSENCE d'adresse d'un greffe.
  *
- * Six greffes n'ont pas de `palais_key` (quatre cours itinérantes, deux qui n'en ont
- * tout simplement pas dans la source). Écrire « aucune adresse » sans autre forme de
- * procès fait croire qu'aucun greffe physique n'existe ; la réserve dit ce qui est vrai
- * — on ne l'a pas relevée — et renvoie à la source qui sait.
+ * Quatre greffes de cour itinérante n'ont pas de `palais_key` (614, 625, 640, 652).
+ * Écrire « aucune adresse » sans autre forme de procès fait croire qu'aucun greffe
+ * physique n'existe ; la réserve dit ce qui est vrai — on ne l'a pas relevée — et
+ * renvoie à la source qui sait.
  */
 export const GARDE_SANS_ADRESSE =
   "Cela n'établit PAS qu'il n'en existe aucune : ce greffe siège en cour itinérante,\n" +

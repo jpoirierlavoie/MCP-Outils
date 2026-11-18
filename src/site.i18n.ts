@@ -44,24 +44,25 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "Reads NNN-NN-NNNNNN-NNN into its registry — courthouse and judicial district — and its " +
       "jurisdiction: court, competence, registry type. A letter prefix (TAL, TAQ, C.F.…) names " +
       "a tribunal that numbers its own files. Read from tables surveyed from the ministère de la " +
-      "Justice du Québec on 2026-07-15 and compiled into the Worker: no call is made, no docket is " +
-      "consulted, and nothing here proves that the file exists.",
+      "Justice du Québec on 2026-11-17 (registry table 2026-07-22) and compiled into the Worker: " +
+      "no call is made, no docket is consulted, and nothing here proves that the file exists.",
   },
   palais_list: {
     titre: "Québec courthouses — directory",
     texte:
-      "The courthouses and justice service points of Québec, with civic address, the registry " +
+      "The 44 courthouses and 9 justice service points of Québec, with civic address, the registry " +
       "numbers sitting there and their judicial district. Filterable by district, type or free " +
-      "text. Surveyed from the ministère de la Justice du Québec on 2026-07-15 — addresses age, " +
-      "and no telephone number is carried: check with the Ministry before serving or filing.",
+      "text. Surveyed from the ministère de la Justice du Québec on 2026-11-17 — use palais_get " +
+      "for phone numbers, faxes, emails and opening hours, and check with the Ministry before serving or filing.",
   },
   palais_get: {
     titre: "Québec courthouse — record",
     texte:
-      "One location in full, by registry number or by name: address, distinct mailing address " +
-      "where one is published, registries sitting there, and — for a circuit court — the " +
-      "communities served. Surveyed from the ministère de la Justice du Québec on 2026-07-15; a " +
-      "missing address means UNKNOWN, never non-existent.",
+      "One location in full, by registry number or by name: civic address, distinct mailing " +
+      "address where published, opening hours, fax, phone numbers and emails per chamber or " +
+      "service, registries sitting there, and — for a circuit court — the communities served. " +
+      "Surveyed from the ministère de la Justice du Québec on 2026-11-17; a missing address means " +
+      "UNKNOWN, never non-existent.",
   },
   registre_search: {
     titre: "Business registries (QC / Canada) — search",
@@ -150,7 +151,7 @@ export const EN = {
   familleGreffe: "Local Québec tables — court file numbers and courthouses",
   familleGreffeTexte: [
     "Three tools that read reference tables compiled into the Worker, surveyed from the " +
-      "ministère de la Justice du Québec (courthouses 2026-07-15, registry attachments 2026-07-22). " +
+      "ministère de la Justice du Québec (courthouses and contact details 2026-11-17, registry attachments 2026-07-22). " +
       "They make no outbound calls, consult no court docket (plumitif), and write nothing.",
   ],
   familleRegistre:
@@ -219,12 +220,13 @@ export const EN = {
   typeItinerant: "circuit court",
   sansAdresse: "no published address",
   tousDistricts: "All districts",
-  aucuneCoordonnee: "No contact information",
-  aucuneCoordonneeTexte: [
-    "This connector carries NO telephone number, no email address and no opening hours — for any " +
-      "courthouse. That is a property of the data, not a failure of the page.",
-    "Registry telephone numbers are published per chamber (Montréal alone publishes at least " +
-      "four), on the Ministry's own site. Obtain them there.",
+  coordonneesTitre: "Contact details and opening hours",
+  coordonneesTexte: [
+    "The palais_get tool (and structured output of greffe_parse_number) carries telephone numbers, " +
+      "fax numbers, email addresses per chamber or service, and opening hours surveyed from the " +
+      "ministère de la Justice du Québec on 2026-11-17 (44 courthouses and 9 service points).",
+    "Phone numbers and opening hours may change without notice: verify on the Ministry's " +
+      "official directory before serving, filing, or attending.",
   ],
   juridictionsTitre: "Jurisdiction codes",
   juridictionsTexte: [

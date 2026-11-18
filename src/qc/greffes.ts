@@ -19,10 +19,13 @@
  *   autorise un appariement par nom — parce que les deux côtés y sont du MJQ.
  *
  * ⚠ `palais_key: null` signifie « ADRESSE INCONNUE », jamais « il n'existe pas
- *   d'adresse ». Six greffes restent sans adresse résolvable (525, 614, 625, 640, 652,
- *   715). C'est le pendant exact de la règle INTROUVABLE de §2 — l'absence d'un
- *   renseignement n'est pas un constat d'absence. On en sort par une SOURCE : c'est
- *   ainsi que 635 en est sorti, et non en assouplissant la formulation.
+ *   d'adresse ». Quatre greffes de cour itinérante restent sans adresse civique fixe
+ *   résolvable (614, 625, 640, 652) ; les greffes 525 (Montréal - Chambre de la
+ *   jeunesse) et 715 (Sainte-Agathe-des-Monts) ont été résolus d'après les fiches
+ *   officielles du MJQ le 2026-11-17. C'est le pendant exact de la règle INTROUVABLE
+ *   de §2 — l'absence d'un renseignement n'est pas un constat d'absence. On en sort
+ *   par une SOURCE : c'est ainsi que 635, 525 et 715 en sont sortis, et non en
+ *   assouplissant la formulation.
  *
  * ⚠ `point_de_service` marque ici les GREFFES DE COUR ITINÉRANTE (614, 625, 635, 640,
  *   652). Ce n'est PAS le `location_type: "point_de_service"` de palais.ts, qui marque
@@ -232,7 +235,7 @@ export const GREFFES: Readonly<Record<string, Greffe>> = {
     palais_de_justice: "Montréal - Chambre de la jeunesse",
     district_judiciaire: "Montréal",
     point_de_service: false,
-    palais_key: null,
+    palais_key: "montreal-chambre-de-la-jeunesse",
   },
   "540": {
     palais_de_justice: "Laval",
@@ -362,7 +365,7 @@ export const GREFFES: Readonly<Record<string, Greffe>> = {
     palais_de_justice: "Sainte-Agathe-des-Monts",
     district_judiciaire: "Terrebonne",
     point_de_service: false,
-    palais_key: null,
+    palais_key: "sainte-agathe-des-monts",
   },
   "750": {
     palais_de_justice: "Saint-Hyacinthe",
