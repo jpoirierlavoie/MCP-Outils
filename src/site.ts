@@ -684,18 +684,24 @@ ${h2("acces")}
 ${biP(
   [
     "Point d'accès Streamable HTTP public (aucun secret requis) : " +
-      "https://outils.poirierlavoie.ca/mcp — conçu pour accompagner les compétences du greffon " +
-      "« droit-civil-quebecois » aux côtés des connecteurs de sources primaires authentifiés.",
+      "https://outils.poirierlavoie.ca/mcp — se connecte sans authentification dans Claude Research, " +
+      "Gemini Deep Research, Claude Code / Desktop, Antigravity et Gemini CLI, et accompagne les " +
+      "compétences du greffon « droit-civil-quebecois » aux côtés des connecteurs de sources " +
+      "primaires authentifiés (admission des membres en règle du Barreau du Québec sur " +
+      "https://acces.poirierlavoie.ca).",
     "La fiche publique de découverte (SEP-2127) est publiée sur " +
       "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut les manifestes " +
       "pour Google Antigravity (plugin.json, mcp_config.json) et Gemini CLI (gemini-extension.json). " +
       "Vérification de santé sans journalisation des charges utiles : " +
       "https://outils.poirierlavoie.ca/healthz (limitation de débit à 60 requêtes / 60 s par IP).",
-    "Le code source est public (licence CC BY-NC-SA 4.0) et l'ensemble des tests s'exécute localement sans accès réseau.",
+    "Le code source est public sous licence CC BY-NC-SA 4.0 assortie d'une autorisation " +
+      "complémentaire de pratique professionnelle du droit pour les membres en règle du Barreau " +
+      "du Québec (voir LICENSE) ; l'ensemble des tests s'exécute localement sans accès réseau.",
   ],
   EN.acces,
 )}
-<p><a href="https://github.com/jpoirierlavoie/MCP-Outils">github.com/jpoirierlavoie/MCP-Outils</a>
+<p><a href="https://acces.poirierlavoie.ca">acces.poirierlavoie.ca</a>
+ · <a href="https://github.com/jpoirierlavoie/MCP-Outils">github.com/jpoirierlavoie/MCP-Outils</a>
  · <a href="https://github.com/jpoirierlavoie/droit-civil-quebecois">droit-civil-quebecois</a>
  · <a href="mailto:jason@poirierlavoie.ca">jason@poirierlavoie.ca</a></p>
 </section>`;

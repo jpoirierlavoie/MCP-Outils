@@ -70,9 +70,10 @@ Ce serveur est conçu pour être interrogé publiquement sans secret tout en pro
 }
 ```
 
-### Inspection avec MCP Inspector / Client générique
+### Inspection avec MCP Inspector / Modes Deep Research
 
 - **URL Streamable HTTP** : `https://outils.poirierlavoie.ca/mcp`
+- **Claude Research & Gemini Deep Research (`deep-research-preview-04-2026`, Gemini App / Vertex AI)** : raccordement direct sans jeton ni OAuth en tant que connecteur public en lecture seule (`openWorldHint: false`, `readOnlyHint: true`). Pour obtenir des jetons individuels ou connecter via OAuth 2.1 les serveurs complémentaires de sources primaires (`lois` et `juris`, réservés aux membres en règle du Barreau du Québec), consulter [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca) et le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois). Par prudence professionnelle en mode Deep Research autonome (où la recherche web et `store=True` peuvent s'exécuter), **n'inclure aucun nom de client ni fait confidentiel** dans les invites.
 - **Fiche de découverte publique SEP-2127** : `GET https://outils.poirierlavoie.ca/mcp/server-card`
 - **Page documentaire publique** : `GET https://outils.poirierlavoie.ca/` (HTML bilingue FR/EN généré dynamiquement depuis les schémas et tables compilées)
 - **Vérification de santé** : `GET https://outils.poirierlavoie.ca/healthz`
@@ -131,4 +132,4 @@ pipeline\.venv\Scripts\python.exe -m pipeline.adresses.ingest_adresses --build-l
 ## Sécurité, confidentialité et licences
 
 - **Sécurité, vie privée et secret professionnel :** Consulter [`SECURITY.md`](SECURITY.md) pour signaler de manière privée et coordonnée toute vulnérabilité ou question de confidentialité / secret professionnel à Jason Poirier Lavoie (`jason@poirierlavoie.ca`).
-- **Licence logicielle et attributions de données ouvertes :** Le logiciel, les schémas, le glossaire curé, les tests et la documentation originale sont mis à disposition sous licence **`CC-BY-NC-SA-4.0`** — voir [`LICENSE`](LICENSE). Attributions des jeux de données publics : Revenu Québec (art. 28 L.A.F.) ; ministère de la Justice du Québec (greffes et palais) ; Registraire des entreprises du Québec et Office québécois de la langue française (`CC BY-NC-SA 4.0`) ; Régie du bâtiment du Québec, Office de la protection du consommateur, Autorité des marchés publics (RENA) et ministère des Ressources naturelles et des Forêts — RQA (`CC BY 4.0`) ; Corporations Canada et TERMIUM Plus®, Bureau de la traduction (`OGL-Canada`).
+- **Licence logicielle et attributions de données ouvertes :** Le logiciel, les schémas, le glossaire curé, les tests et la documentation originale dont Jason Poirier Lavoie est titulaire sont mis à disposition sous licence **`CC-BY-NC-SA-4.0`** assortie d'une **Autorisation complémentaire de pratique professionnelle du droit** (*Companion Professional Legal Practice Grant*) pour les membres en règle du Barreau du Québec — voir [`LICENSE`](LICENSE). Attributions des jeux de données publics : Revenu Québec (art. 28 L.A.F.) ; ministère de la Justice du Québec (greffes et palais) ; Registraire des entreprises du Québec et Office québécois de la langue française (`CC BY-NC-SA 4.0`) ; Régie du bâtiment du Québec, Office de la protection du consommateur, Autorité des marchés publics (RENA) et ministère des Ressources naturelles et des Forêts — RQA (`CC BY 4.0`) ; Corporations Canada et TERMIUM Plus®, Bureau de la traduction (`OGL-Canada`).

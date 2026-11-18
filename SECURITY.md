@@ -1,6 +1,6 @@
 # Security, Privacy & Professional Secrecy Policy / Politique de sécurité, confidentialité et secret professionnel
 
-> **Français :** Ce dépôt héberge le connecteur MCP public et sans journalisation **`MCP-Outils`** (`mcp-outils`, Worker Cloudflare `outils`, `https://outils.poirierlavoie.ca/mcp`), déployé sur Cloudflare Workers pour le calcul déterministe (jours fériés, délais C.p.c./L.I., intérêts art. 1619 C.c.Q.), l'annuaire statique des greffes et palais de justice du Québec et la consultation locale en lecture seule de jeux de données ouvertes (registres d'entreprises, adresses RQA et terminologie juridique bilingue).
+> **Français :** Ce dépôt héberge le connecteur MCP public et sans journalisation **`MCP-Outils`** (`mcp-outils`, Worker Cloudflare `outils`, `https://outils.poirierlavoie.ca/mcp`), déployé sur Cloudflare Workers pour le calcul déterministe (jours fériés, délais C.p.c./L.I., intérêts art. 1619 C.c.Q.), l'annuaire statique des greffes et palais de justice du Québec et la consultation locale en lecture seule de jeux de données ouvertes (registres d'entreprises, adresses RQA et terminologie juridique bilingue), en appui au greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) (`v2.1.0`) et aux connecteurs authentifiés gérés via [`MCP-Acces`](https://github.com/jpoirierlavoie/MCP-Acces) (`acces.poirierlavoie.ca`).
 > Pour signaler une **vulnérabilité de sécurité** OU un **enjeu de vie privée, de confidentialité ou de secret professionnel / privilège** (`art. 9` *Charte des droits et libertés de la personne*, `art. 131` *Loi sur le Barreau*), **n'ouvrez jamais d'issue publique sur GitHub**. Écrivez directement au mainteneur :
 > **Jason Poirier Lavoie, avocat (Québec)** — `jason@poirierlavoie.ca` (accusé de réception sous **72 heures**, divulgation coordonnée).
 > **Ne transmettez jamais** de documents clients réels, de renseignements nominatifs privilégiés ni de secrets de déploiement dans un premier signalement ; utilisez des paramètres fictifs.
@@ -35,6 +35,7 @@ Hors portée :
    - `observability.traces.enabled = false`, `logpush = false`, `redact_query_string = true`
    Le code du Worker ne journalise ni les adresses IP, ni les corps de requêtes, ni les paramètres transmis.
 4. **Limitation de débit sans stockage de contenu :** Le binding Cloudflare `RATE_LIMITER` limite le point d'accès à **60 requêtes par 60 secondes par IP** (`CF-Connecting-IP`) afin de prévenir les abus sans conserver aucune charge utile applicative (`HTTP 429` avec `Retry-After: 60`).
+5. **Prudence en mode Deep Research autonome :** Lors d'exécutions autonomes (`Claude Research`, `Gemini API Deep Research` avec `store=True`), l'agent hôte peut lancer parallèlement des recherches web ouvertes ou archiver la session : ne jamais inclure de noms de clients, numéros de dossier ou faits confidentiels dans les invites soumises au modèle.
 
 ---
 

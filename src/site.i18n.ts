@@ -241,13 +241,17 @@ export const EN = {
   // ── Accès & pied ───────────────────────────────────────────────────────────
   acces: [
     "Public Streamable HTTP endpoint (no secret or authentication required): " +
-      "https://outils.poirierlavoie.ca/mcp — designed to be paired with the « droit-civil-quebecois » " +
-      "skill plugin alongside authenticated primary-source connectors.",
+      "https://outils.poirierlavoie.ca/mcp — connects without authentication in Claude Research, " +
+      "Gemini Deep Research, Claude Code / Desktop, Antigravity and Gemini CLI, and pairs with the " +
+      "« droit-civil-quebecois » skill plugin alongside authenticated primary-source connectors " +
+      "(Barreau du Québec member admission at https://acces.poirierlavoie.ca).",
     "The public discovery card (SEP-2127) is served at " +
       "https://outils.poirierlavoie.ca/mcp/server-card; the repository includes manifests " +
       "for Google Antigravity (plugin.json, mcp_config.json) and Gemini CLI (gemini-extension.json). " +
       "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz (edge rate limit: 60 req / 60 s per IP).",
-    "The source code is public (CC BY-NC-SA 4.0 licence), and the entire test suite runs locally with no network access.",
+    "The source code is public under the CC BY-NC-SA 4.0 licence with a Companion Professional " +
+      "Legal Practice Grant for members in good standing of the Barreau du Québec (see LICENSE), and " +
+      "the entire test suite runs locally with no network access.",
   ],
 
   pied: [
