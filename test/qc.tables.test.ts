@@ -107,8 +107,16 @@ describe("adresses — complètes ou franchement absentes", () => {
       for (const c of p.contacts) {
         expect(c.service.length, clef).toBeGreaterThan(0);
         expect(Boolean(c.tel || c.fax || c.courriel), `${clef}:${c.service}`).toBe(true);
+        if (c.courriel) {
+          expect(c.courriel, `${clef}:${c.service}`).toMatch(/^[a-z]/);
+        }
       }
     }
+    expect(PALAIS.victoriaville?.contacts).toContainEqual({
+      service: "Amende",
+      tel: "1 866 536-5140, option 1",
+      courriel: "amendes@justice.gouv.qc.ca",
+    });
   });
 
   it("tous les autres greffes résolvent bien une adresse", () => {

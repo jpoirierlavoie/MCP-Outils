@@ -281,8 +281,46 @@ function isProseOrIgnoreLine(line) {
   );
 }
 
-function extractLineContacts(line, faxDigitSet, phoneDigitSet) {
-  const emails = [...line.matchAll(EMAIL_RE)].map((m) => cleanEmail(m[0]));
+function extractStructuredEmails(items) {
+  return [
+    ...new Set(
+      (items || [])
+        .map((e) => cleanEmail(typeof e === "string" ? e : e.href || e.text || ""))
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function delimitStructuredEmails(text, structuredEmails) {
+  let out = text;
+  for (const se of structuredEmails) {
+    const escaped = se.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(escaped, "gi"), (match, offset, full) => {
+      const prev = offset > 0 ? full[offset - 1] : "";
+      const next = offset + match.length < full.length ? full[offset + match.length] : "";
+      const prefix = prev && !/[\s:;,(<]/.test(prev) ? "\n" : "";
+      const suffix = next && !/[\s:;,.)>]/.test(next) ? "\n" : "";
+      return `${prefix}${match}${suffix}`;
+    });
+  }
+  return out;
+}
+
+function extractLineContacts(line, faxDigitSet, phoneDigitSet, structuredEmails = []) {
+  let remainingForEmails = line;
+  const emails = [];
+  for (const se of structuredEmails) {
+    const escaped = se.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(escaped, "gi");
+    if (re.test(remainingForEmails)) {
+      emails.push(se);
+      remainingForEmails = remainingForEmails.replace(re, " ");
+    }
+  }
+  for (const m of remainingForEmails.matchAll(EMAIL_RE)) {
+    const cleaned = cleanEmail(m[0]);
+    if (cleaned && !emails.includes(cleaned)) emails.push(cleaned);
+  }
   const rawPhones = [...line.matchAll(PHONE_RE)].map((m) => m[0]);
 
   const tels = [];
@@ -291,8 +329,11 @@ function extractLineContacts(line, faxDigitSet, phoneDigitSet) {
 
   // Extraire un éventuel qualificatif entre parenthèses après le numéro
   let stripped = line;
-  for (const e of emails) stripped = stripped.replace(e, "");
   for (const rp of rawPhones) stripped = stripped.replace(rp, "");
+  for (const e of emails) {
+    const escaped = e.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    stripped = stripped.replace(new RegExp(escaped, "gi"), "");
+  }
   stripped = stripped
     .replace(/^(?:Sans frais|Télécopieur)\s*:\s*/i, "")
     .replace(/^Téléscripteur[^:]*:\s*/i, "(téléscripteur) ")
@@ -381,17 +422,24 @@ function parseTopTable(key, page) {
 
   if (coordCell) {
     const faxDigits = new Set((coordCell.faxes || []).map((f) => digitsOnly(formatPhoneNumber(f))));
-    const lines = normSpace(coordCell.text)
+    const structuredTopEmails = extractStructuredEmails(coordCell.emails);
+    const coordText = delimitStructuredEmails(normSpace(coordCell.text), structuredTopEmails);
+    const lines = coordText
       .split(/\r?\n/)
       .map((l) => normSpace(l))
       .filter((l) => l && !/^Coordonnées$/i.test(l));
 
     const faxLines = [];
     const telEntries = [];
+    let remainingTopForEmails = coordText;
+    for (const se of structuredTopEmails) {
+      const escaped = se.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      remainingTopForEmails = remainingTopForEmails.replace(new RegExp(escaped, "gi"), " ");
+    }
     const emailList = [
       ...new Set([
-        ...(coordCell.emails || []).map((e) => cleanEmail(e.text || e.href)),
-        ...[...normSpace(coordCell.text).matchAll(EMAIL_RE)].map((m) => cleanEmail(m[0])),
+        ...structuredTopEmails,
+        ...[...remainingTopForEmails.matchAll(EMAIL_RE)].map((m) => cleanEmail(m[0])),
       ]),
     ].filter(Boolean);
 
@@ -488,7 +536,8 @@ function parseAccordionContacts(key, page) {
       continue;
     }
 
-    const rawText = normSpace(a.text || "");
+    const structuredEmails = extractStructuredEmails(a.emails);
+    const rawText = delimitStructuredEmails(normSpace(a.text || ""), structuredEmails);
     const allFaxes = (a.faxes || []).map((f) => formatPhoneNumber(f));
     const allPhones = (a.phones || []).map((p) => formatPhoneNumber(p));
 
@@ -560,7 +609,12 @@ function parseAccordionContacts(key, page) {
         continue;
       }
 
-      const { tels, faxes, emails, qual } = extractLineContacts(line, faxDigitSet, phoneDigitSet);
+      const { tels, faxes, emails, qual } = extractLineContacts(
+        line,
+        faxDigitSet,
+        phoneDigitSet,
+        structuredEmails,
+      );
 
       // Correction d'un copier-coller connu sur la page MJQ de Laval (Chambre civile)
       // et normalisation mineure de ponctuation dans les sous-libellés

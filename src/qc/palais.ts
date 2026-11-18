@@ -2598,9 +2598,9 @@ export const PALAIS: Readonly<Record<string, Palais>> = {
       },
       { service: "Chambre de la jeunesse", tel: "819 357-2054" },
       {
-        service: "Amende — 1 866 536-5140, option",
+        service: "Amende",
         tel: "1 866 536-5140, option 1",
-        courriel: "1amendes@justice.gouv.qc.ca",
+        courriel: "amendes@justice.gouv.qc.ca",
       },
       { service: "Dépôt volontaire", tel: "819 357-2054" },
       {
