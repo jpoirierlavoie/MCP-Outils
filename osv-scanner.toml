@@ -1,7 +1,5 @@
 # OSV-Scanner configuration — https://google.github.io/osv-scanner/configuration/
 #
-# Ce fichier ne porte aucune exemption par défaut, et c'est l'état recherché.
-#
 # Règles du dépôt :
 #   1. Avant toute exemption, vérifier qu'une surcharge ciblée dans `overrides`
 #      (`package.json`) ne corrige pas déjà la dépendance transitive sans casser les tests.
@@ -11,3 +9,16 @@
 #   3. `osv-scanner` sort en 1 dès qu'une vulnérabilité existe, même filtrée ici ; le verdict
 #      bloquant appartient à l'étape « Verdict » de `.github/workflows/osv-scanner.yml` qui
 #      inspecte le rapport SARIF filtré.
+
+# ── picomatch <= 4.0.7 : GHSA-fc5q-39xc-vjpf (2026-11-18) ────────────────────
+# Aucun correctif publié en amont sur npm au 2026-11-18 (`latest = 4.0.7`,
+# `first_patched_version = null`, correctif amont micromatch/picomatch#194 non fusionné) :
+# `overrides` dans `package.json` ne peut donc cibler aucune version corrigée.
+# Sans impact d'exécution : `picomatch` n'est tiré que par l'outillage de test/build
+# (`vitest` / `tinyglobby` et sous-dépendances frontales inutilisées de `agents`),
+# est absent du paquet Worker déployé (`dist/index.js`) et le Worker n'évalue aucun
+# motif glob. Ne PAS ajouter l'alias `CVE-2026-112366` (exemption orpheline).
+# À retirer dès la publication d'une version corrigée de `picomatch` (> 4.0.7).
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+reason = "2026-11-18 — picomatch <= 4.0.7 (ReDoS extglob) : aucun correctif publié sur npm (4.0.7 est latest, micromatch/picomatch#194 non publié). Dépendance transitive d'outillage (vitest/vite) absente du bundle Worker déployé (dist/index.js) et aucun motif glob évalué à l'exécution."
