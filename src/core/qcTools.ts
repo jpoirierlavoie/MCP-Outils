@@ -24,7 +24,7 @@ import {
   resoudrePalais,
   siegeFixe,
 } from "../qc/lookup.js";
-import { PAYS, type Palais, PROVINCE, RELEVE_LE, type TypeLieu } from "../qc/palais.js";
+import { PALAIS, PAYS, type Palais, PROVINCE, RELEVE_LE, type TypeLieu } from "../qc/palais.js";
 import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
 const PROVENANCE_DOSSIER_SOURCE =
@@ -59,7 +59,7 @@ export const PalaisListInputSchema = z.strictObject({
     .enum(["palais", "point_de_service"])
     .optional()
     .describe(
-      "« palais » (43) ou « point_de_service » (8, au sens du MJQ — à ne pas confondre avec les greffes de cour itinérante).",
+      "« palais » (44) ou « point_de_service » (9, au sens du MJQ — à ne pas confondre avec les greffes de cour itinérante).",
     ),
 });
 export type PalaisListInput = z.infer<typeof PalaisListInputSchema>;
@@ -91,6 +91,7 @@ export type PalaisGetInput = z.infer<typeof PalaisGetInputSchema>;
 export const ContactOutputSchema = z.object({
   service: z.string(),
   tel: z.string().nullable(),
+  fax: z.string().optional(),
   courriel: z.string().nullable(),
 });
 
@@ -105,6 +106,8 @@ export const PalaisAdresseOutputSchema = z.object({
   postal_code: z.string(),
   country: z.literal(PAYS),
   mailing_address: z.string().nullable(),
+  fax: z.string().optional(),
+  opening_hours: z.string().optional(),
   contacts: z.array(ContactOutputSchema),
 });
 
@@ -215,9 +218,12 @@ function toPalaisAdresseOutput(
     postal_code: p.postal_code,
     country: PAYS,
     mailing_address: p.mailing_address ? p.mailing_address : null,
+    ...(p.fax ? { fax: p.fax } : {}),
+    ...(p.opening_hours ? { opening_hours: p.opening_hours } : {}),
     contacts: p.contacts.map((c) => ({
       service: c.service,
       tel: c.tel ?? null,
+      ...(c.fax ? { fax: c.fax } : {}),
       courriel: c.courriel ?? null,
     })),
   };
@@ -509,12 +515,16 @@ export function palaisList(input: PalaisListInput): {
     `${pluriel(resultats.length, "lieu", "lieux")} de justice` +
     `${filtres.length ? ` (${filtres.join(", ")})` : ""} :`;
 
+  const tousPalais = Object.values(PALAIS);
+  const nbPalais = tousPalais.filter((p) => p.location_type === "palais").length;
+  const nbPoints = tousPalais.filter((p) => p.location_type === "point_de_service").length;
+
   const pied = [
     filtres.length === 0
-      ? `Relevé complet : ${nombreFr(43)} palais de justice et ${nombreFr(8)} points de service.`
+      ? `Relevé complet : ${nombreFr(nbPalais)} palais de justice et ${nombreFr(nbPoints)} points de service.`
       : null,
-    "Pour la fiche complète d'un lieu — adresse postale, greffes, localités desservies —",
-    "employer palais_get.",
+    "Pour la fiche complète d'un lieu — adresse postale, coordonnées, heures d'ouverture,",
+    "greffes et localités desservies — employer palais_get.",
     "",
     GARDE_PALAIS,
   ]
@@ -562,13 +572,17 @@ function blocAdresse(p: Palais): string[] {
   if (p.unit) lignes.push(`  ${p.unit}`);
   lignes.push(`  ${p.city} (${PROVINCE}) ${p.postal_code}`, `  ${PAYS}`);
   if (p.mailing_address) lignes.push("", `Adresse postale : ${p.mailing_address}`);
+  if (p.opening_hours) lignes.push("", `Heures d'ouverture : ${p.opening_hours}`);
+  if (p.fax) lignes.push(`Télécopieur : ${p.fax}`);
 
   if (p.contacts.length > 0) {
     lignes.push("", "Coordonnées :");
     for (const c of p.contacts) {
-      lignes.push(`  · ${joindre([c.service, c.tel, c.courriel])}`);
+      lignes.push(
+        `  · ${joindre([c.service, c.tel ? `tél. ${c.tel}` : null, c.fax ? `téléc. ${c.fax}` : null, c.courriel])}`,
+      );
     }
-  } else {
+  } else if (!p.fax && !p.opening_hours) {
     lignes.push(
       "",
       "Coordonnées : ce connecteur n'en porte AUCUNE (ni téléphone, ni courriel, ni",
@@ -650,7 +664,7 @@ export function palaisGet(input: PalaisGetInput): PalaisGetResult {
         );
       }
       lignes.push("", ...blocAdresse(adresse));
-      if (adresse.contacts.length === 0) {
+      if (adresse.contacts.length === 0 && !adresse.fax && !adresse.opening_hours) {
         gardes.push(makeGarde("PALAIS_COORDONNEES_NON_PUBLIEES"));
       }
     } else {
@@ -745,7 +759,7 @@ export function palaisGet(input: PalaisGetInput): PalaisGetResult {
   );
 
   const gardes: Garde[] = [makeGarde("PALAIS_RELEVE_MJQ_DATE")];
-  if (trouve.palais.contacts.length === 0) {
+  if (trouve.palais.contacts.length === 0 && !trouve.palais.fax && !trouve.palais.opening_hours) {
     gardes.push(makeGarde("PALAIS_COORDONNEES_NON_PUBLIEES"));
   }
 

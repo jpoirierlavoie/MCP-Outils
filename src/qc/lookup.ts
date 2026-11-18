@@ -75,8 +75,8 @@ export function siegeFixe(numero: string): { clef: string; palais: Palais } | nu
  * Adresse d'un greffe, résolue par `palais_key`.
  *
  * ⚠ `null` signifie « adresse INCONNUE », jamais « il n'existe pas d'adresse ». Les
- *   appelants DOIVENT le formuler ainsi (§2) : six greffes sont concernés, dont quatre
- *   cours itinérantes qui siègent là où la cour se déplace.
+ *   appelants DOIVENT le formuler ainsi (§2) : quatre greffes sont concernés (cours
+ *   itinérantes qui siègent là où la cour se déplace : 614, 625, 640, 652).
  */
 export function adresseDuGreffe(numero: string): Palais | null {
   const g = GREFFES[numero];
@@ -131,9 +131,19 @@ export function greffesDuPalais(clef: string): Array<{ numero: string; greffe: G
 }
 
 export function resoudrePalais(clef: string): PalaisResolu | null {
-  const palais = PALAIS[clef];
-  if (!palais) return null;
-  return { clef, palais, greffes: greffesDuPalais(clef) };
+  const direct = PALAIS[clef];
+  if (direct) return { clef, palais: direct, greffes: greffesDuPalais(clef) };
+
+  const cible = fold(clef);
+  if (!cible) return null;
+  const exactMatches = Object.entries(PALAIS).filter(
+    ([k, p]) => fold(k) === cible || fold(p.name) === cible,
+  );
+  if (exactMatches.length === 1) {
+    const [matchedKey, matchedPalais] = exactMatches[0]!;
+    return { clef: matchedKey, palais: matchedPalais, greffes: greffesDuPalais(matchedKey) };
+  }
+  return null;
 }
 
 /**

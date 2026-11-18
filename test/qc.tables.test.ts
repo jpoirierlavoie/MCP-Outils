@@ -21,19 +21,20 @@ import {
   palaisOrphelins,
   siegeFixe,
 } from "../src/qc/lookup.js";
-import { PALAIS } from "../src/qc/palais.js";
+import { PALAIS, RELEVE_LE } from "../src/qc/palais.js";
 
-/** Greffes sans adresse résolvable — ensemble ATTENDU, pas une lacune tolérée. */
-const GREFFES_SANS_ADRESSE = ["525", "614", "625", "640", "652", "715"];
+/** Greffes itinérants sans adresse civique fixe résolvable — ensemble ATTENDU. */
+const GREFFES_SANS_ADRESSE = ["614", "625", "640", "652"];
 
-describe("comptes — le relevé du 2026-07-15", () => {
-  it("51 lieux : 43 palais de justice et 8 points de service", () => {
-    expect(Object.keys(PALAIS)).toHaveLength(51);
+describe("comptes — le relevé du 2026-11-17", () => {
+  it("53 lieux : 44 palais de justice et 9 points de service", () => {
+    expect(RELEVE_LE).toBe("2026-11-17");
+    expect(Object.keys(PALAIS)).toHaveLength(53);
     const parType = Object.values(PALAIS).reduce<Record<string, number>>((acc, p) => {
       acc[p.location_type] = (acc[p.location_type] ?? 0) + 1;
       return acc;
     }, {});
-    expect(parType).toEqual({ palais: 43, point_de_service: 8 });
+    expect(parType).toEqual({ palais: 44, point_de_service: 9 });
   });
 
   it("57 greffes, 27 juridictions, 20 forums", () => {
@@ -69,19 +70,45 @@ describe("adresses — complètes ou franchement absentes", () => {
     }
   });
 
-  it("deux lieux SEULEMENT portent une adresse postale distincte", () => {
+  it("quatre lieux SEULEMENT portent une adresse postale distincte", () => {
     const avec = Object.entries(PALAIS)
       .filter(([, p]) => p.mailing_address.length > 0)
       .map(([k]) => k)
       .sort();
-    expect(avec).toEqual(["forestville", "perce"]);
+    expect(avec).toEqual(["forestville", "kuujjuaq", "perce", "sainte-agathe-des-monts"]);
   });
 
-  it("six greffes n'ont AUCUNE adresse résolvable — l'ensemble est connu", () => {
+  it("quatre greffes itinérants n'ont AUCUNE adresse résolvable — l'ensemble est connu", () => {
     const sans = Object.keys(GREFFES)
       .filter((n) => adresseDuGreffe(n) === null)
       .sort();
     expect(sans).toEqual(GREFFES_SANS_ADRESSE);
+  });
+
+  it("les greffes 525 et 715 résolvent désormais leur adresse et leurs coordonnées", () => {
+    const p525 = adresseDuGreffe("525");
+    expect(p525?.street).toBe("410, rue De Bellechasse Est");
+    expect(p525?.fax).toBe("514 864-4149");
+    expect(p525?.contacts[0]?.tel).toBe("514 495-5800");
+
+    const p715 = adresseDuGreffe("715");
+    expect(p715?.street).toBe("85, rue Saint-Vincent");
+    expect(p715?.postal_code).toBe("J8C 2A8");
+    expect(p715?.contacts.some((c) => c.tel === "819 326-6462")).toBe(true);
+  });
+
+  it("chaque lieu porte des heures d'ouverture et au moins une coordonnée publiée", () => {
+    for (const [clef, p] of Object.entries(PALAIS)) {
+      expect(p.opening_hours && p.opening_hours.length > 0, clef).toBe(true);
+      expect(p.contacts.length, clef).toBeGreaterThan(0);
+      if (p.fax) {
+        expect(p.fax, clef).toMatch(/^\d/);
+      }
+      for (const c of p.contacts) {
+        expect(c.service.length, clef).toBeGreaterThan(0);
+        expect(Boolean(c.tel || c.fax || c.courriel), `${clef}:${c.service}`).toBe(true);
+      }
+    }
   });
 
   it("tous les autres greffes résolvent bien une adresse", () => {
@@ -150,12 +177,12 @@ describe("les deux pièges à NE PAS corriger", () => {
     // 625 (Senneterre) s'ajoute depuis la reconciliation du 2026-07-30.
     expect(itinerants).toEqual(["614", "625", "635", "640", "652"]);
 
-    // Côté palais : les huit points de service du MJQ — que la table des greffes
+    // Côté palais : les neuf points de service du MJQ — que la table des greffes
     // marque tous `false`. Les deux divergent PAR CONSTRUCTION.
     const pointsMjq = Object.entries(PALAIS)
       .filter(([, p]) => p.location_type === "point_de_service")
       .map(([k]) => k);
-    expect(pointsMjq).toHaveLength(8);
+    expect(pointsMjq).toHaveLength(9);
     for (const clef of pointsMjq) {
       for (const { numero, greffe } of greffesDuPalais(clef)) {
         expect(greffe.point_de_service, `greffe ${numero} (${clef})`).toBe(false);
@@ -178,12 +205,12 @@ describe("les deux pièges à NE PAS corriger", () => {
 describe("répertoire", () => {
   it("filtre par district, en pliant les diacritiques", () => {
     const r = listerPalais({ district: "montreal" });
-    expect(r.map((p) => p.clef)).toEqual(["montreal"]);
+    expect(r.map((p) => p.clef)).toEqual(["montreal", "montreal-chambre-de-la-jeunesse"]);
   });
 
   it("filtre par type", () => {
-    expect(listerPalais({ type: "point_de_service" })).toHaveLength(8);
-    expect(listerPalais({ type: "palais" })).toHaveLength(43);
+    expect(listerPalais({ type: "point_de_service" })).toHaveLength(9);
+    expect(listerPalais({ type: "palais" })).toHaveLength(44);
   });
 
   it("cherche par nom, par ville ou par numéro de greffe", () => {
@@ -191,9 +218,9 @@ describe("répertoire", () => {
     expect(listerPalais({ query: "500" }).map((p) => p.clef)).toEqual(["montreal"]);
   });
 
-  it("sans filtre, rend les 51 lieux triés en français", () => {
+  it("sans filtre, rend les 53 lieux triés en français", () => {
     const tout = listerPalais();
-    expect(tout).toHaveLength(51);
+    expect(tout).toHaveLength(53);
     expect(tout[0]!.palais.name).toBe("Alma");
   });
 });

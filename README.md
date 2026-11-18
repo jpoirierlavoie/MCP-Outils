@@ -4,16 +4,16 @@ Serveur MCP (**Model Context Protocol**) public, sans journalisation et détermi
 
 Point d'accès public (Streamable HTTP) : `https://outils.poirierlavoie.ca/mcp`
 
-## Outils exposés (v2.0.0 — 12 outils sur 5 familles)
+## Outils exposés (v2.1.0 — 12 outils sur 5 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
 | `calcul` | `calendrier_holidays` | Liste les jours fériés et non juridiques d'une année civile (`qc_cpc`, `qc_li`, `ca_li`). | Art. 82 al. 1 C.p.c., art. 61 par. 23° & art. 52 L.I. (RLRQ, c. I-16), art. 35(1) L.I. (L.R.C. 1985, c. I-21). |
 | `calcul` | `calendrier_deadlines` | Moteur arithmétique pur de calcul de délais (1 à 25 étapes en lot ou chaînées via `depends_on_index`, prospectifs ou à rebours). | Art. 82, 83, 107 et 111 al. 2 C.p.c. (report après 17 h 00 / jour non juridique en mode technologique, repérage des périodes hors séance). |
 | `calcul` | `interets_1619` | Calcul en arithmétique exacte (`BigInt`, convention Exact/Exact 365/366, date de départ exclue / fin incluse) des intérêts simples et de l'indemnité additionnelle (1 à 50 tranches). | Art. 1618–1620 C.c.Q., art. 28 L.A.F. (Revenu Québec `2001-Q1` à `2026-Q4`), art. 3 *Loi sur l'intérêt*. Aucune extrapolation au-delà du dernier trimestre publié. |
-| `greffe` | `greffe_parse_number` | Décompose un numéro de dossier de cour du Québec (`NNN-NN-NNNNNN-NNN` ou préfixe `TAL-`, `C.F.-`, etc.) : greffe, district, juridiction et adresse connue. | Tables locales compilées du ministère de la Justice du Québec (`2026-07-15` / `2026-07-22`). Aucun appel sortant, aucun accès au plumitif. |
-| `greffe` | `palais_list` | Répertorie les 43 palais de justice et 8 points de service du Québec, filtrables par district, type ou texte libre. | Relevé du ministère de la Justice du Québec (`2026-07-15`). Aucune coordonnée téléphonique ni courriel ; vérifier à la source avant signification ou dépôt. |
-| `greffe` | `palais_get` | Fiche complète d'un lieu de justice (adresse municipale, postale s'il y a lieu, greffes et localités itinérantes), par `greffe_number` ou `palais`. | Relevé du ministère de la Justice du Québec (`2026-07-15` / `2026-07-22`). Une adresse absente signifie inconnue, jamais inexistante. |
+| `greffe` | `greffe_parse_number` | Décompose un numéro de dossier de cour du Québec (`NNN-NN-NNNNNN-NNN` ou préfixe `TAL-`, `C.F.-`, etc.) : greffe, district, juridiction et adresse connue. | Tables locales compilées du ministère de la Justice du Québec (`2026-11-17` / `2026-07-22`). Aucun appel sortant, aucun accès au plumitif. |
+| `greffe` | `palais_list` | Répertorie les 44 palais de justice et 9 points de service du Québec, filtrables par district, type ou texte libre. | Relevé du ministère de la Justice du Québec (`2026-11-17`). Employer `palais_get` pour les coordonnées ; vérifier à la source avant signification ou dépôt. |
+| `greffe` | `palais_get` | Fiche complète d'un lieu de justice (adresse municipale, postale s'il y a lieu, heures d'ouverture, télécopieur, téléphones et courriels par chambre/service, greffes et localités itinérantes), par `greffe_number` ou `palais`. | Relevé du ministère de la Justice du Québec (`2026-11-17` / `2026-07-22`). Une adresse absente signifie inconnue, jamais inexistante. |
 | `registre` | `registre_search` | Recherche hors ligne d'entreprises québécoises et fédérales par nom, autre nom utilisé, société à numéro, NEQ ou numéro fédéral. | `DB_REGISTRES` en lecture seule : REQ (`CC BY-NC-SA 4.0`), RBQ, OPC, AMP — RENA (`CC BY 4.0`), Corporations Canada (`OGL-Canada`). Sans dirigeants personnes physiques (L.P.L.E.). |
 | `registre` | `registre_get_entity` | Fiche détaillée d'une entité par NEQ (10 chiffres), numéro de société fédérale ou NE/BN (9 chiffres), incluant licences RBQ, permis OPC et inscriptions RENA. | Instantanés locaux en lecture seule sans valeur de certificat ni d'attestation officielle ; vérifier au Registraire avant toute signification. |
 | `adresse` | `adresse_verify` | Vérification de l'existence municipale et normalisation d'une adresse québécoise (tolérance aux fautes de frappe, anciens odonymes, code postal, lots/matricules indicatifs, district judiciaire probable). | `DB_ADRESSES` en lecture seule : Référentiel québécois des adresses (RQA) et Odonymes et renvois (MRNF, `CC BY 4.0`). N'établit ni le domicile d'une partie ni un titre foncier. |
@@ -96,8 +96,8 @@ pipeline/
   terminologie/      Schéma, index FTS5 et ingestion (`build_glossaire.py`, `ingest_terminologie.py`)
   registres/         Schéma, index FTS5 et ingestion REQ + RBQ + OPC + RENA + Corporations Canada (`ingest_req.py`)
   adresses/          Schéma normalisé 3 tables, index FTS5 odonymes et ingestion RQA (`ingest_adresses.py`)
-sources-officielles/ Instantané HTML officiel du ministère de la Justice (greffes et points de service)
-scripts/             Générateur de `src/qc/lieux.ts` à partir de l'instantané MJQ (`extraire-lieux-mjq.mjs`)
+sources-officielles/ Instantanés officiels du ministère de la Justice (greffes/lieux et fiches des palais `mjq-palais-2026-11-17.json`)
+scripts/             Générateurs des tables MJQ (`extraire-lieux-mjq.mjs`, `extraire-palais-mjq.mjs`)
 test/                Suite de tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`, parité des manifestes)
 ```
 

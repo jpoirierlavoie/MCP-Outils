@@ -1,6 +1,6 @@
 # MCP-Outils — Architecture, principes et consignes de travail
 
-Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.0.0`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
+Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.1.0`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
 
 ---
 
@@ -66,8 +66,8 @@ Tous les outils déclarent les annotations MCP :
 
 ### B. Famille `greffe` (tables statiques MJQ compilées)
 4. `greffe_parse_number` : Analyse de nomenclature d'un numéro de dossier (`NNN-NN-NNNNNN-NNN` ou préfixe `TAL-`, `C.F.-`, etc.) sans accès au plumitif ni validation des positions 7+.
-5. `palais_list` : Répertoire des 43 palais de justice et 8 points de service du Québec (relevé MJQ `2026-07-15`).
-6. `palais_get` : Fiche détaillée d'un palais ou point de service par numéro de greffe ou nom.
+5. `palais_list` : Répertoire des 44 palais de justice et 9 points de service du Québec (relevé MJQ `2026-11-17`).
+6. `palais_get` : Fiche détaillée d'un palais ou point de service par numéro de greffe ou nom (adresse, télécopieur, heures d'ouverture, téléphones et courriels par chambre ou service).
 
 ### C. Famille `registre` (`DB_REGISTRES` — `outils-registres`)
 7. `registre_search` : Recherche hors ligne dans les instantanés ouverts du REQ (enrichi RBQ, OPC, RENA) et de Corporations Canada (dénomination, autres noms, sociétés à numéro `9123-4567`, NEQ, numéro fédéral).
@@ -124,7 +124,7 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` : Page HTML bilingue dérivée de `listToolDescriptors()` (CSP stricte, zéro JSON à la racine, `405` sur autres méthodes).
-   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.0.0"`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils).
+   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.1.0"`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils).
    - `GET` / `HEAD` / `OPTIONS /mcp/server-card` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
    - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, plafond `MAX_MCP_BODY_BYTES = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), désencapsulation SSE → JSON, limiteur `RATE_LIMITER` (60 req/min/IP → `429`).
 2. **Topologie D1 à 3 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
@@ -157,7 +157,7 @@ Tous les outils déclarent les annotations MCP :
 4. **Invariant 4 : Intégrité verbatim des gardes MJQ** (`src/qc/format.ts`) et **exclusion des sources terminologiques protégées** (jamais Crépeau/McGill, Juriterm ni Juridictionnaire).
 5. **Invariant 5 : Nomenclature pure sans plumitif** (`greffe_parse_number`, positions 1 à 6 uniquement), **instantanés corporatifs sans dirigeants personnes physiques** (`registre_*`) et **existence civique municipale distincte du domicile et du Registre foncier** (`adresse_verify`).
 6. **Invariant 6 : La page publique `/` dérive du code** (`listToolDescriptors()`, identité visuelle partagée avec `MCP-Legislation` et `MCP-Jurisprudence`).
-7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.0.0`, raccourcissement `v2.0.0` de 7 noms d'outils).
+7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.1.0`, raccourcissement `v2.0.0` de 7 noms d'outils).
 8. **Invariant 8 : Limitation de débit d'arête (60 req/min/IP) et taille maximale (64 KiB)**.
 
 ---

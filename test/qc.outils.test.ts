@@ -6,7 +6,7 @@ import {
 } from "../src/core/qcTools.js";
 import worker from "../src/index.js";
 import { GREFFES } from "../src/qc/greffes.js";
-import { RELEVE_LE } from "../src/qc/palais.js";
+import { PALAIS, RELEVE_LE } from "../src/qc/palais.js";
 
 const dummyCtx = {
   waitUntil: () => {},
@@ -177,14 +177,14 @@ describe("greffe_parse_number", () => {
 });
 
 describe("palais_list", () => {
-  it("rend les 51 lieux, sans appel, avec la réserve de péremption", async () => {
+  it("rend les 53 lieux, sans appel, avec la réserve de péremption", async () => {
     const { result, text } = await callToolText("palais_list", {});
     expect(result.isError).not.toBe(true);
-    expect(text).toContain("51 lieux");
-    expect(text).toContain("2026-07-15");
+    expect(text).toContain("53 lieux");
+    expect(text).toContain(RELEVE_LE);
     expect(text).toContain("VÉRIFIER");
     const parsed = PalaisListOutputSchema.parse(result.structuredContent);
-    expect(parsed.count).toBe(51);
+    expect(parsed.count).toBe(53);
     expect(parsed.gardes.map((g) => g.code)).toContain("PALAIS_RELEVE_MJQ_DATE");
   });
 
@@ -197,10 +197,10 @@ describe("palais_list", () => {
 
   it("filtre par type et compte les points de service du MJQ", async () => {
     const { result, text } = await callToolText("palais_list", { type: "point_de_service" });
-    expect(text).toContain("8 lieux");
+    expect(text).toContain("9 lieux");
     expect(text).toContain("point de service de justice");
     const parsed = PalaisListOutputSchema.parse(result.structuredContent);
-    expect(parsed.count).toBe(8);
+    expect(parsed.count).toBe(9);
   });
 
   it("une liste vide n'est PAS un constat d'absence ni une erreur", async () => {
@@ -251,7 +251,7 @@ describe("palais_get", () => {
     expect(text).toContain("Greffe 500");
     expect(text).toContain("1, rue Notre-Dame Est");
     expect(text).toContain("Montréal (Québec) H2Y 1B6");
-    expect(text).toContain("2026-07-15");
+    expect(text).toContain(RELEVE_LE);
     const parsed = PalaisGetOutputSchema.parse(result.structuredContent);
     expect(parsed.lookup_by).toBe("greffe_number");
     expect(parsed.palais?.key).toBe("montreal");
@@ -267,12 +267,34 @@ describe("palais_get", () => {
     expect(parsed.greffes_at_palais.map((g) => g.numero)).toContain("500");
   });
 
-  it("annonce l'ABSENCE de coordonnées plutôt que de la laisser découvrir", async () => {
+  it("rend les coordonnées par chambre, le télécopieur et les heures d'ouverture", async () => {
     const { result, text } = await callToolText("palais_get", { greffe_number: "500" });
-    expect(text).toContain("n'en porte AUCUNE");
-    expect(text).toContain("ministère de la Justice");
+    expect(text).not.toContain("n'en porte AUCUNE");
+    expect(text).toContain("Heures d'ouverture : Du lundi au vendredi : de 8 h 30 à 16 h 30");
+    expect(text).toContain("Télécopieur : 514 873-4760");
+    expect(text).toContain("514 393-2721");
+    expect(text).toContain("pcmtl@justice.gouv.qc.ca");
     const parsed = PalaisGetOutputSchema.parse(result.structuredContent);
-    expect(parsed.gardes.map((g) => g.code)).toContain("PALAIS_COORDONNEES_NON_PUBLIEES");
+    expect(parsed.gardes.map((g) => g.code)).not.toContain("PALAIS_COORDONNEES_NON_PUBLIEES");
+    expect(parsed.palais?.fax).toBe("514 873-4760");
+    expect(parsed.palais?.opening_hours).toContain("8 h 30 à 16 h 30");
+    expect(parsed.palais?.contacts.length).toBeGreaterThan(10);
+  });
+
+  it("résout les greffes 525 et 715 avec leurs coordonnées officielles", async () => {
+    const r525 = await callToolText("palais_get", { greffe_number: "525" });
+    expect(r525.text).toContain("410, rue De Bellechasse Est");
+    expect(r525.text).toContain("514 495-5800");
+    expect(r525.text).toContain("514 864-4149");
+    const p525 = PalaisGetOutputSchema.parse(r525.result.structuredContent);
+    expect(p525.palais?.key).toBe("montreal-chambre-de-la-jeunesse");
+
+    const r715 = await callToolText("palais_get", { greffe_number: "715" });
+    expect(r715.text).toContain("85, rue Saint-Vincent");
+    expect(r715.text).toContain("819 326-6462");
+    expect(r715.text).toContain("Saint-Jérôme");
+    const p715 = PalaisGetOutputSchema.parse(r715.result.structuredContent);
+    expect(p715.palais?.key).toBe("sainte-agathe-des-monts");
   });
 
   it("rend l'adresse postale distincte quand il y en a une", async () => {
@@ -351,6 +373,10 @@ describe("contrat de vérité — formulations interdites", () => {
       ["palais_get", { greffe_number: "999" }],
       ["palais_get", { palais: "InexistantXYZ" }],
       ["palais_get", { palais: "Saint" }],
+      ...Object.keys(PALAIS).map((key): [string, Record<string, unknown>] => [
+        "palais_get",
+        { palais: key },
+      ]),
     ];
 
     for (const [nom, args] of appels) {

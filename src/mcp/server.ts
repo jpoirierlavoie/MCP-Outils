@@ -57,14 +57,14 @@ import {
 
 export const SERVER_NAME = "mcp-outils";
 export const SERVER_TITLE = "MCP Outils";
-export const SERVER_VERSION = "2.0.0";
+export const SERVER_VERSION = "2.1.0";
 export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
 
 export const INSTRUCTIONS =
   "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de trois bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
   "1) Calculs — calendrier_holidays, calendrier_deadlines et interets_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
-  "2) Greffes et palais du Québec — greffe_parse_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses relevées le 2026-07-15, table des lieux 2026-07-22) sans consulter aucun plumitif ni porter de coordonnées téléphoniques ou courriels. " +
+  "2) Greffes et palais du Québec — greffe_parse_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses et coordonnées relevées le 2026-11-17, table des lieux 2026-07-22) sans consulter aucun plumitif ; quatre greffes itinérants demeurent sans adresse civique fixe. " +
   "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1) : consulter le portail officiel du Registraire avant toute signification ou désignation finale d'une partie. " +
   "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
   "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « Legislation » ; pour la jurisprudence, employer « Jurisprudence »).";
@@ -136,7 +136,7 @@ const TOOL_SPECS: ReadonlyArray<{
     name: "palais_list",
     title: "Palais de justice du Québec — répertoire",
     description:
-      "Répertorie les palais de justice et points de service de justice du Québec, avec leur adresse municipale, les numéros de greffe qui y siègent et leur district judiciaire. Filtrable par district, par type de lieu ou par texte libre (nom, ville, numéro de greffe). Relevé auprès du ministère de la Justice du Québec le 2026-07-15 : les adresses DÉMÉNAGENT, et ce connecteur ne porte aucune coordonnée téléphonique ni courriel. Vérifier la liste officielle du Ministère avant toute signification ou tout dépôt.",
+      "Répertorie les 44 palais de justice et 9 points de service de justice du Québec, avec leur adresse municipale, les numéros de greffe qui y siègent et leur district judiciaire. Filtrable par district, par type de lieu ou par texte libre (nom, ville, numéro de greffe). Relevé auprès du ministère de la Justice du Québec le 2026-11-17 : employer palais_get pour les coordonnées, télécopieurs et heures d'ouverture, et vérifier la liste officielle du Ministère avant toute signification ou tout dépôt.",
     family: "greffe",
     inputSchema: PalaisListInputSchema,
   },
@@ -144,7 +144,7 @@ const TOOL_SPECS: ReadonlyArray<{
     name: "palais_get",
     title: "Palais de justice du Québec — fiche",
     description:
-      "Fiche d'un lieu de justice du Québec, par numéro de greffe (3 chiffres) OU par nom de palais : adresse municipale, adresse postale distincte le cas échéant, greffes qui y siègent, district judiciaire et, pour une cour itinérante, les localités desservies. Relevé LOCAL auprès du ministère de la Justice du Québec, sans appel sortant. Six greffes n'ont aucune adresse publiée : l'outil le dit sans jamais affirmer qu'il n'en existe pas. Aucune coordonnée téléphonique ni courriel n'est portée par ce connecteur.",
+      "Fiche d'un lieu de justice du Québec, par numéro de greffe (3 chiffres) OU par nom de palais : adresse municipale, adresse postale distincte le cas échéant, heures d'ouverture, télécopieur, coordonnées téléphoniques et courriels par chambre ou service, greffes qui y siègent, district judiciaire et, pour une cour itinérante, les localités desservies. Relevé LOCAL auprès du ministère de la Justice du Québec (2026-11-17), sans appel sortant. Quatre greffes itinérants n'ont aucune adresse civique fixe publiée : l'outil le dit sans jamais affirmer qu'il n'en existe pas.",
     family: "greffe",
     inputSchema: PalaisGetInputSchema,
   },
