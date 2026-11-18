@@ -155,5 +155,11 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
       expect(doc).not.toContain("MCP-Socle-Juridique");
       expect(doc).not.toContain("socle-juridique");
     }
+
+    expect(licenseTxt).toContain("CC-BY-NC-SA-4.0");
+    expect(licenseTxt).toContain(
+      "AUTORISATION COMPLÉMENTAIRE DE PRATIQUE PROFESSIONNELLE DU DROIT",
+    );
+    expect(licenseTxt).toContain("COMPANION PROFESSIONAL LEGAL PRACTICE GRANT");
   });
 });

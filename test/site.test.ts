@@ -20,6 +20,7 @@ const dummyCtx = {
 
 const ALLOWED_URL_PREFIXES = [
   "https://outils.poirierlavoie.ca",
+  "https://acces.poirierlavoie.ca",
   "https://github.com/jpoirierlavoie/MCP-Outils",
   "https://github.com/jpoirierlavoie/droit-civil-quebecois",
   "https://www.justice.gouv.qc.ca",

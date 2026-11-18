@@ -8,34 +8,31 @@ Directives de développement, architecture et règles anti-dérive pour le serve
 
 `MCP-Outils` est un serveur MCP public, sans état applicatif, sans écriture au fil de l'eau, sans appel HTTP sortant, sans journalisation et sans secret, déployé comme Cloudflare Worker (`outils`) sur `https://outils.poirierlavoie.ca/mcp` avec trois bases D1 strictement en lecture seule à la requête (`ENAM`).
 
-Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`droit-civil-quebecois` `v2.0.0`, 32 outils MCP au total) :
+Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`droit-civil-quebecois` `v2.1.0`, 32 outils MCP au total), aux côtés du portail d'accès et serveur OAuth 2.1 `MCP-Acces` (`acces.poirierlavoie.ca`) qui gouverne les deux serveurs authentifiés :
 
 ```
              ┌────────────────────────────────────────────────────────┐
-             │      droit-civil-quebecois (Plugin Cadre v2.0.0)       │
+             │      droit-civil-quebecois (Plugin Cadre v2.1.0)       │
              │ 5 compétences : recherche-juridique, analyse-juridique,│
              │ redaction-juridique, administration-litige, déontologie│
              └──────┬───────────────────────┬──────────────────┬──────┘
-                    │                       │                  │
-        (serveur `lois`, 10)     (serveur `juris`, 10)  (serveur `outils`, 12 sur
-                    │                       │            `calcul`, `greffe`, `registre`,
-                    ▼                       ▼            `adresse`, `terminologie`)
+                    │ /mcp + /mcp/oauth     │ /mcp + /mcp/oauth│ (public)
+                    ▼                       ▼                  ▼
          ┌─────────────────────┐ ┌─────────────────────┐ ┌──────────────────────────┐
          │   MCP-Legislation   │ │  MCP-Jurisprudence  │ │        MCP-Outils        │
-         │  (Worker Cloudflare │ │ (Worker Cloudflare  │ │    (Worker Cloudflare    │
-         │  D1 + Vectorize +   │ │  D1 cache CanLII    │ │   public, zéro secret,   │
-         │    Workers AI)      │ │  authentifié Bearer │ │  3 D1 lecture seule, Zod)│
+         │  D1 + Vectorize +   │ │  D1 cache CanLII    │ │   Public, zéro secret,   │
+         │  Workers AI +       │ │  BYOK CanLII strict │ │   3 D1 lecture seule, Zod│
+         │  hybride_permis     │ │  sans fetched_at    │ │   zéro journalisation    │
          └──────────┬──────────┘ └──────────┬──────────┘ └──────────────────────────┘
                     │                       │
-                    └───────────┬───────────┘
-                                ▼ (dépendance de dev `#v0.7.0`, zéro runtime dep)
-                 ┌─────────────────────────────┐
-                 │          MCP-Socle          │
-                 │  Transport JSON-RPC 2.0     │
-                 │  Streamable HTTP sans état  │
-                 │  Auth SHA-256 temps constant│
-                 │  Zéro concept juridique     │
-                 └─────────────────────────────┘
+                    ├───────────┬───────────┴────┐
+                    │           ▼ (`#v0.8.0` dev)▼ (`DB_IDENTITE` `mcp-identite`)
+                    │  ┌──────────────────┐  ┌──────────────────────────────────────┐
+                    │  │    MCP-Socle     │  │              MCP-Acces               │
+                    │  │ Transport 2026   │  │     https://acces.poirierlavoie.ca   │
+                    └──│ Auth · OAuth 2.1 │◄─┤ Admission Barreau · Coffre AES-GCM · │
+                       │ Coffre · Gouverne│  │ Portail /moi · Serveur OAuth PKCE    │
+                       └──────────────────┘  └──────────────────────────────────────┘
 ```
 
 ### Intégration avec les compétences du plugin (`droit-civil-quebecois`)
@@ -140,7 +137,7 @@ Tous les outils déclarent les annotations MCP :
 | # | Axe d'impact | Éléments à inspecter et maintenir synchronisés | Règle / Garde associée |
 |---|---|---|---|
 | 1 | **Outils MCP, calculs, D1 et schémas** | `src/core/`, `src/mcp/`, `src/qc/`, `src/data/`, `pipeline/`, `src/index.ts` | Double sortie obligatoire + `gardes`, `openWorldHint: false`, `readOnlyHint: true`, arithmétique `BigInt`, constantes `src/qc/format.ts`, zéro source sous droit d'auteur fermée |
-| 2 | **`README.md`, manifestes autonomes et gouvernance** | `README.md`, `SECURITY.md`, `LICENSE` (`CC-BY-NC-SA-4.0`), `package.json`, `plugin.json`, `mcp_config.json`, `gemini-extension.json`, `assets/logo.svg`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md`, `test/doc.test.ts` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de version ou de déploiement |
+| 2 | **`README.md`, manifestes autonomes et gouvernance** | `README.md`, `SECURITY.md`, `LICENSE` (`CC-BY-NC-SA-4.0` + autorisation de pratique professionnelle), `package.json`, `plugin.json`, `mcp_config.json`, `gemini-extension.json`, `assets/logo.svg`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md`, `test/doc.test.ts` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de licence, de version ou de déploiement |
 | 3 | **Page publique HTML (`GET /`), `/mcp/server-card` et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts`, `test/mcp.integration.test.ts` | Parité bilingue `OUTILS_EN` (12 outils, 5 familles), fiche SEP-2127, variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
 | 4 | **Impacts inter-dépôts (`Cross-repository`)** | **`droit-civil-quebecois`** (`verifier.py`, `verifier_tout.py`, `scripts/regenerer_cache_mcp.py --apply`, `skills/redaction-juridique`, `skills/recherche-juridique`, `skills/administration-litige`, `README.md`, `CLAUDE.md`, `GEMINI.md`, manifestes) ; **`MCP-Legislation` & `MCP-Jurisprudence`** (lecture seule stricte, cohérence visuelle HTML/CSS) | Maintenir les fins de ligne LF (`\n`), le plafond `<= 64` car. des identifiants MCP composés et les feuilles terminales sans liens relatifs |
 
