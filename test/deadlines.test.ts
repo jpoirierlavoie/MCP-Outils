@@ -248,4 +248,39 @@ describe("calendrier_deadlines", () => {
       }),
     ).toThrow(/Jour invalide/);
   });
+
+  it("B-N12 & B-N14 : ca_li ne reporte pas le samedi par défaut (art. 26 L.I. CA) et refuse depends_on_index à l'étape 0", () => {
+    // 2026-06-13 + 7 jours = samedi 2026-06-20 -> reste au 2026-06-20 par défaut sous ca_li
+    const satDefault = ComputeDeadlinesOutputSchema.parse(
+      computeDeadlines({
+        event_date: "2026-06-13",
+        regime: "ca_li",
+        deadlines: [{ label: "Échéance samedi CA", amount: 7, unit: "days" }],
+      }),
+    );
+    expect(satDefault.results[0]!.raw_date).toBe("2026-06-20");
+    expect(satDefault.results[0]!.effective_date).toBe("2026-06-20");
+    expect(satDefault.results[0]!.rolled_over).toBe(false);
+    expect(satDefault.gardes.map((g) => g.code)).toContain("SAMEDI_CONGE_LOI_INTERPRETATION_CA");
+
+    // Avec rollover_saturday=true explicite -> report au lundi 2026-06-22
+    const satExplicit = ComputeDeadlinesOutputSchema.parse(
+      computeDeadlines({
+        event_date: "2026-06-13",
+        regime: "ca_li",
+        rollover_saturday: true,
+        deadlines: [{ label: "Échéance samedi CA forcé", amount: 7, unit: "days" }],
+      }),
+    );
+    expect(satExplicit.results[0]!.effective_date).toBe("2026-06-22");
+    expect(satExplicit.results[0]!.rolled_over).toBe(true);
+
+    // depends_on_index à l'étape 0 -> message explicite sans borne « < 0 »
+    expect(() =>
+      computeDeadlines({
+        event_date: "2026-06-01",
+        deadlines: [{ amount: 10, unit: "days", depends_on_index: 0 }],
+      }),
+    ).toThrow(/ne peut pas être utilisé sur la première étape/);
+  });
 });

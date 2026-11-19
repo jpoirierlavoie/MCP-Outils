@@ -229,6 +229,9 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     if (unknown.ok) {
       expect(unknown.structured.status).toBe("not_found");
       expect(unknown.structured.candidates).toEqual([]);
+      expect(unknown.structured.gardes.map((g) => g.code)).not.toContain(
+        "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+      );
     }
   });
 

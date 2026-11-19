@@ -1507,6 +1507,30 @@ const SUPPLEMENTAL_SCAN_RULES: readonly SupplementalRegleRow[] = [
     suggested_replacement: "demande introductive d'instance",
     legal_basis: "Art. 141 C.p.c.",
   },
+  {
+    code_regle: "sup-en-motion-to-dismiss",
+    lang: "en",
+    pattern_term: "motion to dismiss",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Terme procédural de common law ; la version anglaise officielle du C.p.c. emploie « application for dismissal » (art. 168 C.p.c.) ou « preliminary exception » (art. 166 C.p.c.).",
+    suggested_replacement: "application for dismissal / preliminary exception",
+    legal_basis: "Art. 166, 168 C.p.c.",
+  },
+  {
+    code_regle: "sup-en-laches",
+    lang: "en",
+    pattern_term: "laches",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Doctrine d'equity de common law étrangère au droit civil québécois ; employer la prescription extinctive ou la fin de non-recevoir fondée sur la bonne foi / l'abus de droit.",
+    suggested_replacement: "extinctive prescription / fin de non-recevoir (art. 6–7, 2875 C.c.Q.)",
+    legal_basis: "Art. 6–7, 1375, 2875 C.c.Q.",
+  },
 ];
 
 function escapeScanLiteral(raw: string): string {
@@ -1562,7 +1586,7 @@ const CUSTOM_SCAN_REGEX_BY_CODE: Readonly<Record<string, RegExp>> = {
   "sup-fr-comparaitre":
     /(?<![\p{L}\p{N}])(?:compara[îi](?:tre|ssent|ssons|ssez|ssait|ssaies?|ssaient)|comparaî(?:t|tra(?:i[ts]?|ient|s)?|tront|trons|trez)|compar(?:u[es]{0,2}|aisse(?:s|nt)?|[ûu]t))(?![\p{L}\p{N}])/giu,
   "sup-fr-loger-recours":
-    /(?<![\p{L}\p{N}])log(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|eons|[ée]e?s?|eant|ea(?:i[st]?|ient)?|[èe]rent)\s+(?:(?:un|une|le|la|l['\u2018\u2019\u02bc]|les|ce|cet|cette|ces|son|sa|ses|leur|leurs|des|du)\s+)?(?:(?:pr[ée]sente?s?|nouve(?:au|lle)s?)\s+)?(?:appels?|demandes?|requ[êe]tes?|griefs?|plaintes?|oppositions?|pourvois?|recours)(?![\p{L}\p{N}])/giu,
+    /(?<![\p{L}\p{N}])log(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|eons|[ée]e?s?|eant|ea(?:i[st]?|ient)?|[èe]rent)\s+(?:(?:un|une|le|la|l['\u2018\u2019\u02bc]|les|ce|cet|cette|ces|son|sa|ses|leur|leurs|des|du)\s+)?(?:(?:pr[ée]sente?s?|nouve(?:au|lle)s?)\s+)?(?:appels?|demandes?|requ[êe]tes?|griefs?|plaintes?|oppositions?|pourvois?|recours|actions?|poursuites?|proc[ée]dures?)(?![\p{L}\p{N}])/giu,
   "sup-fr-ceduler":
     /(?<![\p{L}\p{N}])c[ée]dul(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|ons|ez|[ée]e?s?|ant|a(?:i[st]?|ient)?|[èe]rent)(?![\p{L}\p{N}])/giu,
   "sup-fr-appliquer-pour":
@@ -1684,10 +1708,10 @@ export async function terminologieScanText(
       const prefixWindow = input.text.slice(Math.max(0, start - 45), start);
       const suffixWindow = input.text.slice(end, Math.min(input.text.length, end + 45));
 
-      // Exceptions du C.p.c. : « avis d'assignation », « répondre à l'assignation », « délai / mode d'assignation » (art. 145, 149 C.p.c.)
+      // Exceptions du C.p.c. : « avis d'assignation », « répondre / répond à l'assignation », « délai / mode d'assignation » (art. 145, 149 C.p.c.)
       if (normPattern === "assignation") {
         if (
-          /\b(?:avis\s+d|r[ée]pondre\s+[àa]\s+l|r[ée]ponse\s+[àa]\s+l|d[ée]lai\s+d|mode\s+d)['\u2018\u2019\u02bc]\s*$/iu.test(
+          /\b(?:avis\s+d|r[ée]pond\p{L}*\s+[àa]\s+l|r[ée]ponses?\s+[àa]\s+l|d[ée]lai\s+d|mode\s+d)['\u2018\u2019\u02bc]\s*$/iu.test(
             prefixWindow,
           )
         ) {
@@ -1720,7 +1744,7 @@ export async function terminologieScanText(
           /\b(?:s['\u2018\u2019\u02bc]\s*est|s['\u2018\u2019\u02bc]\s*[ée]tait|sont|est|[ée]tait|[ée]taient|a|ai|as|avons|avez|ont|avait|avaient|aura|aurait|[ée]t[ée]|[êe]tre|avoir|y\s+est|y\s+a)\s+$/iu.test(
             prefixWindow,
           ) ||
-          /^\s+(?:[àa]|au|aux)\b/iu.test(suffixWindow)
+          /^\s+(?:à|au|aux)\b/iu.test(suffixWindow)
         ) {
           continue;
         }

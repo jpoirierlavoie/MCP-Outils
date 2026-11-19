@@ -820,5 +820,31 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       lang: "fr",
     });
     expect(cleanLegalFr.structured.flagged_count).toBe(0);
+
+    // 7) A-N4 : formes conjuguées et nominales de « répondre à l'assignation » tolérées
+    const cleanReplyAssignation = await terminologieScanText(harness.d1, {
+      text: "Le défendeur répond à l'assignation dans le délai ; les défenderesses ont répondu à l'assignation et la réponse à l'assignation a été produite.",
+      lang: "fr",
+    });
+    expect(cleanReplyAssignation.structured.flagged_count).toBe(0);
+
+    // 8) D6 & A-N13 : « Le référé a été entendu » et « a logé une action » signalés en FR ; « motion to dismiss » et « laches » en EN
+    const dirtyRefereAction = await terminologieScanText(harness.d1, {
+      text: "Le référé a été entendu hier après que le demandeur a logé une action.",
+      lang: "fr",
+    });
+    const dirtyMatchedFr = dirtyRefereAction.structured.occurrences.map((o) =>
+      o.matched_text.toLowerCase(),
+    );
+    expect(dirtyMatchedFr).toContain("référé");
+    expect(dirtyMatchedFr).toContain("logé une action");
+
+    const dirtyEn = await terminologieScanText(harness.d1, {
+      text: "Defendant filed a motion to dismiss alleging laches.",
+      lang: "en",
+    });
+    const dirtyEnTerms = dirtyEn.structured.occurrences.map((o) => o.matched_text.toLowerCase());
+    expect(dirtyEnTerms).toContain("motion to dismiss");
+    expect(dirtyEnTerms).toContain("laches");
   });
 });

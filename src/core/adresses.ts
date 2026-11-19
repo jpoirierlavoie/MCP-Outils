@@ -1700,7 +1700,11 @@ function buildFinalAdresseResult(opts: {
     makeGarde("ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE"),
     makeGarde("ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE"),
   ];
-  if (opts.status !== "exact_civic" && opts.status !== "outside_quebec") {
+  if (
+    opts.status !== "exact_civic" &&
+    opts.status !== "outside_quebec" &&
+    opts.status !== "not_found"
+  ) {
     gardes.push(makeGarde("ADRESSE_CORRESPONDANCE_APPROXIMATIVE"));
   }
 

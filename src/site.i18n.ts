@@ -28,7 +28,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "Computes 1 to 25 procedural or statutory deadlines purely arithmetically (without " +
       "automatic legal qualification) under 'qc_cpc', 'qc_prescription' (art. 2879 al. 2 C.C.Q.), " +
       "'qc_li' (rollover_saturday=false by default except land registry art. 52 al. 2 I.A.), and " +
-      "'ca_li' (optional province='QC' for June 24). Handles technological notification shift " +
+      "'ca_li' (optional province='QC' for June 24; rollover_saturday=false by default per s. 26 & 35(1) I.A.). Handles technological notification shift " +
       "after 17:00 (art. 111 al. 2 C.C.P.), backward deadlines (preceding_business_day), and " +
       "non-sitting periods (art. 82 al. 2 C.C.P.).",
   },

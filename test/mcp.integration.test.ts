@@ -827,4 +827,58 @@ describe("Worker HTTP & intégration MCP", () => {
       expect(badIdJson.error?.code).toBe(-32600);
     }
   });
+
+  it("A-N5, A-N6, B-N14 : messages Zod en français, format taux LAF < 5 %, bannière surcharge, note d'arrondi et omission > 10 tranches", async () => {
+    // 1) Erreur Zod localisée en français
+    const badZod = await mcpPost("tools/call", {
+      name: "calendrier_holidays",
+      arguments: { year: 1800 },
+    });
+    expect(badZod.status).toBe(200);
+    expect(badZod.body.result?.isError).toBe(true);
+    const badText =
+      (badZod.body.result?.content as Array<{ text: string }> | undefined)?.[0]?.text ?? "";
+    expect(badText).toMatch(/Trop petit/i);
+
+    // 2) Taux LAF surchargé < 5 % (400 bps sur 2027-Q1) : note surcharge + libellé exact + arrondi
+    const lowLaf = await mcpPost("tools/call", {
+      name: "interets_1619",
+      arguments: {
+        end_date: "2027-03-31",
+        rate_overrides: [{ quarter: "2027-Q1", laf_rate_bps: 400 }],
+        tranches: [{ principal_cents: 100_000, start_date: "2026-12-31" }],
+      },
+    });
+    const lowText =
+      (lowLaf.body.result?.content as Array<{ text: string }> | undefined)?.[0]?.text ?? "";
+    expect(lowText).toContain("[TAUX L.A.F. SURCHARGÉS PAR L'APPELANT");
+    expect(lowText).toContain("taux légal min. 5,00 % ; L.A.F. 4,00 % < 5,00 %");
+    expect(lowText).toContain("[surcharge]");
+    expect(lowText).toContain("arrondi au cent UNE fois par tranche");
+
+    // 3) Plus de 10 tranches : ventilation détaillée omise du résumé texte mais présente dans structuredContent
+    const manyTranches = Array.from({ length: 11 }, (_, i) => ({
+      label: `Facture #${i + 1}`,
+      principal_cents: 100_000,
+      start_date: "2026-01-01",
+    }));
+    const manyRes = await mcpPost("tools/call", {
+      name: "interets_1619",
+      arguments: {
+        end_date: "2026-06-30",
+        tranches: manyTranches,
+      },
+    });
+    const manyText =
+      (manyRes.body.result?.content as Array<{ text: string }> | undefined)?.[0]?.text ?? "";
+    expect(manyText).toContain(
+      "Ventilation détaillée par période omise du résumé texte pour > 10 tranches",
+    );
+    expect(manyText).not.toContain("| Période | Dates (incluses)");
+    const sc = manyRes.body.result?.structuredContent as {
+      tranches: Array<{ periods: unknown[] }>;
+    };
+    expect(sc.tranches).toHaveLength(11);
+    expect(sc.tranches[0]!.periods.length).toBeGreaterThan(0);
+  });
 });

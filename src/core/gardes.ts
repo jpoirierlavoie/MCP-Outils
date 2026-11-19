@@ -3,6 +3,7 @@ import { GARDE_DOSSIER, GARDE_PALAIS, GARDE_SANS_ADRESSE, SANS_PLUMITIF } from "
 
 export const GARDE_CODES = [
   "SAMEDI_CONGE_LOI_INTERPRETATION_QC",
+  "SAMEDI_CONGE_LOI_INTERPRETATION_CA",
   "DELAI_A_REBOURS_VERIFIER_TEXTE",
   "NOTIFICATION_TECHNOLOGIQUE_APRES_17H",
   "NOTIFICATION_TECHNOLOGIQUE_17H_SECONDE_EXACTE",
@@ -10,6 +11,7 @@ export const GARDE_CODES = [
   "JOURS_PROCLAMES_NON_PREVISIBLES",
   "DEPOT_GREFFE_HEURES_OUVERTURE",
   "TAUX_LAF_TRIMESTRE_MANQUANT",
+  "TAUX_LAF_SURCHARGE_APPELANT",
   "INTERET_SIMPLE_ART_1620_CCQ",
   "DOSSIER_NOMENCLATURE_SEULEMENT",
   "GREFFE_SANS_PLUMITIF",
@@ -52,6 +54,8 @@ export type Provenance = z.infer<typeof ProvenanceSchema>;
 export const GARDE_MESSAGES: Record<GardeCode, string> = {
   SAMEDI_CONGE_LOI_INTERPRETATION_QC:
     "Sous le régime de la Loi d'interprétation (RLRQ, c. I-16), le samedi n'est pas un jour férié au sens de l'art. 61 par. 23° et l'art. 52 al. 1 ne prolonge que les délais expirant un jour férié : le report du samedi n'est donc pas appliqué par défaut sous 'qc_li'. L'art. 52 al. 2 L.I. prolonge toutefois au jour ouvrable suivant les délais expirant un samedi pour l'inscription d'un droit au bureau de la publicité des droits (activer rollover_saturday=true) ; pour la prescription, utiliser le régime 'qc_prescription' (art. 2879 al. 2 C.c.Q.).",
+  SAMEDI_CONGE_LOI_INTERPRETATION_CA:
+    "Sous le régime de la Loi d'interprétation fédérale (L.R.C. 1985, c. I-21), le samedi n'est pas un « jour férié » (holiday) au sens de l'art. 35(1) et l'art. 26 ne prolonge que les délais expirant un « holiday » : le report du samedi n'est donc pas appliqué par défaut sous 'ca_li'. Activer rollover_saturday=true uniquement si une règle judiciaire ou disposition particulière (p. ex. calcul devant les Cours fédérales ou fermeture de greffe) assimile le samedi à un jour non juridique.",
   DELAI_A_REBOURS_VERIFIER_TEXTE:
     "Délai calculé à rebours (avant une audience ou une étape) : la règle générale de prolongation de l'art. 83 al. 3 C.p.c. vise les délais prospectifs. Si la date brute tombe un jour non juridique, reculer au jour ouvrable précédent (preceding_business_day) est l'approche prudente, mais le texte exact (loi, règlement ou jugement, p. ex. « au moins X jours avant » ou jours francs) doit être vérifié.",
   NOTIFICATION_TECHNOLOGIQUE_APRES_17H:
@@ -66,6 +70,8 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "Un acte déposé au greffe sur support technologique hors des heures d'ouverture est réputé déposé à la prochaine heure d'ouverture (art. 107 al. 4 C.p.c.), et un dépôt sans paiement des frais exigibles peut affecter sa date de réception (art. 107 al. 5 C.p.c.). Prévoir le dépôt pendant les heures d'ouverture du dernier jour.",
   TAUX_LAF_TRIMESTRE_MANQUANT:
     "La période demandée dépasse les trimestres publiés et vérifiés dans la table embarquée de l'art. 28 L.A.F. Aucune extrapolation n'est effectuée : le calcul a été arrêté à la fin du dernier trimestre couvert (sauf fourniture explicite de rate_overrides).",
+  TAUX_LAF_SURCHARGE_APPELANT:
+    "Des surcharges de taux art. 28 L.A.F. (rate_overrides) fournies par l'appelant ont été utilisées pour des trimestres postérieurs à la table embarquée ; ces taux n'ont pas été vérifiés par le serveur et doivent être confirmés sur la publication officielle de Revenu Québec.",
   INTERET_SIMPLE_ART_1620_CCQ:
     "En vertu de l'art. 1620 C.c.Q., les intérêts légaux et l'indemnité additionnelle de l'art. 1619 C.c.Q. sont des intérêts simples (sans capitalisation), sauf disposition législative particulière, convention écrite valable ou ordonnance judiciaire contraire.",
   DOSSIER_NOMENCLATURE_SEULEMENT: GARDE_DOSSIER,

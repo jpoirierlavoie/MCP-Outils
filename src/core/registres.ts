@@ -31,6 +31,45 @@ const LEGAL_SUFFIX_TOKENS = new Set([
   "enrg",
 ]);
 
+const KNOWN_STATUTORY_CROWN_CORPS = new Set([
+  "hydro quebec",
+  "loto quebec",
+  "societe des alcools du quebec",
+  "saq",
+  "societe de l assurance automobile du quebec",
+  "saaq",
+  "caisse de depot et placement du quebec",
+  "cdpq",
+  "investissement quebec",
+  "commission des normes de l equite de la sante et de la securite du travail",
+  "cnesst",
+  "regie de l assurance maladie du quebec",
+  "ramq",
+  "societe quebecoise des infrastructures",
+  "sqi",
+  "societe des traversiers du quebec",
+  "agence du revenu du quebec",
+  "revenu quebec",
+  "office de la protection du consommateur",
+  "autorite des marches financiers",
+  "amf",
+  "poste canada",
+  "postes canada",
+  "canada post",
+  "radio canada",
+  "cbc",
+  "via rail",
+  "via rail canada",
+  "banque du canada",
+  "bank of canada",
+]);
+
+function isCorporateForm(forme: string | null | undefined): boolean {
+  return /soci[ée]t[ée]\s+par\s+actions|corporation|personne\s+morale|constitu[ée]e?\s+(?:en\s+vertu\s+d['’]une\s+)?loi|compagnie|company/i.test(
+    forme ?? "",
+  );
+}
+
 const DOTTED_ACRONYM_RE =
   /(?<![\p{L}\p{N}])(?:\p{L}\.){2,}\p{L}?(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])(?:\p{L}\.)+\p{L}(?![\p{L}\p{N}])/gu;
 
@@ -615,7 +654,7 @@ export async function registreSearchEntities(
       let bonus = 0;
       if (officialNorm === qNormFull) bonus -= 50;
       else if (officialNorm.startsWith(qNormFull)) bonus -= 15;
-      if (r.is_active === 1) bonus -= 4;
+      if (r.is_active === 1) bonus -= 40;
       byId.set(id, { row: r, score: Number(r.rank_score) + bonus });
     }
   }
@@ -664,14 +703,27 @@ export async function registreSearchEntities(
   });
 
   const qNormFull = normalizeEntitySearch(input.query);
-  const exactMatchFound = entities.some(
-    (e) =>
-      (/^\d{5,10}$/.test(digitsOnly) &&
-        (e.neq === digitsOnly || e.corporation_number === digitsOnly || e.bn_ne === digitsOnly)) ||
-      (qNormFull.length > 0 &&
-        (normalizeEntitySearch(e.nom_officiel) === qNormFull ||
-          e.autres_noms.some((alt) => normalizeEntitySearch(alt) === qNormFull))),
-  );
+  const isStatutoryCrownQuery = KNOWN_STATUTORY_CROWN_CORPS.has(qNormFull);
+  const exactMatchFound = entities.some((e) => {
+    if (
+      /^\d{5,10}$/.test(digitsOnly) &&
+      (e.neq === digitsOnly || e.corporation_number === digitsOnly || e.bn_ne === digitsOnly)
+    ) {
+      return true;
+    }
+    if (qNormFull.length === 0 || !e.is_active) {
+      return false;
+    }
+    if (isStatutoryCrownQuery) {
+      return (
+        isCorporateForm(e.forme_juridique) && normalizeEntitySearch(e.nom_officiel) === qNormFull
+      );
+    }
+    return (
+      normalizeEntitySearch(e.nom_officiel) === qNormFull ||
+      e.autres_noms.some((alt) => normalizeEntitySearch(alt) === qNormFull)
+    );
+  });
 
   const hasQc =
     jurisdiction !== "ca" &&

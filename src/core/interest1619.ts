@@ -117,6 +117,7 @@ export const InterestPeriodSliceSchema = z.object({
   days: z.number().int(),
   year_days: z.union([z.literal(365), z.literal(366)]),
   laf_rate_bps: z.number().int().nullable(),
+  overridden: z.boolean(),
   legal_rate_bps: z.number().int(),
   additional_rate_bps: z.number().int(),
   contractual_rate_bps: z.number().int(),
@@ -220,15 +221,25 @@ function assertSafeIntCents(val: bigint, label: string): number {
   return Number(val);
 }
 
-function buildLafRateMap(overrides?: RateOverride[]): Map<string, number> {
+function buildLafRateMap(overrides?: RateOverride[]): {
+  map: Map<string, number>;
+  overrideQuarters: Set<string>;
+} {
   const map = new Map<string, number>();
   for (const [quarter, bps] of Object.entries(lafRatesJson.quarters)) {
     map.set(quarter, bps);
   }
+  const overrideQuarters = new Set<string>();
   for (const override of overrides ?? []) {
+    if (Object.hasOwn(lafRatesJson.quarters, override.quarter)) {
+      throw new RangeError(
+        `Surcharge interdite pour le trimestre ${override.quarter} : ce trimestre figure déjà dans la table embarquée publiée de l'art. 28 L.A.F. (${lafRatesJson.metadata.first_quarter} à ${lafRatesJson.metadata.last_quarter}). Le paramètre rate_overrides est strictement réservé aux trimestres postérieurs non encore publiés.`,
+      );
+    }
     map.set(override.quarter, override.laf_rate_bps);
+    overrideQuarters.add(override.quarter);
   }
-  return map;
+  return { map, overrideQuarters };
 }
 
 export function computeInterest1619(input: ComputeInterest1619Input): ComputeInterest1619Output {
@@ -241,7 +252,10 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
     );
   }
 
-  const lafRateMap = mode === "legal_plus_1619" ? buildLafRateMap(input.rate_overrides) : null;
+  const lafData = buildLafRateMap(input.rate_overrides);
+  const lafRateMap = mode === "legal_plus_1619" ? lafData.map : null;
+  const overrideQuarters = lafData.overrideQuarters;
+  const usedOverrideQuarters = new Set<string>();
 
   const guardReasons = new Map<GardeCode, string | undefined>();
   guardReasons.set("INTERET_SIMPLE_ART_1620_CCQ", undefined);
@@ -305,6 +319,7 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
         let sliceEndLimit: string;
         let periodLabel: string;
         let lafBps: number | null = null;
+        let isOverridden = false;
         let legalBps = 0;
         let additionalBps = 0;
         let contractualBps = 0;
@@ -335,6 +350,10 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
           }
 
           lafBps = foundBps;
+          isOverridden = overrideQuarters.has(qKey);
+          if (isOverridden) {
+            usedOverrideQuarters.add(qKey);
+          }
           legalBps = LEGAL_INTEREST_RATE_BPS;
           additionalBps = Math.max(0, lafBps - LEGAL_INTEREST_RATE_BPS);
         } else {
@@ -368,6 +387,7 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
           days: sliceDays,
           year_days: yDays,
           laf_rate_bps: lafBps,
+          overridden: isOverridden,
           legal_rate_bps: legalBps,
           additional_rate_bps: additionalBps,
           contractual_rate_bps: contractualBps,
@@ -429,9 +449,21 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
   }
 
   const grandTotalCents = sumPrincipalCents + sumTotalInterestCents;
+  const usedOverridesList = Array.from(usedOverrideQuarters).sort();
+  if (usedOverridesList.length > 0) {
+    guardReasons.set(
+      "TAUX_LAF_SURCHARGE_APPELANT",
+      `Trimestre(s) surchargé(s) : ${usedOverridesList.join(", ")}.`,
+    );
+  }
   const gardes: Garde[] = Array.from(guardReasons.entries()).map(([code, detail]) =>
     makeGarde(code, detail),
   );
+
+  const baseSource =
+    mode === "contractual"
+      ? "Calcul arithmétique conventionnel en intérêt simple (Exact/Exact, 365/366)"
+      : `${lafRatesJson.metadata.source}; art. 3 Loi sur l'intérêt (L.R.C. 1985, c. I-15); art. 1618-1620 C.c.Q.`;
 
   return {
     mode,
@@ -459,9 +491,9 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
     tranches: trancheResults,
     provenance: {
       source:
-        mode === "contractual"
-          ? "Calcul arithmétique conventionnel en intérêt simple (Exact/Exact, 365/366)"
-          : `${lafRatesJson.metadata.source}; art. 3 Loi sur l'intérêt (L.R.C. 1985, c. I-15); art. 1618-1620 C.c.Q.`,
+        usedOverridesList.length > 0
+          ? `${baseSource} [avertissement : taux fournis par l'appelant (rate_overrides) pour ${usedOverridesList.join(", ")}, non vérifiés dans la table embarquée]`
+          : baseSource,
       verified_at: lafRatesJson.metadata.verified_at,
       table_version: lafRatesJson.metadata.table_version,
     },
