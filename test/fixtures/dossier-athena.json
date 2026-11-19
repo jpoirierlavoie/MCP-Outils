@@ -1661,7 +1661,7 @@
    "competence": null,
    "greffe_type": null,
    "is_administrative": false,
-   "parse_error": "Format invalide. Attendu : NNN-NN-NNNNNN-NN (ex. : 500-05-123456-241)"
+   "parse_error": "Format invalide. Attendu : NNN-NN-NNNNNN-NNN (ex. : 500-05-123456-241)"
   }
  },
  {
@@ -1871,7 +1871,7 @@
    "competence": null,
    "greffe_type": null,
    "is_administrative": false,
-   "parse_error": "Format invalide. Attendu : NNN-NN-NNNNNN-NN (ex. : 500-05-123456-241)"
+   "parse_error": "Format invalide. Attendu : NNN-NN-NNNNNN-NNN (ex. : 500-05-123456-241)"
   }
  },
  {

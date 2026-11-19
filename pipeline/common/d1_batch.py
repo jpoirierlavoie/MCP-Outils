@@ -162,6 +162,40 @@ def build_fts_slice_statements(
     return stmts
 
 
+_D1_UUID_TO_NAME: dict[str, str] = {}
+
+
+def _has_cf_api_token() -> bool:
+    return bool(os.environ.get("CLOUDFLARE_API_TOKEN", "").strip())
+
+
+def _wrangler_prefix() -> list[str]:
+    if WRANGLER_JS.exists():
+        return [NODE_BIN, str(WRANGLER_JS)]
+    return [NPX_BIN, "wrangler"]
+
+
+def _run_wrangler_json(args: list[str], timeout: int = 120) -> object:
+    cmd = [*_wrangler_prefix(), *args]
+    proc = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+    if proc.returncode != 0:
+        err = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
+        raise RuntimeError(f"Échec wrangler {' '.join(args[:4])} : {err[-1500:]}")
+    raw = (proc.stdout or "").strip()
+    if not raw:
+        raise RuntimeError(f"Sortie JSON vide de wrangler {' '.join(args[:4])}")
+    return json.loads(raw)
+
+
 def _cf_headers() -> dict[str, str]:
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "").strip()
     if not token:
@@ -174,6 +208,15 @@ def _cf_headers() -> dict[str, str]:
 
 
 def list_d1_databases() -> list[dict]:
+    if not _has_cf_api_token():
+        data = _run_wrangler_json(["d1", "list", "--json"])
+        if not isinstance(data, list):
+            raise RuntimeError(f"Format inattendu de wrangler d1 list --json : {type(data)}")
+        for db in data:
+            if isinstance(db, dict) and db.get("uuid") and db.get("name"):
+                _D1_UUID_TO_NAME[str(db["uuid"])] = str(db["name"])
+        return data
+
     results: list[dict] = []
     page = 1
     while True:
@@ -187,6 +230,9 @@ def list_d1_databases() -> list[dict]:
         if not payload.get("success"):
             raise RuntimeError(f"Erreur API D1 list: {payload.get('errors')}")
         batch = payload.get("result") or []
+        for db in batch:
+            if isinstance(db, dict) and db.get("uuid") and db.get("name"):
+                _D1_UUID_TO_NAME[str(db["uuid"])] = str(db["name"])
         results.extend(batch)
         if len(batch) < 100:
             break
@@ -194,10 +240,39 @@ def list_d1_databases() -> list[dict]:
     return results
 
 
+def _resolve_d1_name(database_id_or_name: str) -> str:
+    if database_id_or_name in _D1_UUID_TO_NAME:
+        return _D1_UUID_TO_NAME[database_id_or_name]
+    for db in list_d1_databases():
+        if str(db.get("uuid")) == database_id_or_name or str(db.get("name")) == database_id_or_name:
+            return str(db["name"])
+    return database_id_or_name
+
+
 def provision_or_get_d1(db_name: str, location: str = "enam") -> dict:
     for db in list_d1_databases():
         if db.get("name") == db_name:
             return db
+    if not _has_cf_api_token():
+        cmd = [*_wrangler_prefix(), "d1", "create", db_name, "--location", location]
+        proc = subprocess.run(
+            cmd,
+            cwd=REPO_ROOT,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+        if proc.returncode != 0:
+            err = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
+            raise RuntimeError(f"Échec création D1 {db_name} via Wrangler : {err[-1500:]}")
+        for db in list_d1_databases():
+            if db.get("name") == db_name:
+                return db
+        raise RuntimeError(f"Base D1 {db_name} créée mais introuvable dans wrangler d1 list.")
+
     url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/d1/database"
     body = json.dumps({"name": db_name, "primary_location_hint": location}).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST", headers=_cf_headers())
@@ -209,6 +284,32 @@ def provision_or_get_d1(db_name: str, location: str = "enam") -> dict:
 
 
 def d1_query_remote(database_id: str, sql: str, params: Sequence[object] | None = None) -> list[dict]:
+    if not _has_cf_api_token():
+        if params:
+            raise RuntimeError(
+                "d1_query_remote via session OAuth Wrangler ne supporte pas params positionnels."
+            )
+        db_name = _resolve_d1_name(database_id)
+        last_err: Exception | None = None
+        for attempt in range(4):
+            try:
+                payload = _run_wrangler_json(
+                    ["d1", "execute", db_name, "--remote", "--json", "--command", sql],
+                    timeout=180,
+                )
+                if isinstance(payload, list) and payload:
+                    last_res = payload[-1]
+                    if isinstance(last_res, dict):
+                        return list(last_res.get("results") or [])
+                return []
+            except (RuntimeError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
+                last_err = exc
+                if attempt < 3:
+                    time.sleep(2.0 * (attempt + 1))
+                    continue
+                raise last_err
+        return []
+
     url = (
         f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}"
         f"/d1/database/{database_id}/query"
@@ -238,6 +339,15 @@ def d1_query_remote(database_id: str, sql: str, params: Sequence[object] | None 
 
 
 def get_d1_database_info(database_id: str) -> dict:
+    if not _has_cf_api_token():
+        db_name = _resolve_d1_name(database_id)
+        info = _run_wrangler_json(["d1", "info", db_name, "--json"])
+        if not isinstance(info, dict):
+            raise RuntimeError(f"Format inattendu de wrangler d1 info {db_name}")
+        if "file_size" not in info and "database_size" in info:
+            info["file_size"] = info["database_size"]
+        return info
+
     url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/d1/database/{database_id}"
     req = urllib.request.Request(url, headers=_cf_headers())
     with urllib.request.urlopen(req, timeout=30) as resp:

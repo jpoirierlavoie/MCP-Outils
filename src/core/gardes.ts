@@ -51,7 +51,7 @@ export type Provenance = z.infer<typeof ProvenanceSchema>;
 
 export const GARDE_MESSAGES: Record<GardeCode, string> = {
   SAMEDI_CONGE_LOI_INTERPRETATION_QC:
-    "Sous le régime de la Loi d'interprétation (RLRQ, c. I-16), le samedi n'est pas un jour férié au sens de l'art. 61 par. 23°, mais l'art. 52 prolonge néanmoins au jour ouvrable suivant le délai qui expirerait un samedi (sauf exclusion explicite de l'option rollover_saturday).",
+    "Sous le régime de la Loi d'interprétation (RLRQ, c. I-16), le samedi n'est pas un jour férié au sens de l'art. 61 par. 23° et l'art. 52 al. 1 ne prolonge que les délais expirant un jour férié : le report du samedi n'est donc pas appliqué par défaut sous 'qc_li'. L'art. 52 al. 2 L.I. prolonge toutefois au jour ouvrable suivant les délais expirant un samedi pour l'inscription d'un droit au bureau de la publicité des droits (activer rollover_saturday=true) ; pour la prescription, utiliser le régime 'qc_prescription' (art. 2879 al. 2 C.c.Q.).",
   DELAI_A_REBOURS_VERIFIER_TEXTE:
     "Délai calculé à rebours (avant une audience ou une étape) : la règle générale de prolongation de l'art. 83 al. 3 C.p.c. vise les délais prospectifs. Si la date brute tombe un jour non juridique, reculer au jour ouvrable précédent (preceding_business_day) est l'approche prudente, mais le texte exact (loi, règlement ou jugement, p. ex. « au moins X jours avant » ou jours francs) doit être vérifié.",
   NOTIFICATION_TECHNOLOGIQUE_APRES_17H:

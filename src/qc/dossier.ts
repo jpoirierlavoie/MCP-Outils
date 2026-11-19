@@ -35,6 +35,7 @@ export interface DossierAnalyse {
   forum_key: string | null;
   is_administrative: boolean;
   parse_error: string | null;
+  parse_warning?: string | null;
 }
 
 function vide(): DossierAnalyse {
@@ -47,6 +48,7 @@ function vide(): DossierAnalyse {
     forum_key: null,
     is_administrative: false,
     parse_error: null,
+    parse_warning: null,
   };
 }
 
@@ -106,7 +108,7 @@ export function analyserNumeroDossier(brut: string): DossierAnalyse {
 
   const parts = propre.split("-");
   if (parts.length < 2) {
-    r.parse_error = "Format invalide. Attendu : NNN-NN-NNNNNN-NN (ex. : 500-05-123456-241)";
+    r.parse_error = "Format invalide. Attendu : NNN-NN-NNNNNN-NNN (ex. : 500-05-123456-241)";
     return r;
   }
 
@@ -138,6 +140,15 @@ export function analyserNumeroDossier(brut: string): DossierAnalyse {
     const deja = r.parse_error ?? "";
     const sep = deja ? " " : "";
     r.parse_error = `${deja}${sep}Juridiction « ${juridictionStr} » introuvable dans les données de référence.`;
+  }
+
+  const seqStr = parts[2] ?? "";
+  const ctrlStr = parts[3] ?? "";
+  if (parts.length !== 4 || !/^\d{6}$/.test(seqStr) || !/^\d{3}$/.test(ctrlStr)) {
+    r.parse_warning =
+      "Numéro incomplet ou atypique au regard du gabarit complet NNN-NN-NNNNNN-NNN " +
+      "(séquence à 6 chiffres et/ou contrôle à 3 chiffres absents ou non numériques) ; " +
+      "seuls les segments greffe et juridiction ont été analysés.";
   }
 
   return r;

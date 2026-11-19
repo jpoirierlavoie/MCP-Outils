@@ -9,9 +9,12 @@ import {
 } from "./dates.js";
 import { Garde, GardeCode, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 import {
+  caProvinceHolidayNote,
   HolidayEntry,
   HolidayRegime,
   isNonJuridicalDate,
+  Province,
+  ProvinceSchema,
   REGIME_LABELS_FR,
   RegimeSchema,
   VERIFIED_CALENDAR_AT,
@@ -84,13 +87,16 @@ export const ComputeDeadlinesInputSchema = z.strictObject({
     "Mode de notification : 'none' (défaut), 'technological' (applique le report de l'art. 111 al. 2 C.p.c. après 17:00 ou un jour non juridique), ou 'physical'.",
   ),
   regime: RegimeSchema.optional().describe(
-    "Régime de jours fériés : 'qc_cpc' (défaut), 'qc_li', ou 'ca_li'.",
+    "Régime de jours fériés : 'qc_cpc' (défaut), 'qc_prescription' (prescription C.c.Q., art. 2879 al. 2), 'qc_li', ou 'ca_li'.",
+  ),
+  province: ProvinceSchema.optional().describe(
+    "Province ou territoire canadien optionnel (p. ex. 'QC', 'ON', 'BC') : sous 'ca_li' avec 'QC', ajoute le 24 juin (Fête nationale du Québec, art. 35(1) al. a) L.I. CA).",
   ),
   rollover_saturday: z
     .boolean()
     .optional()
     .describe(
-      "Prolonger un délai échéant un samedi (défaut true; toujours vrai en qc_cpc, prévu par art. 52 L.I. en qc_li).",
+      "Prolonger un délai échéant un samedi (toujours vrai en qc_cpc et qc_prescription ; défaut false en qc_li sauf art. 52 al. 2 L.I. au bureau de la publicité des droits ; défaut true en ca_li).",
     ),
   extra_non_juridical_dates: z
     .array(z.string().regex(ISO_DATE_FORMAT_RE))
@@ -138,6 +144,7 @@ export type DeadlineStepResult = z.infer<typeof DeadlineStepResultSchema>;
 
 export const ComputeDeadlinesOutputSchema = z.object({
   regime: RegimeSchema,
+  province: ProvinceSchema.nullable(),
   regime_label_fr: z.string(),
   rollover_saturday: z.boolean(),
   results: z.array(DeadlineStepResultSchema),
@@ -192,7 +199,18 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
   }
 
   const regime: HolidayRegime = input.regime ?? "qc_cpc";
-  const rolloverSaturday = regime === "qc_cpc" ? true : (input.rollover_saturday ?? true);
+  const province: Province | null = input.province ?? null;
+  if (province !== null && province !== "QC" && regime !== "ca_li") {
+    throw new RangeError(
+      `Le paramètre province='${province}' hors Québec ne s'applique qu'au régime fédéral 'ca_li'.`,
+    );
+  }
+  const rolloverSaturday =
+    regime === "qc_cpc" || regime === "qc_prescription"
+      ? true
+      : regime === "qc_li"
+        ? (input.rollover_saturday ?? false)
+        : (input.rollover_saturday ?? true);
   const yearCache = new Map<number, Map<string, HolidayEntry>>();
 
   const guardReasons = new Map<GardeCode, string | undefined>();
@@ -207,9 +225,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
   }
   recordGarde(
     "JOURS_PROCLAMES_NON_PREVISIBLES",
-    regime === "ca_li"
-      ? "Sous ca_li, vérifier aussi les jours fériés provinciaux/municipaux applicables (art. 35(1) al. a)-b) L.I. CA) et les règles propres aux Cours fédérales."
-      : undefined,
+    regime === "ca_li" ? caProvinceHolidayNote(input.province) : undefined,
   );
 
   const results: DeadlineStepResult[] = [];
@@ -268,11 +284,19 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
         rolloverSaturday,
         extraSet,
         yearCache,
+        input.province,
       );
       if (after17h || anchorStatus.nonJuridical) {
         let candidate = after17h ? addDays(inputAnchorDate, 1) : inputAnchorDate;
         while (
-          isNonJuridicalDate(candidate, regime, rolloverSaturday, extraSet, yearCache).nonJuridical
+          isNonJuridicalDate(
+            candidate,
+            regime,
+            rolloverSaturday,
+            extraSet,
+            yearCache,
+            input.province,
+          ).nonJuridical
         ) {
           candidate = addDays(candidate, 1);
         }
@@ -301,7 +325,14 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     const hopDelta = direction === "forward" ? 1 : -1;
     let safety = 0;
     while (true) {
-      const check = isNonJuridicalDate(current, regime, rolloverSaturday, extraSet, yearCache);
+      const check = isNonJuridicalDate(
+        current,
+        regime,
+        rolloverSaturday,
+        extraSet,
+        yearCache,
+        input.province,
+      );
       if (!check.nonJuridical) {
         break;
       }
@@ -384,11 +415,15 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
 
   return {
     regime,
+    province,
     regime_label_fr: REGIME_LABELS_FR[regime],
     rollover_saturday: rolloverSaturday,
     results,
     provenance: {
-      source: `${REGIME_LABELS_FR[regime]}; art. 107, 111 C.p.c.`,
+      source:
+        regime === "qc_cpc"
+          ? `${REGIME_LABELS_FR[regime]}; art. 107, 111 C.p.c.`
+          : REGIME_LABELS_FR[regime],
       verified_at: VERIFIED_CALENDAR_AT,
     },
     gardes,

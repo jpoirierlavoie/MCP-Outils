@@ -170,6 +170,7 @@ export const RegistreSearchEntitiesOutputSchema = z.object({
   jurisdiction: z.enum(["qc", "ca", "all"]),
   active_only: z.boolean(),
   count: z.number().int(),
+  exact_match_found: z.boolean(),
   snapshots: z.record(z.string(), z.string()),
   entities: z.array(CandidatRegistreSchema),
   provenance: ProvenanceSchema,
@@ -662,6 +663,16 @@ export async function registreSearchEntities(
     };
   });
 
+  const qNormFull = normalizeEntitySearch(input.query);
+  const exactMatchFound = entities.some(
+    (e) =>
+      (/^\d{5,10}$/.test(digitsOnly) &&
+        (e.neq === digitsOnly || e.corporation_number === digitsOnly || e.bn_ne === digitsOnly)) ||
+      (qNormFull.length > 0 &&
+        (normalizeEntitySearch(e.nom_officiel) === qNormFull ||
+          e.autres_noms.some((alt) => normalizeEntitySearch(alt) === qNormFull))),
+  );
+
   const hasQc =
     jurisdiction !== "ca" &&
     (entities.some((e) => e.jurisdiction === "qc") || Boolean(snapshots.req));
@@ -673,6 +684,7 @@ export async function registreSearchEntities(
     jurisdiction,
     active_only: activeOnly,
     count: entities.length,
+    exact_match_found: exactMatchFound,
     snapshots,
     entities,
     provenance: {
@@ -703,11 +715,19 @@ export async function registreSearchEntities(
     .map(([k, v]) => `${k}=${v}`)
     .join(", ");
 
+  const noExactNote = !exactMatchFound
+    ? [
+        "",
+        `⚠ Aucune correspondance exacte normalisée trouvée pour « ${input.query} » : le jeu de données ouvert du REQ peut omettre certaines entités constituées par loi spéciale (p. ex. sociétés d'État telles qu'Hydro-Québec, organismes publics, municipalités ou ordres professionnels) ou comporter une graphie légèrement différente. Vérifier directement au portail officiel du Registraire des entreprises ou dans la loi constitutive applicable.`,
+      ]
+    : [];
+
   const text = [
     `Recherche aux registres d'entreprises pour « ${input.query} » (${entities.length} résultat(s))`,
     ...(lines.length > 0
       ? lines
       : ["Aucune entreprise correspondante repérée dans les instantanés locaux."]),
+    ...noExactNote,
     "",
     `Dates d'instantanés : ${snapSummary || verifiedAt}`,
     "",

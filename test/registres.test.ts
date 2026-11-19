@@ -348,4 +348,17 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     expect(dvQueries).toHaveLength(1);
     expect(dvQueries[0]).toContain("WHERE (typ_dom_val = ? AND cod_dom_val = ?)");
   });
+
+  it("distingue exact_match_found=true d'une correspondance partielle ou absente avec note sur les lois constitutives spéciales", async () => {
+    const exact = RegistreSearchEntitiesOutputSchema.parse(
+      (await registreSearchEntities(harness.d1, { query: "9123-4567 QUÉBEC INC." })).structured,
+    );
+    expect(exact.exact_match_found).toBe(true);
+
+    const partial = await registreSearchEntities(harness.d1, { query: "Excavations Hydro" });
+    const parsedPartial = RegistreSearchEntitiesOutputSchema.parse(partial.structured);
+    expect(parsedPartial.exact_match_found).toBe(false);
+    expect(partial.text).toContain("constituées par loi spéciale");
+    expect(partial.text).toContain("Hydro-Québec");
+  });
 });

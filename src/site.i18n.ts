@@ -17,17 +17,20 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
     texte:
       "Lists statutory holidays and non-juridical days for a calendar year under 'qc_cpc' " +
       "(art. 82 al. 1 C.C.P. and art. 61 par. 23° I.A., including Saturdays, Jan 2 and Dec 26), " +
-      "'qc_li' (Québec Interpretation Act), or 'ca_li' (federal Interpretation Act, including " +
-      "Sept 30 and Nov 11).",
+      "'qc_prescription' (art. 2879 al. 2 C.C.Q. and art. 61 par. 23° I.A., Saturday rollover " +
+      "without Jan 2 or Dec 26), 'qc_li' (Québec Interpretation Act, Saturday rollover off by " +
+      "default except land registry), or 'ca_li' (federal Interpretation Act, including Sept 30 " +
+      "and Nov 11, with optional province='QC' to include June 24).",
   },
   calendrier_deadlines: {
     titre: "Deterministic deadline calculator (C.C.P. / I.A.)",
     texte:
       "Computes 1 to 25 procedural or statutory deadlines purely arithmetically (without " +
-      "automatic legal qualification). Handles non-juridical rollover (art. 83 al. 3 C.C.P., " +
-      "art. 52 I.A.), technological notification shift after 17:00 or on a non-juridical day " +
-      "(art. 111 al. 2 C.C.P.), backward deadlines before a hearing (preceding_business_day), " +
-      "and non-sitting periods (art. 82 al. 2 C.C.P.).",
+      "automatic legal qualification) under 'qc_cpc', 'qc_prescription' (art. 2879 al. 2 C.C.Q.), " +
+      "'qc_li' (rollover_saturday=false by default except land registry art. 52 al. 2 I.A.), and " +
+      "'ca_li' (optional province='QC' for June 24). Handles technological notification shift " +
+      "after 17:00 (art. 111 al. 2 C.C.P.), backward deadlines (preceding_business_day), and " +
+      "non-sitting periods (art. 82 al. 2 C.C.P.).",
   },
   interets_1619: {
     titre: "Legal interest and additional indemnity calculator (art. 1619 C.C.Q.)",

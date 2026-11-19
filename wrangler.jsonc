@@ -3,7 +3,9 @@
   "name": "outils",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-13",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "routes": [
     {
       "pattern": "outils.poirierlavoie.ca",
@@ -45,8 +47,8 @@
   "d1_databases": [
     {
       "binding": "DB_TERMINOLOGIE",
-      "database_name": "outils-terminologie",
-      "database_id": "171dd2aa-52a1-4db1-adb7-23a037c5ca69"
+      "database_name": "outils-terminologie-20261119",
+      "database_id": "b461fe21-9c80-47a0-bb26-508336da9230"
     },
     {
       "binding": "DB_REGISTRES",
