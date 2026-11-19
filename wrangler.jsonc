@@ -16,6 +16,9 @@
     "enabled": true
   },
   "logpush": false,
+  "vars": {
+    "COMMIT": "inconnu"
+  },
   "observability": {
     "enabled": false,
     "redact_query_string": true,
