@@ -57,7 +57,7 @@ import {
 
 export const SERVER_NAME = "mcp-outils";
 export const SERVER_TITLE = "MCP Outils";
-export const SERVER_VERSION = "2.1.0";
+export const SERVER_VERSION = "2.2.0";
 export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
 
@@ -67,7 +67,7 @@ export const INSTRUCTIONS =
   "2) Greffes et palais du Québec — greffe_parse_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses et coordonnées relevées le 2026-11-17, table des lieux 2026-07-22) sans consulter aucun plumitif ; quatre greffes itinérants demeurent sans adresse civique fixe. " +
   "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1) : consulter le portail officiel du Registraire avant toute signification ou désignation finale d'une partie. " +
   "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
-  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « Legislation » ; pour la jurisprudence, employer « Jurisprudence »).";
+  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « lois » ; pour la jurisprudence, employer « juris »).";
 
 const READ_ONLY_LOCAL_ANNOTATIONS = {
   readOnlyHint: true,
@@ -104,7 +104,7 @@ const TOOL_SPECS: ReadonlyArray<{
     name: "calendrier_holidays",
     title: "Jours fériés et non juridiques (QC / CA)",
     description:
-      "Liste les jours fériés et non juridiques d'une année civile selon le régime choisi : 'qc_cpc' (art. 82 al. 1 C.p.c. et art. 61 par. 23° L.I., incluant samedis, 2 janvier et 26 décembre), 'qc_li' (Loi d'interprétation du Québec) ou 'ca_li' (Loi d'interprétation fédérale, incluant 30 septembre et 11 novembre).",
+      "Liste les jours fériés et non juridiques d'une année civile selon le régime choisi : 'qc_cpc' (art. 82 al. 1 C.p.c. et art. 61 par. 23° L.I., incluant samedis, 2 janvier et 26 décembre), 'qc_prescription' (art. 2879 al. 2 C.c.Q. et art. 61 par. 23° L.I., samedis reportés sans 2 janvier ni 26 décembre), 'qc_li' (Loi d'interprétation du Québec, samedis non reportés par défaut sauf bureau de la publicité des droits) ou 'ca_li' (Loi d'interprétation fédérale, incluant 30 septembre et 11 novembre, avec paramètre province='QC' optionnel pour inclure le 24 juin).",
     family: "calcul",
     inputSchema: ListHolidaysInputSchema,
   },
@@ -112,7 +112,7 @@ const TOOL_SPECS: ReadonlyArray<{
     name: "calendrier_deadlines",
     title: "Calculateur déterministe de délais (C.p.c. / L.I.)",
     description:
-      "Calcule de 1 à 25 délais procéduraux ou légaux de manière purement arithmétique (sans qualification juridique automatique). Gère le report des jours non juridiques (art. 83 al. 3 C.p.c., art. 52 L.I.), le déplacement d'une notification technologique après 17 h 00 ou un jour non juridique (art. 111 al. 2 C.p.c.), les délais à rebours avant audience (preceding_business_day) et le repérage des périodes hors séance (art. 82 al. 2 C.p.c.). Même pour un seul délai, passer un tableau deadlines d'un élément.",
+      "Calcule de 1 à 25 délais procéduraux ou légaux de manière purement arithmétique (sans qualification juridique automatique). Supporte 'qc_cpc', 'qc_prescription' (art. 2879 al. 2 C.c.Q.), 'qc_li' (art. 52 L.I., rollover_saturday=false par défaut sauf publicité des droits) et 'ca_li' (avec province='QC' optionnel pour le 24 juin). Gère le déplacement technologique après 17 h 00 (art. 111 al. 2 C.p.c.), les délais à rebours (preceding_business_day) et les périodes hors séance (art. 82 al. 2 C.p.c.). Même pour un seul délai, passer un tableau deadlines d'un élément.",
     family: "calcul",
     inputSchema: ComputeDeadlinesInputSchema,
   },
@@ -256,8 +256,9 @@ function formatHolidaysText(out: ListHolidaysOutput): string {
   const lines = out.holidays.map(
     (h) => `- ${h.date} (${h.weekday_fr}) : ${h.name_fr} — ${h.legal_basis}`,
   );
+  const provinceSuffix = out.province ? ` — province : ${out.province}` : "";
   return [
-    `Jours fériés et non juridiques (${out.year}) — ${out.regime}`,
+    `Jours fériés et non juridiques (${out.year}) — ${out.regime}${provinceSuffix}`,
     `Régime : ${out.regime_label_fr}`,
     `Jours hebdomadaires non juridiques : ${out.weekly_non_juridical_days.join(", ")} (report samedi : ${out.saturday_triggers_deadline_rollover ? "oui" : "non"})`,
     "",
@@ -280,8 +281,9 @@ function formatDeadlinesText(out: ComputeDeadlinesOutput): string {
     const suffix = flags.length > 0 ? ` [${flags.join("; ")}]` : "";
     return `- ${r.label} (${r.direction}) : ${r.effective_date} (${r.effective_weekday_fr})${suffix}\n  Calcul : ${r.formula_summary_fr}`;
   });
+  const provinceSuffix = out.province ? ` — province : ${out.province}` : "";
   return [
-    `Calcul de délais (${out.regime_label_fr})`,
+    `Calcul de délais (${out.regime_label_fr}${provinceSuffix})`,
     ...lines,
     formatGardesSection(out.gardes),
     `\nSource : ${out.provenance.source} (vérifié le ${out.provenance.verified_at})`,
@@ -290,24 +292,56 @@ function formatDeadlinesText(out: ComputeDeadlinesOutput): string {
     .join("\n");
 }
 
+function formatBpsPercent(bps: number): string {
+  return `${(bps / 100).toFixed(2).replace(".", ",")} %`;
+}
+
 function formatInterestText(out: ComputeInterest1619Output): string {
-  const trancheLines = out.tranches.map((t) => {
+  const truncatedEndDates = out.tranches
+    .filter((t) => t.truncated)
+    .map((t) => t.effective_end_date)
+    .sort();
+  const truncEndDate =
+    truncatedEndDates[truncatedEndDates.length - 1] ?? out.tranches[0]?.effective_end_date ?? "";
+  const truncBanner = out.truncated_any
+    ? `[CALCUL TRONQUÉ AU ${truncEndDate} — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]`
+    : "";
+
+  const trancheBlocks = out.tranches.flatMap((t) => {
     const truncNote = t.truncated
       ? ` [TRONQUÉ au ${t.effective_end_date}, trimestre manquant : ${t.missing_quarter}]`
       : "";
-    return `- ${t.label} : capital ${t.principal_cad} $ (${t.start_date_excluded} exclu → ${t.effective_end_date} inclus, ${t.accrued_days} j) → intérêt total ${t.total_interest_cad} $ (légal ${t.legal_interest_cad} $, ind. add. ${t.additional_indemnity_cad} $, conv. ${t.contractual_interest_cad} $)${truncNote}`;
+    const summaryLine = `- ${t.label} : capital ${t.principal_cad} $ (${t.start_date_excluded} exclu → ${t.effective_end_date} inclus, ${t.accrued_days} j) → intérêt total ${t.total_interest_cad} $ (légal ${t.legal_interest_cad} $, ind. add. ${t.additional_indemnity_cad} $, conv. ${t.contractual_interest_cad} $)${truncNote}`;
+    if (t.periods.length === 0) {
+      return [summaryLine];
+    }
+    const tableHeader =
+      "  | Période | Dates (incluses) | Jours | Base | Taux effectif (1619 / L.A.F.) | Intérêt légal | Ind. add. 1619 | Contractuel | Sous-total exact |";
+    const tableSep = "  |---|---|---:|---:|---:|---:|---:|---:|---:|";
+    const periodRows = t.periods.map((p) => {
+      const rateDetail =
+        p.laf_rate_bps !== null
+          ? `${formatBpsPercent(p.effective_rate_bps)} (L.A.F. ${formatBpsPercent(p.laf_rate_bps)} = 5,00 % + ${formatBpsPercent(p.additional_rate_bps)})`
+          : p.contractual_rate_bps > 0
+            ? `${formatBpsPercent(p.effective_rate_bps)} (contractuel)`
+            : formatBpsPercent(p.effective_rate_bps);
+      return `  | ${p.period_label} | ${p.start_date_included} → ${p.end_date_included} | ${p.days} j | /${p.year_days} | ${rateDetail} | ${p.legal_interest_cad_exact_6dec} $ | ${p.additional_indemnity_cad_exact_6dec} $ | ${p.contractual_interest_cad_exact_6dec} $ | ${p.total_interest_cad_exact_6dec} $ |`;
+    });
+    return [summaryLine, tableHeader, tableSep, ...periodRows];
   });
+
   return [
+    truncBanner,
     `Calcul d'intérêts (${out.mode}) — ${out.convention}`,
     `Capital total : ${out.total_principal_cad} $`,
     `Intérêt légal total (5 %) : ${out.total_legal_interest_cad} $`,
     `Indemnité additionnelle totale (art. 1619 C.c.Q.) : ${out.total_additional_indemnity_cad} $`,
     `Intérêt contractuel total : ${out.total_contractual_interest_cad} $`,
     `Intérêts cumulés : ${out.total_interest_cad} $`,
-    `Grand total (capital + intérêts) : ${out.grand_total_cad} $`,
+    `Grand total (capital + intérêts)${truncBanner ? ` ${truncBanner}` : ""} : ${out.grand_total_cad} $`,
     "",
-    "Détail par tranche :",
-    ...trancheLines,
+    "Détail par tranche et ventilation par période :",
+    ...trancheBlocks,
     formatGardesSection(out.gardes),
     `\nSource : ${out.provenance.source} (table ${out.provenance.table_version ?? "n/a"}, vérifiée le ${out.provenance.verified_at})`,
   ]

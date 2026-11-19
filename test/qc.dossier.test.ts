@@ -84,7 +84,10 @@ describe("entrées refusées", () => {
   });
 
   it("sans tiret", () => {
-    expect(analyserNumeroDossier("500").parse_error).toContain("Format invalide");
+    const r = analyserNumeroDossier("500");
+    expect(r.parse_error).toContain("Format invalide");
+    expect(r.parse_error).toContain("NNN-NN-NNNNNN-NNN");
+    expect(r.parse_error).not.toMatch(/NNN-NN-NNNNNN-NN$/);
   });
 
   it("greffe qui n'a pas 3 chiffres", () => {
@@ -146,5 +149,17 @@ describe("greffes particuliers", () => {
 
   it("le tiret cadratin de la juridiction 46 remonte tel quel", () => {
     expect(analyserNumeroDossier("500-46-1").juridiction?.tribunal).toBe("—");
+  });
+
+  it("émet parse_warning sur un numéro judiciaire incomplet ('500-17-12') sans bloquer l'analyse ni le numéro complet", () => {
+    const incomplete = analyserNumeroDossier("500-17-12");
+    expect(incomplete.parse_error).toBeNull();
+    expect(incomplete.greffe_number).toBe("500");
+    expect(incomplete.juridiction_number).toBe("17");
+    expect(incomplete.parse_warning).toContain("NNN-NN-NNNNNN-NNN");
+
+    const complet = analyserNumeroDossier("500-05-123456-241");
+    expect(complet.parse_error).toBeNull();
+    expect(complet.parse_warning).toBeNull();
   });
 });

@@ -2,18 +2,38 @@ import { z } from "zod";
 import { addDays, dayOfWeek, formatIsoDate, frenchWeekday, parseIsoDate } from "./dates.js";
 import { Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
-export const REGIMES = ["qc_cpc", "qc_li", "ca_li"] as const;
+export const REGIMES = ["qc_cpc", "qc_prescription", "qc_li", "ca_li"] as const;
 export const RegimeSchema = z.enum(REGIMES);
 export type HolidayRegime = z.infer<typeof RegimeSchema>;
+
+export const PROVINCES = [
+  "QC",
+  "ON",
+  "BC",
+  "AB",
+  "SK",
+  "MB",
+  "NB",
+  "NS",
+  "PE",
+  "NL",
+  "YT",
+  "NT",
+  "NU",
+] as const;
+export const ProvinceSchema = z.enum(PROVINCES);
+export type Province = z.infer<typeof ProvinceSchema>;
 
 export const REGIME_LABELS_FR: Record<HolidayRegime, string> = {
   qc_cpc:
     "Québec — Code de procédure civile (art. 82 al. 1, 83 al. 3 C.p.c. et art. 61 par. 23° L.I.)",
+  qc_prescription:
+    "Québec — Prescription extinctive et acquisitive (art. 2879 al. 2 C.c.Q. et art. 61 par. 23° L.I.)",
   qc_li: "Québec — Loi d'interprétation générale (art. 61 par. 23° et art. 52 L.I., RLRQ c. I-16)",
   ca_li: "Canada — Loi d'interprétation fédérale (art. 35(1) L.I., L.R.C. 1985, c. I-21)",
 };
 
-export const VERIFIED_CALENDAR_AT = "2026-11-13";
+export const VERIFIED_CALENDAR_AT = "2026-11-19";
 
 export const HolidayEntrySchema = z.object({
   date: z.string().describe("Date du jour férié ou non juridique au format ISO YYYY-MM-DD."),
@@ -27,7 +47,10 @@ export type HolidayEntry = z.infer<typeof HolidayEntrySchema>;
 export const ListHolidaysInputSchema = z.strictObject({
   year: z.number().int().min(1900).max(2200).describe("Année civile visée (entre 1900 et 2200)."),
   regime: RegimeSchema.optional().describe(
-    "Régime juridique applicable : 'qc_cpc' (défaut, C.p.c. incluant samedis, 2 janv. et 26 déc.), 'qc_li' (L.I. Québec sans 2 janv./26 déc.), ou 'ca_li' (L.I. fédérale incluant 30 sept. et 11 nov., excluant 24 juin/2 janv./26 déc.).",
+    "Régime juridique applicable : 'qc_cpc' (défaut, C.p.c. incluant samedis, 2 janv. et 26 déc.), 'qc_prescription' (prescription C.c.Q. : art. 61 par. 23° L.I. sans 2 janv./26 déc. et report du samedi selon art. 2879 al. 2 C.c.Q.), 'qc_li' (L.I. Québec sans 2 janv./26 déc. et sans report du samedi par défaut, sauf art. 52 al. 2 L.I. au bureau de la publicité des droits), ou 'ca_li' (L.I. fédérale incluant 30 sept. et 11 nov., et 24 juin si province='QC').",
+  ),
+  province: ProvinceSchema.optional().describe(
+    "Province ou territoire canadien optionnel (p. ex. 'QC', 'ON', 'BC') : sous 'ca_li' avec 'QC', ajoute le 24 juin (Fête nationale du Québec) en vertu de l'art. 35(1) al. a) L.I. CA.",
   ),
 });
 export type ListHolidaysInput = z.infer<typeof ListHolidaysInputSchema>;
@@ -35,6 +58,7 @@ export type ListHolidaysInput = z.infer<typeof ListHolidaysInputSchema>;
 export const ListHolidaysOutputSchema = z.object({
   year: z.number().int(),
   regime: RegimeSchema,
+  province: ProvinceSchema.nullable(),
   regime_label_fr: z.string(),
   weekly_non_juridical_days: z.array(z.enum(["saturday", "sunday"])),
   saturday_triggers_deadline_rollover: z.boolean(),
@@ -87,7 +111,11 @@ function secondMondayOfMonth(year: number, month: number): string {
   return addDays(firstMondayOfMonth(year, month), 7);
 }
 
-export function getStatutoryHolidaysForYear(year: number, regime: HolidayRegime): HolidayEntry[] {
+export function getStatutoryHolidaysForYear(
+  year: number,
+  regime: HolidayRegime,
+  province?: Province,
+): HolidayEntry[] {
   const easter = computeEasterSunday(year);
   const goodFriday = addDays(easter, -2);
   const easterMonday = addDays(easter, 1);
@@ -100,7 +128,7 @@ export function getStatutoryHolidaysForYear(year: number, regime: HolidayRegime)
 
   const items: Array<Omit<HolidayEntry, "weekday_fr">> = [];
 
-  if (regime === "qc_cpc" || regime === "qc_li") {
+  if (regime === "qc_cpc" || regime === "qc_prescription" || regime === "qc_li") {
     items.push({
       date: formatIsoDate(year, 1, 1),
       name_fr: "Jour de l'an",
@@ -202,6 +230,16 @@ export function getStatutoryHolidaysForYear(year: number, regime: HolidayRegime)
         legal_basis: "art. 35(1) L.I. CA",
         movable: true,
       },
+    );
+    if (province === "QC") {
+      items.push({
+        date: formatIsoDate(year, 6, 24),
+        name_fr: "Fête nationale du Québec",
+        legal_basis: "art. 35(1) al. a) L.I. CA; art. 61 par. 23° e) L.I. QC",
+        movable: false,
+      });
+    }
+    items.push(
       {
         date: canadaDay,
         name_fr: canadaDayShifted
@@ -261,6 +299,7 @@ export function isNonJuridicalDate(
   rolloverSaturday: boolean,
   extraNonJuridicalDates?: ReadonlySet<string>,
   yearCache?: Map<number, Map<string, HolidayEntry>>,
+  province?: Province,
 ): { nonJuridical: boolean; reason: string | null } {
   if (extraNonJuridicalDates?.has(isoDate)) {
     return { nonJuridical: true, reason: "jour férié/fermeture additionnel fourni" };
@@ -274,10 +313,13 @@ export function isNonJuridicalDate(
     if (regime === "qc_cpc") {
       return { nonJuridical: true, reason: "samedi (art. 82 al. 1, 83 al. 3 C.p.c.)" };
     }
+    if (regime === "qc_prescription") {
+      return { nonJuridical: true, reason: "samedi (art. 2879 al. 2 C.c.Q.)" };
+    }
     if (rolloverSaturday) {
       const basis =
         regime === "qc_li"
-          ? "samedi reporté (art. 52 al. 1 L.I. QC)"
+          ? "samedi reporté (art. 52 al. 2 L.I. QC)"
           : "samedi reporté selon rollover_saturday=true (art. 26 L.I. CA / pratique administrative)";
       return { nonJuridical: true, reason: basis };
     }
@@ -286,7 +328,7 @@ export function isNonJuridicalDate(
   const { year } = parseIsoDate(isoDate);
   let byDate = yearCache?.get(year);
   if (!byDate) {
-    byDate = new Map(getStatutoryHolidaysForYear(year, regime).map((h) => [h.date, h]));
+    byDate = new Map(getStatutoryHolidaysForYear(year, regime, province).map((h) => [h.date, h]));
     yearCache?.set(year, byDate);
   }
   const hit = byDate.get(isoDate);
@@ -296,26 +338,40 @@ export function isNonJuridicalDate(
   return { nonJuridical: false, reason: null };
 }
 
+export function caProvinceHolidayNote(province?: Province): string {
+  if (province === "QC") {
+    return "Sous ca_li avec province='QC', la Fête nationale du Québec (24 juin, art. 35(1) al. a) L.I. CA) est incluse ; vérifier toutefois les jours fériés municipaux éventuels (art. 35(1) al. b) L.I. CA) et les vacances judiciaires des Cours fédérales.";
+  }
+  if (province) {
+    return `Sous ca_li avec province='${province}', seuls les jours fériés fédéraux généraux sont inclus automatiquement ; vérifier les jours fériés propres à la province '${province}' (art. 35(1) al. a)-b) L.I. CA) et les vacances judiciaires des Cours fédérales.`;
+  }
+  return "Sous ca_li (sans province), les jours fériés provinciaux/municipaux (art. 35(1) al. a)-b) L.I. CA, p. ex. le 24 juin au Québec en précisant province='QC') et les vacances judiciaires des Cours fédérales ne sont pas inclus automatiquement.";
+}
+
 export function listHolidays(input: ListHolidaysInput): ListHolidaysOutput {
   const regime: HolidayRegime = input.regime ?? "qc_cpc";
-  const holidays = getStatutoryHolidaysForYear(input.year, regime);
+  const province = input.province ?? null;
+  if (province !== null && province !== "QC" && regime !== "ca_li") {
+    throw new RangeError(
+      `Le paramètre province='${province}' hors Québec ne s'applique qu'au régime fédéral 'ca_li'.`,
+    );
+  }
+  const holidays = getStatutoryHolidaysForYear(input.year, regime, input.province);
 
   const gardes: Garde[] = [];
   if (regime === "qc_li") {
     gardes.push(makeGarde("SAMEDI_CONGE_LOI_INTERPRETATION_QC"));
   }
-  const caNote =
-    regime === "ca_li"
-      ? "Sous ca_li, les jours fériés provinciaux/municipaux (art. 35(1) al. a)-b) L.I. CA) et les vacances judiciaires des Cours fédérales ne sont pas inclus automatiquement."
-      : undefined;
+  const caNote = regime === "ca_li" ? caProvinceHolidayNote(input.province) : undefined;
   gardes.push(makeGarde("JOURS_PROCLAMES_NON_PREVISIBLES", caNote));
 
   return {
     year: input.year,
     regime,
+    province,
     regime_label_fr: REGIME_LABELS_FR[regime],
     weekly_non_juridical_days: regime === "qc_cpc" ? ["saturday", "sunday"] : ["sunday"],
-    saturday_triggers_deadline_rollover: regime === "qc_cpc" || regime === "qc_li",
+    saturday_triggers_deadline_rollover: regime === "qc_cpc" || regime === "qc_prescription",
     holidays,
     count: holidays.length,
     provenance: {

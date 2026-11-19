@@ -707,16 +707,166 @@ export const AdresseVerifyInputSchema = z.strictObject({
 });
 export type AdresseVerifyInput = z.infer<typeof AdresseVerifyInputSchema>;
 
+const OUTSIDE_QC_PROVINCE_NAMES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^(?:ontario)$/i, "Ontario"],
+  [/^(?:colombie[- ]britannique|british columbia)$/i, "Colombie-Britannique / BC"],
+  [/^(?:alberta)$/i, "Alberta"],
+  [/^(?:saskatchewan)$/i, "Saskatchewan"],
+  [/^(?:manitoba)$/i, "Manitoba"],
+  [/^(?:nouveau[- ]brunswick|new brunswick)$/i, "Nouveau-Brunswick / NB"],
+  [/^(?:nouvelle[- ]ecosse|nova scotia)$/i, "Nouvelle-Écosse / NS"],
+  [/^(?:ile[- ]du[- ]prince[- ]edouard|prince edward island)$/i, "Île-du-Prince-Édouard / PE"],
+  [
+    /^(?:terre[- ]neuve(?:-et-labrador)?|newfoundland(?: and labrador)?)$/i,
+    "Terre-Neuve-et-Labrador / NL",
+  ],
+  [/^(?:yukon)$/i, "Yukon"],
+  [/^(?:territoires du nord[- ]ouest|northwest territories)$/i, "Territoires du Nord-Ouest / NT"],
+  [/^(?:nunavut)$/i, "Nunavut"],
+];
+
+const OUTSIDE_QC_PROV_CODES = new Set([
+  "ON",
+  "BC",
+  "AB",
+  "SK",
+  "MB",
+  "NB",
+  "NS",
+  "PE",
+  "PEI",
+  "NL",
+  "YT",
+  "NT",
+  "NU",
+]);
+
+const OUTSIDE_QC_MAJOR_CITIES = new Set([
+  "toronto",
+  "ottawa",
+  "mississauga",
+  "brampton",
+  "hamilton",
+  "kitchener",
+  "waterloo",
+  "markham",
+  "vaughan",
+  "oakville",
+  "burlington",
+  "windsor",
+  "kingston",
+  "oshawa",
+  "barrie",
+  "sudbury",
+  "thunder bay",
+  "vancouver",
+  "surrey",
+  "burnaby",
+  "victoria",
+  "kelowna",
+  "calgary",
+  "edmonton",
+  "red deer",
+  "lethbridge",
+  "regina",
+  "saskatoon",
+  "winnipeg",
+  "brandon",
+  "fredericton",
+  "moncton",
+  "saint john",
+  "halifax",
+  "dartmouth",
+  "charlottetown",
+  "st john s",
+  "whitehorse",
+  "yellowknife",
+  "iqaluit",
+]);
+
+function matchProvinceToken(raw: string, requireUppercaseCode: boolean): string | null {
+  const cleaned = raw.replace(/[.,]+$/g, "").trim();
+  if (!cleaned) return null;
+  if (requireUppercaseCode && OUTSIDE_QC_PROV_CODES.has(cleaned)) {
+    return cleaned;
+  }
+  const folded = foldAddressToken(cleaned);
+  for (const [re, label] of OUTSIDE_QC_PROVINCE_NAMES) {
+    if (re.test(folded)) return label;
+  }
+  return null;
+}
+
+function detectOutsideQuebecIndicator(input: AdresseVerifyInput): string | null {
+  const checkStr = (raw: string | undefined, isMunicipalityField: boolean): string | null => {
+    if (!raw) return null;
+    // Retirer code postal canadien et « Canada » en fin de chaîne pour inspecter le segment province
+    let work = raw
+      .replace(/\b[A-Za-z]\d[A-Za-z]\s*-?\s*\d[A-Za-z]\d\b/g, " ")
+      .replace(/,\s*canada\s*$/i, " ")
+      .trim();
+
+    const parenRe = /\(\s*([^)]+)\s*\)/g;
+    for (const pm of work.matchAll(parenRe)) {
+      const hit = matchProvinceToken(pm[1]!, true);
+      if (hit) return hit;
+    }
+    work = work.replace(parenRe, " ").replace(/\s+/g, " ").trim();
+
+    const segments = work
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (segments.length === 0) return null;
+
+    // Inspecter le dernier segment (et l'avant-dernier si le dernier est Canada)
+    const startIdx = isMunicipalityField ? 0 : Math.max(0, segments.length - 1);
+    for (let i = segments.length - 1; i >= startIdx; i--) {
+      const seg = segments[i]!;
+      const direct = matchProvinceToken(seg, true);
+      if (direct && (isMunicipalityField || segments.length >= 2)) {
+        return direct;
+      }
+      // « Toronto ON » ou « Calgary AB » ou « Ottawa Ontario »
+      const tokens = seg.split(/\s+/).filter(Boolean);
+      if (tokens.length >= 2) {
+        const lastTok = tokens[tokens.length - 1]!;
+        const prevFold = foldAddressToken(tokens[tokens.length - 2]!);
+        const notStreetPrev =
+          !GENERIC_MAP[prevFold] &&
+          !PARTICLE_SET.has(prevFold) &&
+          prevFold !== "rue" &&
+          prevFold !== "boul" &&
+          prevFold !== "av";
+        if (notStreetPrev) {
+          const hit1 = matchProvinceToken(lastTok, true);
+          if (hit1) return hit1;
+          if (tokens.length >= 3) {
+            const hit2 = matchProvinceToken(tokens.slice(-2).join(" "), true);
+            if (hit2) return hit2;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  return checkStr(input.municipality, true) ?? checkStr(input.address, false);
+}
+
 export const MatchStatusSchema = z.enum([
   "exact_civic",
   "exact_civic_unit_unconfirmed",
   "fuzzy_street_exact_civic",
   "street_only_no_civic_match",
+  "outside_quebec",
   "not_found",
 ]);
 export type MatchStatus = z.infer<typeof MatchStatusSchema>;
 
 export const CandidatAdresseSchema = z.object({
+  id_adresse: z.number().int().nullable(),
+  seqodo: z.string().nullable(),
   adresse_normalisee: z.string(),
   composantes: z.object({
     numero_municipal: z.number().int().nullable(),
@@ -860,6 +1010,21 @@ export async function adresseVerify(
     .first<{ version_date: string }>();
   const verifiedAt = metaRow?.version_date ?? "2026-11-01";
 
+  const outsideProvince = detectOutsideQuebecIndicator(input);
+  if (outsideProvince) {
+    corrections.push(
+      `Indicateur territorial hors Québec détecté (« ${outsideProvince} ») : adresse hors du champ de couverture du RQA (Québec uniquement).`,
+    );
+    return buildFinalAdresseResult({
+      status: "outside_quebec",
+      candidates: [],
+      corrections,
+      verifiedAt,
+      rawQuerySummary: input.address ?? input.street ?? "",
+      outsideProvinceLabel: outsideProvince,
+    });
+  }
+
   // 1) Résoudre les municipalités candidates si fournies
   const munMap = new Map<string, RawMunRow>();
   if (parsed.municipalityNorm) {
@@ -875,6 +1040,30 @@ export async function adresseVerify(
       .all<RawMunRow>();
     for (const m of munRes.results) {
       munMap.set(m.code_municipalite, m);
+    }
+  }
+
+  // Détecter aussi un code postal hors série G/H/J ou une grande ville canadienne hors QC lorsque aucune municipalité QC ne correspond
+  if (munMap.size === 0) {
+    const nonQcPostal =
+      parsed.postalCodeCompact !== null && !/^[GHJ]/.test(parsed.postalCodeCompact);
+    const nonQcCity =
+      parsed.municipalityNorm !== null && OUTSIDE_QC_MAJOR_CITIES.has(parsed.municipalityNorm);
+    if (nonQcPostal || nonQcCity) {
+      const reason = nonQcCity
+        ? `${parsed.municipalityOriginal ?? parsed.municipalityNorm}`
+        : `code postal hors série G/H/J (${formatPostalCode(parsed.postalCodeCompact)})`;
+      corrections.push(
+        `Indicateur hors Québec détecté (${reason}) : adresse hors du champ de couverture du RQA (Québec uniquement).`,
+      );
+      return buildFinalAdresseResult({
+        status: "outside_quebec",
+        candidates: [],
+        corrections,
+        verifiedAt,
+        rawQuerySummary: input.address ?? input.street ?? "",
+        outsideProvinceLabel: reason,
+      });
     }
   }
 
@@ -1122,6 +1311,8 @@ export async function adresseVerify(
         .first<{ min_n: number | null; max_n: number | null }>();
 
       streetCandidates.push({
+        id_adresse: null,
+        seqodo: odo.seqodo,
         adresse_normalisee: formatNormalizedQuebecAddress({
           civic: null,
           suffix: "",
@@ -1374,6 +1565,8 @@ export async function adresseVerify(
         : [];
 
       return {
+        id_adresse: Number(item.civ.id),
+        seqodo: item.odo.seqodo,
         adresse_normalisee: formatNormalizedQuebecAddress({
           civic: item.civ.numero_municipal,
           suffix: effectiveSuffix,
@@ -1445,6 +1638,8 @@ export async function adresseVerify(
     }
 
     noCivicCandidates.push({
+      id_adresse: null,
+      seqodo: odo.seqodo,
       adresse_normalisee: formatNormalizedQuebecAddress({
         civic: null,
         suffix: "",
@@ -1499,12 +1694,13 @@ function buildFinalAdresseResult(opts: {
   corrections: string[];
   verifiedAt: string;
   rawQuerySummary: string;
+  outsideProvinceLabel?: string;
 }): { ok: true; structured: AdresseVerifyOutput; text: string } {
   const gardes: Garde[] = [
     makeGarde("ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE"),
     makeGarde("ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE"),
   ];
-  if (opts.status !== "exact_civic") {
+  if (opts.status !== "exact_civic" && opts.status !== "outside_quebec") {
     gardes.push(makeGarde("ADRESSE_CORRESPONDANCE_APPROXIMATIVE"));
   }
 
@@ -1528,7 +1724,13 @@ function buildFinalAdresseResult(opts: {
     gardes,
   };
 
+  const labelCounts = new Map<string, number>();
+  for (const c of opts.candidates) {
+    labelCounts.set(c.adresse_normalisee, (labelCounts.get(c.adresse_normalisee) ?? 0) + 1);
+  }
+
   const candLines = opts.candidates.map((c, idx) => {
+    const duplicateLabel = (labelCounts.get(c.adresse_normalisee) ?? 0) > 1;
     const lotsStr =
       c.lots_cadastraux.length > 0
         ? ` | Lots RQA (indicatifs) : ${c.lots_cadastraux.join(", ")}`
@@ -1537,10 +1739,28 @@ function buildFinalAdresseResult(opts: {
     const plageStr = c.plage_civique_rue
       ? ` | Plage civique répertoriée : ${c.plage_civique_rue.min} à ${c.plage_civique_rue.max}`
       : "";
+    const diffAttrs: string[] = [];
+    if (duplicateLabel) {
+      if (c.id_adresse !== null) diffAttrs.push(`id_adresse=${c.id_adresse}`);
+      if (c.seqodo) diffAttrs.push(`seqodo=${c.seqodo}`);
+      diffAttrs.push(`code_mun=${c.composantes.code_municipalite}`);
+      if (c.composantes.mrc) diffAttrs.push(`MRC=${c.composantes.mrc}`);
+      if (c.composantes.region_administrative) {
+        diffAttrs.push(`région=${c.composantes.region_administrative}`);
+      }
+      if (c.composantes.code_postal) diffAttrs.push(`code_postal=${c.composantes.code_postal}`);
+      if (c.composantes.unite) diffAttrs.push(`unité=${c.composantes.unite}`);
+      if (c.coordonnees) {
+        diffAttrs.push(
+          `coord=${c.coordonnees.latitude.toFixed(5)},${c.coordonnees.longitude.toFixed(5)}`,
+        );
+      }
+    }
+    const diffStr = diffAttrs.length > 0 ? ` | ${diffAttrs.join(", ")}` : "";
     const distStr = c.district_judiciaire_probable
       ? `\n  District judiciaire probable : ${c.district_judiciaire_probable.district} (greffes ${c.district_judiciaire_probable.greffes.join(", ")}) — sous réserve`
       : "";
-    return `${idx + 1}. ${c.adresse_normalisee} [état=${c.etat_rqa ?? "rue seule"}, cat=${c.categorie_rqa ?? "n/d"}${plageStr}${lotsStr}${matStr}]${distStr}`;
+    return `${idx + 1}. ${c.adresse_normalisee} [état=${c.etat_rqa ?? "rue seule"}, cat=${c.categorie_rqa ?? "n/d"}${plageStr}${lotsStr}${matStr}${diffStr}]${distStr}`;
   });
 
   const corrLines =
@@ -1548,12 +1768,15 @@ function buildFinalAdresseResult(opts: {
       ? ["", "Normalisations et observations :", ...opts.corrections.map((c) => `- ${c}`)]
       : [];
 
+  const emptyMsg =
+    opts.status === "outside_quebec"
+      ? `Adresse hors Québec (« ${opts.outsideProvinceLabel ?? "hors province"} ») — hors du champ de couverture du RQA (qui couvre exclusivement les municipalités du Québec).`
+      : "Aucune adresse ni voie correspondante trouvée au RQA.";
+
   const text = [
     `Vérification d'adresse au RQA pour « ${opts.rawQuerySummary.trim()} » — statut : ${opts.status}`,
     ...(bestAddr ? [`Adresse normalisée retenue : ${bestAddr}`] : []),
-    ...(candLines.length > 0
-      ? ["", "Candidats :", ...candLines]
-      : ["Aucune adresse ni voie correspondante trouvée au RQA."]),
+    ...(candLines.length > 0 ? ["", "Candidats :", ...candLines] : [emptyMsg]),
     ...corrLines,
     "",
     "Gardes :",

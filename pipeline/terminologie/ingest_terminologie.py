@@ -69,6 +69,7 @@ BIJURAL_COMPANIONS_EN: dict[str, str] = {
     "tort": "extracontractual",
     "easement": "servitude",
     "joint and several": "solidar",
+    "estoppel": "fin de non-recevoir",
 }
 
 BIJURAL_COMPANIONS_FR: dict[str, str] = {
@@ -77,6 +78,7 @@ BIJURAL_COMPANIONS_FR: dict[str, str] = {
     "biens réels": "immeubles",
     "bien personnel": "meuble",
     "biens personnels": "meubles",
+    "estoppel": "fin de non-recevoir",
 }
 
 EXTRA_SCAN_RULES: list[dict] = [
@@ -178,6 +180,85 @@ EXTRA_SCAN_RULES: list[dict] = [
         "reason_fr": "Concept de common law ; dans la version anglaise officielle du C.c.Q., la solidarité se dit « solidary obligation / solidarily » (art. 1523 C.c.Q.).",
         "suggested_replacement": "solidary / solidarily",
         "legal_basis": "Art. 1523 C.c.Q.",
+    },
+    {
+        "code_regle": "en-estoppel",
+        "lang": "en",
+        "pattern_term": "estoppel",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": "fin de non-recevoir",
+        "reason_fr": "Doctrine d'equity de common law étrangère au droit civil québécois ; employer plutôt la fin de non-recevoir fondée sur la bonne foi et l'interdiction de l'abus de droit (art. 6, 7 et 1375 C.c.Q.).",
+        "suggested_replacement": "fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.)",
+        "legal_basis": "Art. 6, 7 et 1375 C.c.Q.",
+        "override": True,
+    },
+    {
+        "code_regle": "fr-estoppel",
+        "lang": "fr",
+        "pattern_term": "estoppel",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": "fin de non-recevoir",
+        "reason_fr": "Doctrine d'equity de common law étrangère au droit civil québécois ; employer plutôt la fin de non-recevoir fondée sur la bonne foi et l'interdiction de l'abus de droit (art. 6, 7 et 1375 C.c.Q.).",
+        "suggested_replacement": "fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.)",
+        "legal_basis": "Art. 6, 7 et 1375 C.c.Q.",
+        "override": True,
+    },
+    {
+        "code_regle": "en-hold-harmless",
+        "lang": "en",
+        "pattern_term": "hold harmless",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": None,
+        "reason_fr": "Formule de common law ; en droit civil québécois, employer « indemnify and take up the defence » (« garantir et prendre fait et cause »).",
+        "suggested_replacement": "indemnify and take up the defence (garantir et prendre fait et cause)",
+        "legal_basis": "Art. 1434 C.c.Q. ; art. 184 C.p.c.",
+    },
+    {
+        "code_regle": "en-liquidated-damages",
+        "lang": "en",
+        "pattern_term": "liquidated damages",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": "penal clause",
+        "reason_fr": "Distinction de common law entre « liquidated damages » et « penalty » inapplicable sous le C.c.Q., qui reconnaît la « penal clause » (« clause pénale »).",
+        "suggested_replacement": "penal clause (clause pénale)",
+        "legal_basis": "Art. 1622–1623 C.c.Q.",
+    },
+    {
+        "code_regle": "fr-specific-performance",
+        "lang": "fr",
+        "pattern_term": "specific performance",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": None,
+        "reason_fr": "Emprunt à l'anglais dans un texte français ; en droit civil québécois, employer « exécution en nature » (art. 1590 et 1601 C.c.Q.).",
+        "suggested_replacement": "exécution en nature",
+        "legal_basis": "Art. 1590 et 1601 C.c.Q.",
+    },
+    {
+        "code_regle": "fr-punitive-damages",
+        "lang": "fr",
+        "pattern_term": "punitive damages",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": None,
+        "reason_fr": "Emprunt à l'anglais dans un texte français ; employer « dommages-intérêts punitifs » (art. 1621 C.c.Q.).",
+        "suggested_replacement": "dommages-intérêts punitifs",
+        "legal_basis": "Art. 1621 C.c.Q.",
+    },
+    {
+        "code_regle": "fr-trustee",
+        "lang": "fr",
+        "pattern_term": "trustee",
+        "case_sensitive": 0,
+        "risk_category": "anglicisme_ou_common_law",
+        "allowed_in_bijural_if": None,
+        "reason_fr": "Emprunt à l'anglais dans un texte français ; selon le contexte, employer « fiduciaire » (art. 1260 C.c.Q.) ou « syndic » (L.F.I.).",
+        "suggested_replacement": "fiduciaire / syndic",
+        "legal_basis": "Art. 1260 C.c.Q. ; art. 2 L.F.I.",
     },
 ]
 
@@ -358,10 +439,35 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
         reason_fr: str,
         suggested_replacement: str,
         legal_basis: str,
+        override: bool = False,
     ) -> None:
         nonlocal regle_id
         p_norm = normalize_search_text(pattern_term)
-        if not p_norm or (lang, p_norm) in regles_seen:
+        if not p_norm:
+            return
+        if (lang, p_norm) in regles_seen:
+            if not override:
+                return
+            conn.execute(
+                """
+                UPDATE regles_contamination
+                   SET code_regle = ?, pattern_term = ?, case_sensitive = ?, risk_category = ?,
+                       allowed_in_bijural_if = ?, reason_fr = ?, suggested_replacement = ?, legal_basis = ?
+                 WHERE lang = ? AND pattern_norm = ?
+                """,
+                (
+                    code_regle,
+                    pattern_term,
+                    case_sensitive,
+                    risk_category,
+                    allowed_in_bijural_if,
+                    reason_fr,
+                    suggested_replacement,
+                    legal_basis,
+                    lang,
+                    p_norm,
+                ),
+            )
             return
         regles_seen.add((lang, p_norm))
         regle_id += 1

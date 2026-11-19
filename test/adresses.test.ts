@@ -477,4 +477,81 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       subHarness.close();
     }
   });
+
+  it("détecte les adresses hors Québec (sans faux positif sur 'rue Ontario' au Québec) et affiche les attributs distinctifs sur libellés identiques", async () => {
+    const schemaSql = readFileSync(resolve(process.cwd(), "pipeline/adresses/schema.sql"), "utf-8");
+    const indexesSql = readFileSync(
+      resolve(process.cwd(), "pipeline/adresses/indexes.sql"),
+      "utf-8",
+    );
+    const dupHarness = createSqliteD1Harness({
+      seedSql: [
+        schemaSql,
+        indexesSql,
+        `
+        INSERT INTO meta_sources VALUES ('rqa', 'RQA', 'CC-BY-4.0', '2026-09-01', 3);
+        INSERT INTO municipalites VALUES
+          ('66023', 'Montréal', 'montreal', 'mtl', 'Montréal', 'Montréal');
+        INSERT INTO odonymes VALUES
+          (1, '66023', '8001', 'rue', NULL, 'Ontario', 'Est', 'rue Ontario Est', 'rue Ontario Est', 'ontario', '${computeConsonantKey("Ontario")}', ''),
+          (2, '66023', '9001', 'rue', NULL, 'Principale', NULL, 'rue Principale', 'rue Principale', 'principale', '${computeConsonantKey("Principale")}', ''),
+          (3, '66023', '9002', 'rue', NULL, 'Principale', NULL, 'rue Principale', 'rue Principale', 'principale', '${computeConsonantKey("Principale")}', '');
+        INSERT INTO adresses_civiques VALUES
+          (1, 1, 1500, '', '', NULL, 'H2K1Y5', 'C', 'Principal', '3000001', '9001-00-0001', 45.524, -73.558),
+          (2, 2, 42, '', '', NULL, NULL, 'C', 'Principal', '3000002', '9002-00-0002', 45.501, -73.561),
+          (3, 3, 42, '', '', NULL, NULL, 'C', 'Principal', '3000003', '9003-00-0003', 45.545, -73.602);
+        INSERT INTO odonymes_fts(rowid, specifique, odonyme_normal, renvois_recherche)
+          SELECT id, specifique, odonyme_normal, renvois_recherche FROM odonymes;
+        INSERT INTO odonymes_trigram(rowid, specifique_norm)
+          SELECT id, specifique_norm FROM odonymes;
+        `,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      // 1) Adresses hors Québec (ON / BC / AB) -> status outside_quebec sans garde d'approximation
+      for (const addr of [
+        "100 King Street West, Toronto, ON M5X 1C9",
+        "123 Main Street, Vancouver, British Columbia",
+        "456 Jasper Ave, Edmonton, Alberta T5J 1Z2",
+      ]) {
+        const res = await adresseVerify(dupHarness.d1, { address: addr });
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+          const parsed = AdresseVerifyOutputSchema.parse(res.structured);
+          expect(parsed.status).toBe("outside_quebec");
+          expect(parsed.gardes.map((g) => g.code)).not.toContain(
+            "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+          );
+          expect(res.text).toContain("Adresse hors Québec");
+        }
+      }
+
+      // 2) Une rue québécoise nommée « Ontario » à Montréal ne déclenche JAMAIS outside_quebec
+      const rueOntario = await adresseVerify(dupHarness.d1, {
+        address: "1500, rue Ontario Est, Montréal",
+      });
+      expect(rueOntario.ok).toBe(true);
+      if (rueOntario.ok) {
+        expect(rueOntario.structured.status).toBe("exact_civic");
+      }
+
+      // 3) Plusieurs candidats partageant exactement le même libellé affichent leurs attributs distinctifs
+      const dup = await adresseVerify(dupHarness.d1, {
+        address: "42, rue Principale, Montréal",
+      });
+      expect(dup.ok).toBe(true);
+      if (dup.ok) {
+        expect(dup.structured.candidates).toHaveLength(2);
+        expect(dup.structured.candidates.map((c) => c.id_adresse)).toEqual([2, 3]);
+        expect(dup.text).toContain("id_adresse=2");
+        expect(dup.text).toContain("seqodo=9001");
+        expect(dup.text).toContain("id_adresse=3");
+        expect(dup.text).toContain("seqodo=9002");
+      }
+    } finally {
+      dupHarness.close();
+    }
+  });
 });

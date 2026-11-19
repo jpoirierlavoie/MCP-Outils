@@ -1,6 +1,6 @@
 # MCP-Outils — Architecture, principes et consignes de travail
 
-Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.1.0`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
+Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.2.0`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
 
 ---
 
@@ -57,8 +57,8 @@ Tous les outils déclarent les annotations MCP :
 - `destructiveHint: false` (aucune destruction)
 
 ### A. Famille `calcul` (arithmétique déterministe pure)
-1. `calendrier_holidays` : Jours fériés et non juridiques d'une année civile (`qc_cpc`, `qc_li`, `ca_li`).
-2. `calendrier_deadlines` : Chaîne de 1 à 25 délais procéduraux ou légaux (report art. 83 C.p.c., art. 111 al. 2 C.p.c. après 17h00, délais à rebours, hors séance art. 82 al. 2 C.p.c.).
+1. `calendrier_holidays` : Jours fériés et non juridiques d'une année civile (`qc_cpc`, `qc_prescription`, `qc_li`, `ca_li` avec `province` optionnel pour `QC` le 24 juin).
+2. `calendrier_deadlines` : Chaîne de 1 à 25 délais procéduraux ou légaux (`qc_cpc`, `qc_prescription` art. 2879 al. 2 C.c.Q., `qc_li` `rollover_saturday=false` par défaut, `ca_li` avec `province`, report art. 83 C.p.c., art. 111 al. 2 C.p.c. après 17h00, délais à rebours, hors séance art. 82 al. 2 C.p.c.).
 3. `interets_1619` : Calcul rationnel exact en `BigInt` des intérêts légaux (5 %) et de l'indemnité additionnelle (art. 1619 C.c.Q. / art. 28 L.A.F., convention Exact/Exact, 1 à 50 tranches).
 
 ### B. Famille `greffe` (tables statiques MJQ compilées)
@@ -121,7 +121,7 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` : Page HTML bilingue dérivée de `listToolDescriptors()` (CSP stricte, zéro JSON à la racine, `405` sur autres méthodes).
-   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.1.0"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
+   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.2.0"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
    - `GET` / `HEAD` / `OPTIONS /mcp/server-card` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
    - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, plafond `MAX_MCP_BODY_BYTES = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), désencapsulation SSE → JSON, limiteur `RATE_LIMITER` (60 req/min/IP → `429`).
 2. **Topologie D1 à 3 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
@@ -154,7 +154,7 @@ Tous les outils déclarent les annotations MCP :
 4. **Invariant 4 : Intégrité verbatim des gardes MJQ** (`src/qc/format.ts`) et **exclusion des sources terminologiques protégées** (jamais Crépeau/McGill, Juriterm ni Juridictionnaire).
 5. **Invariant 5 : Nomenclature pure sans plumitif** (`greffe_parse_number`, positions 1 à 6 uniquement), **instantanés corporatifs sans dirigeants personnes physiques** (`registre_*`) et **existence civique municipale distincte du domicile et du Registre foncier** (`adresse_verify`).
 6. **Invariant 6 : La page publique `/` dérive du code** (`listToolDescriptors()`, identité visuelle partagée avec `MCP-Legislation` et `MCP-Jurisprudence`).
-7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.1.0`, raccourcissement `v2.0.0` de 7 noms d'outils).
+7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.0`, raccourcissement `v2.0.0` de 7 noms d'outils).
 8. **Invariant 8 : Limitation de débit d'arête (60 req/min/IP) et taille maximale (64 KiB)**.
 9. **Invariant 9 : Gouvernance Git (`main-pr-and-ci`)** — Le contournement administrateur du ruleset `main-pr-and-ci` est restreint à `pull_request` : **ne jamais pousser directement sur `main`** ; travailler sur une branche dédiée, ouvrir une Pull Request, attendre le passage des contrôles requis (`verify`, `CodeQL`, `OSV-Scanner`, `Trivy`), puis fusionner par *squash* (`gh pr merge --squash --delete-branch`).
 

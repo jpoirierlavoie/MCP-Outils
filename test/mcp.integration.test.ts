@@ -86,7 +86,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("2.1.0");
+    expect(healthJson.version).toBe("2.2.0");
     expect(healthJson.commit).toBe("inconnu");
     expect(healthJson.request_payload_logging).toBe(false);
 
@@ -190,7 +190,7 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("2.1.0");
+    expect(cardBody.version).toBe("2.2.0");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",
@@ -359,6 +359,18 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(dStructured.results[0]!.effective_anchor_date).toBe("2026-07-06");
     expect(dStructured.results[0]!.effective_date).toBe("2026-07-21");
 
+    const initRes = await mcpPost("initialize", {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "vitest", version: "1.0.0" },
+    });
+    expect(initRes.status).toBe(200);
+    const instructions = String(initRes.body.result?.instructions ?? "");
+    expect(instructions).toContain("« lois »");
+    expect(instructions).toContain("« juris »");
+    expect(instructions).not.toContain("« Legislation »");
+    expect(instructions).not.toContain("« Jurisprudence »");
+
     const interestCall = await mcpPost("tools/call", {
       name: "interets_1619",
       arguments: {
@@ -372,6 +384,29 @@ describe("Worker HTTP & intégration MCP", () => {
       interestCall.body.result?.structuredContent,
     );
     expect(iStructured.total_interest_cents).toBe(824_658);
+    const iText =
+      ((interestCall.body.result?.content as Array<{ text?: string }>) ?? [])[0]?.text ?? "";
+    expect(iText).toContain("| Période | Dates (incluses) | Jours | Base |");
+    expect(iText).toContain("2025-Q1");
+    expect(iText).toContain("Sous-total exact");
+
+    const truncCall = await mcpPost("tools/call", {
+      name: "interets_1619",
+      arguments: {
+        mode: "legal_plus_1619",
+        end_date: "2027-06-30",
+        tranches: [{ principal_cents: 10_000_000, start_date: "2026-09-30" }],
+      },
+    });
+    expect(truncCall.status).toBe(200);
+    const tText =
+      ((truncCall.body.result?.content as Array<{ text?: string }>) ?? [])[0]?.text ?? "";
+    expect(
+      tText.startsWith("[CALCUL TRONQUÉ AU 2026-12-31 — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]"),
+    ).toBe(true);
+    expect(tText).toContain(
+      "Grand total (capital + intérêts) [CALCUL TRONQUÉ AU 2026-12-31 — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]",
+    );
 
     // Date invalide via MCP -> isError: true sans plantage HTTP 500
     const badDateCall = await mcpPost("tools/call", {

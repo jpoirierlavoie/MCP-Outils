@@ -145,6 +145,7 @@ export const ParseCourtFileOutputSchema = z.object({
     })
     .nullable(),
   parse_error: z.string().nullable(),
+  parse_warning: z.string().nullable(),
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
@@ -281,6 +282,7 @@ export function parseCourtFile(input: ParseCourtFileInput): {
         juridiction_number: null,
         juridiction: null,
         parse_error: null,
+        parse_warning: null,
         provenance,
         gardes: [makeGarde("DOSSIER_NOMENCLATURE_SEULEMENT")],
       },
@@ -309,6 +311,7 @@ export function parseCourtFile(input: ParseCourtFileInput): {
         juridiction_number: null,
         juridiction: null,
         parse_error: null,
+        parse_warning: null,
         provenance,
         gardes: [makeGarde("DOSSIER_NOMENCLATURE_SEULEMENT")],
       },
@@ -324,6 +327,9 @@ export function parseCourtFile(input: ParseCourtFileInput): {
       "greffe, deux de juridiction. Les tribunaux administratifs et les cours fédérales",
       "emploient plutôt un préfixe alphabétique (TAL-…, C.F.-…).",
     );
+    if (/\s-\s|\s-|-\s/.test(propre)) {
+      lignes.push("Astuce : ne pas insérer d'espaces autour des tirets (ex. : 500-05-123456-241).");
+    }
     const text = [...lignes, "", GARDE_DOSSIER].join("\n");
     return {
       text,
@@ -337,6 +343,7 @@ export function parseCourtFile(input: ParseCourtFileInput): {
         juridiction_number: null,
         juridiction: null,
         parse_error: r.parse_error,
+        parse_warning: null,
         provenance,
         gardes: [makeGarde("DOSSIER_NOMENCLATURE_SEULEMENT")],
       },
@@ -404,6 +411,7 @@ export function parseCourtFile(input: ParseCourtFileInput): {
   }
 
   if (r.parse_error) lignes.push("", `⚠ ${r.parse_error}`);
+  if (r.parse_warning) lignes.push("", `⚠ ${r.parse_warning}`);
 
   lignes.push("", "Pour la fiche complète du palais, employer palais_get.", SANS_PLUMITIF);
 
@@ -427,6 +435,7 @@ export function parseCourtFile(input: ParseCourtFileInput): {
           }
         : null,
       parse_error: r.parse_error,
+      parse_warning: r.parse_warning ?? null,
       provenance,
       gardes,
     },

@@ -164,11 +164,10 @@ describe("calendrier_deadlines", () => {
     expect(out.gardes.map((g) => g.code)).toContain("JOUR_NON_SEANCE_ART_82_AL_2");
   });
 
-  it("chaîne les étapes par depends_on_index et respecte rollover_saturday=false sous qc_li", () => {
+  it("chaîne les étapes par depends_on_index et n'applique pas le report du samedi par défaut sous qc_li", () => {
     const out = computeDeadlines({
       event_date: "2026-06-15",
       regime: "qc_li",
-      rollover_saturday: false,
       deadlines: [
         { label: "Étape 1 (tombe samedi 27 juin)", amount: 12, unit: "days" },
         {
@@ -180,8 +179,65 @@ describe("calendrier_deadlines", () => {
       ],
     });
     expect(out.results[0]!.effective_date).toBe("2026-06-27");
+    expect(out.results[0]!.rolled_over).toBe(false);
     expect(out.results[1]!.raw_date).toBe("2026-07-12");
     expect(out.results[1]!.effective_date).toBe("2026-07-13");
+
+    const outBpd = computeDeadlines({
+      event_date: "2026-06-15",
+      regime: "qc_li",
+      rollover_saturday: true,
+      deadlines: [{ label: "Publicité des droits", amount: 12, unit: "days" }],
+    });
+    expect(outBpd.results[0]!.effective_date).toBe("2026-06-29");
+    expect(outBpd.results[0]!.rollover_hops[0]!.reason).toContain("art. 52 al. 2 L.I. QC");
+  });
+
+  it("gère qc_prescription (report du samedi selon art. 2879 al. 2 C.c.Q., sans 2 janv. ni 26 déc.)", () => {
+    const out = ComputeDeadlinesOutputSchema.parse(
+      computeDeadlines({
+        event_date: "2023-06-27",
+        regime: "qc_prescription",
+        deadlines: [{ label: "Prescription 3 ans (tombe samedi)", amount: 3, unit: "years" }],
+      }),
+    );
+    expect(out.results[0]!.raw_date).toBe("2026-06-27");
+    expect(out.results[0]!.effective_date).toBe("2026-06-29");
+    expect(out.results[0]!.rolled_over).toBe(true);
+    expect(out.results[0]!.rollover_hops[0]!.reason).toBe("samedi (art. 2879 al. 2 C.c.Q.)");
+
+    const jan2 = computeDeadlines({
+      event_date: "2023-12-23",
+      regime: "qc_prescription",
+      deadlines: [{ label: "2 janvier ouvrable", amount: 10, unit: "days" }],
+    });
+    expect(jan2.results[0]!.effective_date).toBe("2024-01-02");
+  });
+
+  it("reporte le 24 juin sous ca_li uniquement lorsque province='QC'", () => {
+    const caQc = ComputeDeadlinesOutputSchema.parse(
+      computeDeadlines({
+        event_date: "2026-06-14",
+        regime: "ca_li",
+        province: "QC",
+        deadlines: [{ label: "Échéance le 24 juin (CA/QC)", amount: 10, unit: "days" }],
+      }),
+    );
+    expect(caQc.province).toBe("QC");
+    expect(caQc.results[0]!.raw_date).toBe("2026-06-24");
+    expect(caQc.results[0]!.effective_date).toBe("2026-06-25");
+    expect(caQc.results[0]!.rolled_over).toBe(true);
+
+    const caOn = ComputeDeadlinesOutputSchema.parse(
+      computeDeadlines({
+        event_date: "2026-06-14",
+        regime: "ca_li",
+        province: "ON",
+        deadlines: [{ label: "Échéance le 24 juin (CA/ON)", amount: 10, unit: "days" }],
+      }),
+    );
+    expect(caOn.results[0]!.effective_date).toBe("2026-06-24");
+    expect(caOn.results[0]!.rolled_over).toBe(false);
   });
 
   it("rejette les dates calendaires impossibles (p. ex. 29 février non bissextile)", () => {

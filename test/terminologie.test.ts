@@ -695,4 +695,130 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
     expect(cleanCmhcEn.structured.flagged_count).toBe(0);
   });
+
+  it("couvre breffage (D29), aligne estoppel sur fin de non-recevoir (D15), détecte les insertions EN en FR, les 11 formes conjuguées FR et consideration en EN sans faux positifs (D6)", async () => {
+    // 1) D29 — breffage (rang 1)
+    expect(glossaireJson.entries.some((e) => e.id === "breffage")).toBe(true);
+    const lookupBref = await terminologieLookup(harness.d1, { query: "breffage" });
+    expect(lookupBref.structured.fiches[0]?.terme_fr).toBe("breffage");
+    expect(lookupBref.structured.fiches[0]?.terme_en).toBe("briefing");
+
+    const lookupBriefing = await terminologieLookup(harness.d1, {
+      query: "briefing",
+      source_lang: "en",
+    });
+    expect(lookupBriefing.structured.fiches.some((f) => f.terme_fr === "breffage")).toBe(true);
+
+    // 2) D15 — estoppel -> fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.) en FR et EN
+    for (const lang of ["fr", "en"] as const) {
+      const est = await terminologieScanText(harness.d1, {
+        text: lang === "fr" ? "La partie invoque l'estoppel." : "Defendant pleads estoppel.",
+        lang,
+      });
+      const occ = est.structured.occurrences.find(
+        (o) => o.matched_text.toLowerCase() === "estoppel",
+      );
+      expect(occ).toBeDefined();
+      expect(occ?.suggested_replacement).toBe("fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.)");
+      expect(occ?.legal_basis).toContain("1375 C.c.Q.");
+    }
+
+    // 3) D6 — consideration en EN vs tournures non contractuelles et « considération » en FR
+    const enCons = await terminologieScanText(harness.d1, {
+      text: "The contract is void because it lacks consideration.",
+      lang: "en",
+    });
+    expect(enCons.structured.occurrences.map((o) => o.matched_text.toLowerCase())).toContain(
+      "consideration",
+    );
+
+    const enCleanCons = await terminologieScanText(harness.d1, {
+      text: "The Court took the testimony into consideration alongside policy considerations, and took the motion under consideration for consideration by the Court.",
+      lang: "en",
+    });
+    expect(enCleanCons.structured.flagged_count).toBe(0);
+
+    const frAccentedCons = await terminologieScanText(harness.d1, {
+      text: "Le tribunal doit prendre en considération cette preuve sans considération de parti pris, ni accorder gain de cause à tort.",
+      lang: "fr",
+    });
+    expect(frAccentedCons.structured.flagged_count).toBe(0);
+
+    // 4) D6 — Insertions anglaises détectées même en mode lang='fr'
+    const frWithEn = await terminologieScanText(harness.d1, {
+      text: "Les parties sont tenues joint and several avec hold harmless, specific performance, punitive damages, un trustee, une mortgage et le statute of limitations.",
+      lang: "fr",
+    });
+    const matchedEnInFr = frWithEn.structured.occurrences.map((o) => o.matched_text.toLowerCase());
+    for (const expected of [
+      "joint and several",
+      "hold harmless",
+      "specific performance",
+      "punitive damages",
+      "trustee",
+      "mortgage",
+      "statute of limitations",
+    ]) {
+      expect(matchedEnInFr, `Insertion EN manquée en FR : ${expected}`).toContain(expected);
+    }
+
+    // 5) D6 — 11 règles procédurales & conjugaisons FR détectées avec exactitude
+    const frDirtyVerbs = await terminologieScanText(harness.d1, {
+      text: [
+        "Nous présentons une demande de référé et sollicitons une ordonnance de référé ainsi qu'un référé urgent en référé.",
+        "Les défendeurs ont comparu après le dépôt de l'acte de comparution pour produire sa comparution ; l'intimé a comparu hier.",
+        "Voici la défense et demande reconventionnelle.",
+        "Le client a logé un appel et loge une demande.",
+        "L'audience a été cédulée mais la greffière cédule une nouvelle date en cédulant le tout.",
+        "Le requérant applique pour un permis.",
+        "Suite à votre lettre et suite aux discussions, la Cour d'appel a renversé le jugement.",
+        "Le fournisseur a cancellé le contrat et chargé des frais ainsi que charge des intérêts.",
+        "Une audition au mérite aura lieu afin que la cause soit entendue au mérite.",
+      ].join(" "),
+      lang: "fr",
+    });
+    const matchedDirtyFr = frDirtyVerbs.structured.occurrences.map((o) =>
+      o.matched_text.toLowerCase(),
+    );
+    for (const expected of [
+      "demande de référé",
+      "ordonnance de référé",
+      "référé",
+      "en référé",
+      "comparu",
+      "acte de comparution",
+      "comparution",
+      "défense et demande reconventionnelle",
+      "logé un appel",
+      "loge une demande",
+      "cédulée",
+      "cédule",
+      "cédulant",
+      "applique pour un",
+      "suite à",
+      "suite aux",
+      "renversé le jugement",
+      "cancellé",
+      "chargé des frais",
+      "charge des intérêts",
+      "audition au mérite",
+      "au mérite",
+    ]) {
+      expect(matchedDirtyFr, `Marqueur FR manqué : ${expected}`).toContain(expected);
+    }
+    expect(matchedDirtyFr.filter((m) => m === "comparu")).toHaveLength(2);
+
+    // 6) D6 — Zéro faux positif sur le français juridique propre
+    const cleanLegalFr = await terminologieScanText(harness.d1, {
+      text: [
+        "La Cour s'est référé à l'article 145 C.p.c. avant d'émettre une citation à comparaître pour comparaître comme témoin.",
+        "L'expert comparait les deux signatures.",
+        "Cette règle s'applique pour le calcul des intérêts.",
+        "Comme suite à notre entretien et pour faire suite à votre avis, nous entendons donner suite à la prime au mérite.",
+        "L'administrateur chargé des intérêts des créanciers ne peut renverser une présomption légale.",
+      ].join(" "),
+      lang: "fr",
+    });
+    expect(cleanLegalFr.structured.flagged_count).toBe(0);
+  });
 });

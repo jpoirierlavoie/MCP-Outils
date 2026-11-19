@@ -905,6 +905,10 @@ interface RawRegleRow {
   legal_basis: string;
 }
 
+interface SupplementalRegleRow extends RawRegleRow {
+  overrideDb?: boolean;
+}
+
 const NON_INFLECTED_SCAN_TOKENS = new Set([
   "de",
   "du",
@@ -969,7 +973,9 @@ const NON_INFLECTED_SCAN_TOKENS = new Set([
   "god",
 ]);
 
-const SUPPLEMENTAL_SCAN_RULES: readonly RawRegleRow[] = [
+const EN_COLLIDING_IN_FR = new Set(["tort", "consideration", "briefing"]);
+
+const SUPPLEMENTAL_SCAN_RULES: readonly SupplementalRegleRow[] = [
   {
     code_regle: "sup-en-jointly-severally",
     lang: "en",
@@ -1007,6 +1013,42 @@ const SUPPLEMENTAL_SCAN_RULES: readonly RawRegleRow[] = [
     legal_basis: "Art. 1434 C.c.Q. ; art. 184 C.p.c.",
   },
   {
+    code_regle: "sup-en-hold-harmless",
+    lang: "en",
+    pattern_term: "hold harmless",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Formule de common law ; en droit civil québécois, employer « indemnify and take up the defence » (« garantir et prendre fait et cause »).",
+    suggested_replacement: "indemnify and take up the defence (garantir et prendre fait et cause)",
+    legal_basis: "Art. 1434 C.c.Q. ; art. 184 C.p.c.",
+  },
+  {
+    code_regle: "sup-en-liquidated-damages",
+    lang: "en",
+    pattern_term: "liquidated damages",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: "penal clause",
+    reason_fr:
+      "Distinction de common law entre « liquidated damages » et « penalty » inapplicable sous le C.c.Q., qui reconnaît expressément la « penal clause » (« clause pénale », réductible si abusive).",
+    suggested_replacement: "penal clause (clause pénale)",
+    legal_basis: "Art. 1622–1623 C.c.Q.",
+  },
+  {
+    code_regle: "sup-en-consideration",
+    lang: "en",
+    pattern_term: "consideration",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Doctrine de common law étrangère au droit civil québécois : le contrat se forme par l'échange de consentements avec cause et objet sans exigence de « consideration » (art. 1385, 1410–1412 C.c.Q.) ; pour la prestation réciproque, employer « prestation » / « counterpart ».",
+    suggested_replacement: "cause / prestation (art. 1385, 1410–1412 C.c.Q.)",
+    legal_basis: "Art. 1385, 1410–1412 C.c.Q.",
+  },
+  {
     code_regle: "sup-en-exam-discovery",
     lang: "en",
     pattern_term: "examination for discovery",
@@ -1038,9 +1080,83 @@ const SUPPLEMENTAL_SCAN_RULES: readonly RawRegleRow[] = [
     risk_category: "anglicisme_ou_common_law",
     allowed_in_bijural_if: "fin de non-recevoir",
     reason_fr:
-      "Doctrine d'equity de common law étrangère au droit civil québécois (art. 6, 7 et 1457 C.c.Q. ; fin de non-recevoir).",
-    suggested_replacement: "ground for dismissal / good faith (art. 6–7 C.C.Q.)",
-    legal_basis: "Art. 6, 7, 1457 C.c.Q. ; art. 168 C.p.c.",
+      "Doctrine d'equity de common law étrangère au droit civil québécois ; employer plutôt la fin de non-recevoir fondée sur la bonne foi et l'interdiction de l'abus de droit (art. 6, 7 et 1375 C.c.Q.).",
+    suggested_replacement: "fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.)",
+    legal_basis: "Art. 6, 7 et 1375 C.c.Q.",
+    overrideDb: true,
+  },
+  {
+    code_regle: "sup-fr-estoppel",
+    lang: "fr",
+    pattern_term: "estoppel",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: "fin de non-recevoir",
+    reason_fr:
+      "Doctrine d'equity de common law étrangère au droit civil québécois ; employer plutôt la fin de non-recevoir fondée sur la bonne foi et l'interdiction de l'abus de droit (art. 6, 7 et 1375 C.c.Q.).",
+    suggested_replacement: "fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.)",
+    legal_basis: "Art. 6, 7 et 1375 C.c.Q.",
+    overrideDb: true,
+  },
+  {
+    code_regle: "sup-fr-specific-performance",
+    lang: "fr",
+    pattern_term: "specific performance",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Emprunt à l'anglais dans un texte français ; en droit civil québécois, employer « exécution en nature » (droit primaire du créancier, art. 1590 et 1601 C.c.Q.).",
+    suggested_replacement: "exécution en nature",
+    legal_basis: "Art. 1590 et 1601 C.c.Q.",
+  },
+  {
+    code_regle: "sup-fr-punitive-damages",
+    lang: "fr",
+    pattern_term: "punitive damages",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Emprunt à l'anglais dans un texte français ; employer « dommages-intérêts punitifs » (attribués uniquement si la loi le prévoit expressément, art. 1621 C.c.Q.).",
+    suggested_replacement: "dommages-intérêts punitifs",
+    legal_basis: "Art. 1621 C.c.Q.",
+  },
+  {
+    code_regle: "sup-fr-trustee",
+    lang: "fr",
+    pattern_term: "trustee",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Emprunt à l'anglais dans un texte français ; selon le contexte, employer « fiduciaire » (art. 1260 C.c.Q.) ou « syndic » (L.F.I.).",
+    suggested_replacement: "fiduciaire / syndic",
+    legal_basis: "Art. 1260 C.c.Q. ; art. 2 L.F.I.",
+  },
+  {
+    code_regle: "sup-fr-valuable-consideration",
+    lang: "fr",
+    pattern_term: "valuable consideration",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Emprunt de common law dans un texte français ; en droit civil québécois, le contrat repose sur le consentement, la cause et l'objet (art. 1385, 1410–1412 C.c.Q.).",
+    suggested_replacement: "cause / prestation (art. 1385, 1410–1412 C.c.Q.)",
+    legal_basis: "Art. 1385, 1410–1412 C.c.Q.",
+  },
+  {
+    code_regle: "sup-fr-nominal-consideration",
+    lang: "fr",
+    pattern_term: "nominal consideration",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Emprunt de common law dans un texte français ; la « nominal consideration » est sans objet en droit civil québécois (art. 1385 et 1410 C.c.Q.).",
+    suggested_replacement: "cause / échange de consentements (art. 1385 C.c.Q.)",
+    legal_basis: "Art. 1385 et 1410 C.c.Q.",
   },
   {
     code_regle: "sup-fr-en-refere",
@@ -1055,6 +1171,31 @@ const SUPPLEMENTAL_SCAN_RULES: readonly RawRegleRow[] = [
     legal_basis: "Art. 49, 509–510 C.p.c.",
   },
   {
+    code_regle: "sup-fr-demande-de-refere",
+    lang: "fr",
+    pattern_term: "demande de référé",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Procédure française inexistante au Québec ; employer « demande d'ordonnance de sauvegarde » ou « demande d'injonction interlocutoire provisoire ».",
+    suggested_replacement:
+      "demande d'ordonnance de sauvegarde / injonction interlocutoire provisoire",
+    legal_basis: "Art. 49, 509–510 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-refere",
+    lang: "fr",
+    pattern_term: "référé",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Institution procédurale française (« référé ») inexistante en droit judiciaire québécois ; viser l'ordonnance de sauvegarde (art. 49 C.p.c.) ou l'injonction provisoire (art. 510 C.p.c.).",
+    suggested_replacement: "ordonnance de sauvegarde / injonction provisoire",
+    legal_basis: "Art. 49, 509–510 C.p.c.",
+  },
+  {
     code_regle: "sup-fr-juge-referes",
     lang: "fr",
     pattern_term: "juge des référés",
@@ -1065,6 +1206,164 @@ const SUPPLEMENTAL_SCAN_RULES: readonly RawRegleRow[] = [
       "Juridiction française du référé inexistante au Québec ; référer à la Cour supérieure ou au juge siégeant en chambre de pratique.",
     suggested_replacement: "juge de la Cour supérieure (ordonnance de sauvegarde / injonction)",
     legal_basis: "Art. 49, 509–510 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-defense-et-demande-reconventionnelle",
+    lang: "fr",
+    pattern_term: "défense et demande reconventionnelle",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Intitulé issu de l'ancien C.p.c. d'avant 2016 : depuis la réforme de 2016, la défense est orale par défaut sauf cas prévus (art. 170 C.p.c.) et la demande reconventionnelle est formée dans les conditions des art. 172 et s. C.p.c.",
+    suggested_replacement:
+      "défense (art. 170 C.p.c.) / demande reconventionnelle (art. 172 C.p.c.)",
+    legal_basis: "Art. 145, 170 et 172 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-acte-de-comparution",
+    lang: "fr",
+    pattern_term: "acte de comparution",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Archaïsme procédural d'avant 2016 : l'ancien « acte de comparution » a été remplacé par la « réponse à l'assignation » dans les 15 jours (art. 145 et 147 C.p.c.).",
+    suggested_replacement: "réponse à l'assignation",
+    legal_basis: "Art. 145 et 147 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-comparution",
+    lang: "fr",
+    pattern_term: "comparution",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "En procédure civile québécoise depuis 2016, le défendeur produit une « réponse » à l'assignation et non plus une « comparution » (sauf comparution physique d'un témoin ou d'une partie à l'audience).",
+    suggested_replacement: "réponse (à l'assignation)",
+    legal_basis: "Art. 145 et 147 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-comparaitre",
+    lang: "fr",
+    pattern_term: "comparaître",
+    case_sensitive: 0,
+    risk_category: "archaisme_qc",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Archaïsme au sens de constituer avocat ou déposer une comparution écrite : depuis 2016, on « répond à l'assignation » (art. 145 C.p.c.). Ne viser « comparaître » que pour la présence physique d'un témoin ou à l'audience (art. 269 C.p.c.).",
+    suggested_replacement: "répondre à l'assignation",
+    legal_basis: "Art. 145 et 147 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-audition-au-merite",
+    lang: "fr",
+    pattern_term: "audition au mérite",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« hearing on the merits ») ; au Québec, la version française du C.p.c. emploie « instruction au fond » / « audience au fond ».",
+    suggested_replacement: "instruction au fond / audience au fond",
+    legal_basis: "Art. 173 et 211 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-au-merite",
+    lang: "fr",
+    pattern_term: "au mérite",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme judiciaire (« on the merits ») ; en procédure civile québécoise, employer « au fond » ou « sur le fond ».",
+    suggested_replacement: "au fond / sur le fond",
+    legal_basis: "Art. 173 et 211 C.p.c.",
+  },
+  {
+    code_regle: "sup-fr-loger-recours",
+    lang: "fr",
+    pattern_term: "loger un appel",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« to lodge an appeal / application / complaint ») ; en français juridique, on « interjette » un appel et on « dépose » ou « présente » une demande, une plainte ou un grief.",
+    suggested_replacement:
+      "interjeter appel / déposer ou présenter (une demande, plainte, un grief)",
+    legal_basis: "Art. 99, 141, 352 C.p.c. ; OQLF",
+  },
+  {
+    code_regle: "sup-fr-renverser-decision",
+    lang: "fr",
+    pattern_term: "renverser un jugement",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« to reverse a judgment / decision ») ; une cour d'appel « infirme », « casse » ou « annule » un jugement ou une décision (ne pas confondre avec « renverser une présomption »).",
+    suggested_replacement: "infirmer / casser / annuler (un jugement ou une décision)",
+    legal_basis: "Art. 385 C.p.c. ; OQLF",
+  },
+  {
+    code_regle: "sup-fr-appliquer-pour",
+    lang: "fr",
+    pattern_term: "appliquer pour",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« to apply for ») ; employer « demander », « solliciter » ou « présenter une demande de ».",
+    suggested_replacement: "demander / solliciter / présenter une demande de",
+    legal_basis: "Art. 101 C.p.c. ; OQLF",
+  },
+  {
+    code_regle: "sup-fr-charger-frais",
+    lang: "fr",
+    pattern_term: "charger des frais",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« to charge fees / costs / interest ») ; employer « facturer », « exiger », « imputer » ou « appliquer » des frais, honoraires ou intérêts.",
+    suggested_replacement: "facturer / exiger / imputer / appliquer",
+    legal_basis: "OQLF — Banque de dépannage linguistique",
+  },
+  {
+    code_regle: "sup-fr-canceller",
+    lang: "fr",
+    pattern_term: "canceller",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« to cancel ») ; selon l'acte juridique visé, employer « annuler », « résilier », « résoudre », « révoquer » ou « radier ».",
+    suggested_replacement: "annuler / résilier / résoudre / révoquer",
+    legal_basis: "Art. 1416, 1606 C.c.Q. ; OQLF",
+  },
+  {
+    code_regle: "sup-fr-ceduler",
+    lang: "fr",
+    pattern_term: "céduler",
+    case_sensitive: 0,
+    risk_category: "anglicisme_ou_common_law",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Anglicisme (« to schedule ») ; en procédure civile et en gestion de dossier, employer « fixer (une date / audience) », « inscrire au rôle » ou « mettre au calendrier ».",
+    suggested_replacement: "fixer / inscrire au rôle / mettre au calendrier",
+    legal_basis: "Art. 148, 174 C.p.c. ; OQLF",
+  },
+  {
+    code_regle: "sup-fr-suite-a",
+    lang: "fr",
+    pattern_term: "suite à",
+    case_sensitive: 0,
+    risk_category: "francisme_france",
+    allowed_in_bijural_if: null,
+    reason_fr:
+      "Ellipse administrative fautive (OQLF) : sauf dans « donner suite à », « faire suite à » ou « comme suite à », remplacer « suite à / au / aux » par « à la suite de », « par suite de » ou « après ».",
+    suggested_replacement: "à la suite de / comme suite à / par suite de",
+    legal_basis: "OQLF — Banque de dépannage linguistique",
   },
   {
     code_regle: "sup-fr-juge-mise-en-etat",
@@ -1256,7 +1555,36 @@ function inflectScanWordPattern(rawToken: string, lang: string, caseSensitive: n
   return `${prefix}${escapeScanLiteral(core)}`;
 }
 
+const CUSTOM_SCAN_REGEX_BY_CODE: Readonly<Record<string, RegExp>> = {
+  "sup-fr-demande-de-refere":
+    /(?<![\p{L}\p{N}])(?:demandes?|requ[êe]tes?|ordonnances?)\s+de\s+r[ée]f[ée]r[ée]s?(?![\p{L}\p{N}])/giu,
+  "sup-fr-refere": /(?<![\p{L}\p{N}])r[ée]f[ée]r[ée]s?(?![\p{L}\p{N}])/giu,
+  "sup-fr-comparaitre":
+    /(?<![\p{L}\p{N}])(?:compara[îi](?:tre|ssent|ssons|ssez|ssait|ssaies?|ssaient)|comparaî(?:t|tra(?:i[ts]?|ient|s)?|tront|trons|trez)|compar(?:u[es]{0,2}|aisse(?:s|nt)?|[ûu]t))(?![\p{L}\p{N}])/giu,
+  "sup-fr-loger-recours":
+    /(?<![\p{L}\p{N}])log(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|eons|[ée]e?s?|eant|ea(?:i[st]?|ient)?|[èe]rent)\s+(?:(?:un|une|le|la|l['\u2018\u2019\u02bc]|les|ce|cet|cette|ces|son|sa|ses|leur|leurs|des|du)\s+)?(?:(?:pr[ée]sente?s?|nouve(?:au|lle)s?)\s+)?(?:appels?|demandes?|requ[êe]tes?|griefs?|plaintes?|oppositions?|pourvois?|recours)(?![\p{L}\p{N}])/giu,
+  "sup-fr-ceduler":
+    /(?<![\p{L}\p{N}])c[ée]dul(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|ons|ez|[ée]e?s?|ant|a(?:i[st]?|ient)?|[èe]rent)(?![\p{L}\p{N}])/giu,
+  "sup-fr-appliquer-pour":
+    /(?<![\p{L}\p{N}])appliqu(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|ons|ez|[ée]e?s?|ant|a(?:i[st]?|ient)?|[èe]rent)\s+pour\s+(?:un|une|le|la|l['\u2018\u2019\u02bc]|les|des|du|ce|cet|cette|ces|mon|ma|mes|son|sa|ses|leur|leurs)(?![\p{L}\p{N}])/giu,
+  "sup-fr-suite-a": /(?<![\p{L}\p{N}])suite\s+(?:[àa]|aux?)(?![\p{L}\p{N}])/giu,
+  "sup-fr-renverser-decision":
+    /(?<![\p{L}\p{N}])renvers(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|ons|ez|[ée]e?s?|ant|a(?:i[st]?|ient)?|[èe]rent)\s+(?:(?:un|une|le|la|l['\u2018\u2019\u02bc]|les|ce|cet|cette|ces|ledit|ladite|son|sa)\s+)?(?:(?:pr[ée]sente?|m[êe]me)\s+)?(?:jugements?|d[ée]cisions?|ordonnances?|verdicts?|arr[êe]ts?)(?![\p{L}\p{N}])/giu,
+  "sup-fr-canceller":
+    /(?<![\p{L}\p{N}])cancell(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|ons|ez|[ée]e?s?|ant|a(?:i[st]?|ient)?|[èe]rent)(?![\p{L}\p{N}])/giu,
+  "sup-fr-charger-frais":
+    /(?<![\p{L}\p{N}])charg(?:er(?:ai[st]?|aient|ont|ons|ez|[ae]s?)?|e(?:nt|s|ait|aient|ons|z)?|eons|ez|[ée]e?s?|eant|ea(?:i[st]?|ient)?|[èe]rent)\s+(?:de|d['\u2018\u2019\u02bc]|des|les|aucuns?)\s+(?:frais|honoraires|int[ée]r[êe]ts)(?![\p{L}\p{N}])/giu,
+  "sup-fr-audition-au-merite":
+    /(?<![\p{L}\p{N}])(?:auditions?|audiences?|proc[èe]s|instructions?)\s+au\s+m[ée]rite(?![\p{L}\p{N}])/giu,
+  "sup-fr-au-merite": /(?<![\p{L}\p{N}])au\s+m[ée]rite(?![\p{L}\p{N}])/giu,
+  "sup-en-consideration": /(?<![\p{L}\p{N}])consideration(?![\p{L}\p{N}])/giu,
+};
+
 function buildContaminationRegex(regle: RawRegleRow): RegExp {
+  const custom = CUSTOM_SCAN_REGEX_BY_CODE[regle.code_regle];
+  if (custom) {
+    return new RegExp(custom.source, custom.flags);
+  }
   const tokens = normalizeQuotesAndSpaces(regle.pattern_term.trim()).split(" ").filter(Boolean);
   const body = tokens
     .map((tok) => inflectScanWordPattern(tok, regle.lang, regle.case_sensitive))
@@ -1274,27 +1602,68 @@ export async function terminologieScanText(
   input: TerminologieScanTextInput,
 ): Promise<{ structured: TerminologieScanTextOutput; text: string }> {
   const contextSystem = input.context_system ?? "droit_civil_qc";
-  const reglesRes = await db
-    .prepare(
-      `SELECT code_regle, lang, pattern_term, case_sensitive, risk_category,
-              allowed_in_bijural_if, reason_fr, suggested_replacement, legal_basis
-         FROM regles_contamination
-        WHERE lang = ?
-        ORDER BY LENGTH(pattern_term) DESC, id ASC`,
-    )
-    .bind(input.lang)
-    .all<RawRegleRow>();
+  const reglesSql =
+    input.lang === "fr"
+      ? `SELECT code_regle, lang, pattern_term, case_sensitive, risk_category,
+                allowed_in_bijural_if, reason_fr, suggested_replacement, legal_basis
+           FROM regles_contamination
+          WHERE lang = 'fr' OR (lang = 'en' AND risk_category = 'anglicisme_ou_common_law')
+          ORDER BY LENGTH(pattern_term) DESC, CASE WHEN lang = 'fr' THEN 0 ELSE 1 END, id ASC`
+      : `SELECT code_regle, lang, pattern_term, case_sensitive, risk_category,
+                allowed_in_bijural_if, reason_fr, suggested_replacement, legal_basis
+           FROM regles_contamination
+          WHERE lang = ?
+          ORDER BY LENGTH(pattern_term) DESC, id ASC`;
+  const reglesStmt = db.prepare(reglesSql);
+  const reglesRes =
+    input.lang === "fr"
+      ? await reglesStmt.all<RawRegleRow>()
+      : await reglesStmt.bind(input.lang).all<RawRegleRow>();
+
+  // En mode français, exclure les faux amis purement homographes (ex. « tort » dans « à tort »)
+  // provenant des règles anglaises ; les autres anglicismes / termes de common law insérés en
+  // français (ex. « joint and several », « hold harmless », « estoppel », « mortgage ») restent détectés.
+  const baseRegles: RawRegleRow[] = reglesRes.results.filter(
+    (r) =>
+      !(
+        input.lang === "fr" &&
+        r.lang === "en" &&
+        EN_COLLIDING_IN_FR.has(normalizeFold(r.pattern_term))
+      ),
+  );
 
   // Fusionner sans doublon les règles de la base avec les marqueurs complémentaires haute précision
-  const seenPatternKeys = new Set(reglesRes.results.map((r) => normalizeFold(r.pattern_term)));
-  const mergedRegles: RawRegleRow[] = [...reglesRes.results];
+  const seenPatternKeys = new Set(baseRegles.map((r) => normalizeFold(r.pattern_term)));
+  const mergedRegles: RawRegleRow[] = [...baseRegles];
   for (const sup of SUPPLEMENTAL_SCAN_RULES) {
-    if (sup.lang === input.lang && !seenPatternKeys.has(normalizeFold(sup.pattern_term))) {
-      seenPatternKeys.add(normalizeFold(sup.pattern_term));
+    const key = normalizeFold(sup.pattern_term);
+    const includeSup =
+      sup.lang === input.lang ||
+      (input.lang === "fr" &&
+        sup.lang === "en" &&
+        sup.risk_category === "anglicisme_ou_common_law" &&
+        !EN_COLLIDING_IN_FR.has(key));
+    if (!includeSup) {
+      continue;
+    }
+    if (sup.overrideDb) {
+      const kept = mergedRegles.filter(
+        (r) =>
+          !(normalizeFold(r.pattern_term) === key && (r.lang === sup.lang || input.lang === "fr")),
+      );
+      mergedRegles.length = 0;
+      mergedRegles.push(...kept, sup);
+      seenPatternKeys.add(key);
+    } else if (!seenPatternKeys.has(key)) {
+      seenPatternKeys.add(key);
       mergedRegles.push(sup);
     }
   }
-  mergedRegles.sort((a, b) => b.pattern_term.length - a.pattern_term.length);
+  mergedRegles.sort(
+    (a, b) =>
+      b.pattern_term.length - a.pattern_term.length ||
+      (a.lang === input.lang ? 0 : 1) - (b.lang === input.lang ? 0 : 1),
+  );
 
   const rawOccurrences: ScanOccurrence[] = [];
   const occupiedRanges: Array<[number, number]> = [];
@@ -1312,7 +1681,8 @@ export async function terminologieScanText(
       }
 
       const normPattern = normalizeFold(regle.pattern_term);
-      const prefixWindow = input.text.slice(Math.max(0, start - 40), start);
+      const prefixWindow = input.text.slice(Math.max(0, start - 45), start);
+      const suffixWindow = input.text.slice(end, Math.min(input.text.length, end + 45));
 
       // Exceptions du C.p.c. : « avis d'assignation », « répondre à l'assignation », « délai / mode d'assignation » (art. 145, 149 C.p.c.)
       if (normPattern === "assignation") {
@@ -1340,6 +1710,105 @@ export async function terminologieScanText(
           Math.min(input.text.length, end + 30),
         );
         if (/\bCanada\s+Mortgage\s+and\s+Housing\b/iu.test(around)) {
+          continue;
+        }
+      }
+
+      // Exception verbe « se référer / référer à » vs institution procédurale française « référé »
+      if (normPattern === "refere") {
+        if (
+          /\b(?:s['\u2018\u2019\u02bc]\s*est|s['\u2018\u2019\u02bc]\s*[ée]tait|sont|est|[ée]tait|[ée]taient|a|ai|as|avons|avez|ont|avait|avaient|aura|aurait|[ée]t[ée]|[êe]tre|avoir|y\s+est|y\s+a)\s+$/iu.test(
+            prefixWindow,
+          ) ||
+          /^\s+(?:[àa]|au|aux)\b/iu.test(suffixWindow)
+        ) {
+          continue;
+        }
+      }
+
+      // Exception témoin / indemnité / présence physique : « comparution » (art. 269 C.p.c.)
+      if (normPattern === "comparution") {
+        if (
+          /\b(?:indemnit[ée]s?\s+d['\u2018\u2019\u02bc]|frais\s+de|allocation\s+de)\s*$/iu.test(
+            prefixWindow,
+          ) ||
+          /^\s+(?:du\s+t[ée]moin|des\s+t[ée]moins|physique|en\s+personne|[àa]\s+l['\u2018\u2019\u02bc]audience|devant\s+le\s+tribunal|par\s+(?:visioconf[ée]rence|t[ée]l[ée]phone|moyen\s+technologique)|[àa]\s+distance)\b/iu.test(
+            suffixWindow,
+          )
+        ) {
+          continue;
+        }
+      }
+
+      // Exception citation à comparaître / témoin / présence physique : « comparaître » (art. 269 C.p.c.)
+      if (normPattern === "comparaitre") {
+        if (
+          /\b(?:citation|cit[ée]e?s?|sommation|ordre|ordonn[ée]e?s?)\s+[àa]\s+$/iu.test(
+            prefixWindow,
+          ) ||
+          /^\s+(?:comme\s+t[ée]moin|[àa]\s+titre\s+de\s+t[ée]moin|en\s+qualit[ée]\s+de\s+t[ée]moin|pour\s+t[ée]moigner|en\s+personne|personnellement|[àa]\s+l['\u2018\u2019\u02bc]audience|[àa]\s+l['\u2018\u2019\u02bc]instruction|devant\s+(?:la\s+cour|le\s+tribunal|le\s+juge)|par\s+(?:visioconf[ée]rence|t[ée]l[ée]phone|moyen\s+technologique)|[àa]\s+distance)\b/iu.test(
+            suffixWindow,
+          )
+        ) {
+          continue;
+        }
+      }
+
+      // Exception pronominale « s'appliquer pour » / « l'appliquer pour » (sens français normal)
+      if (normPattern === "appliquer pour") {
+        if (
+          /\b(?:s['\u2018\u2019\u02bc]|se|l['\u2018\u2019\u02bc]|le|la|les)\s*$/iu.test(
+            prefixWindow,
+          )
+        ) {
+          continue;
+        }
+      }
+
+      // Exceptions OQLF légitimes : « comme / faire / donner suite à » et « la suite à donner »
+      if (normPattern === "suite a") {
+        if (
+          /\b(?:comme|faire|fait(?:es|s)?|faisant|faisons|faisaient|faisait|fera(?:i[ts]?|ient)?|feront|ferons|ferez|fit|firent|fasse(?:nt)?|donner|donne(?:nt|s|ait|aient)?|donn[ée]e?s?|donnant|donnera(?:i[ts]?|ient)?|donneront|donnons|donnez)\s+$/iu.test(
+            prefixWindow,
+          ) ||
+          /^\s+(?:donner|r[ée]server|apporter)\b/iu.test(suffixWindow)
+        ) {
+          continue;
+        }
+      }
+
+      // Exception « chargé des intérêts des créanciers / mineurs / clients » (administration du bien d'autrui)
+      if (normPattern === "charger des frais") {
+        if (
+          /^\s+(?:de|du|des)\s+(?:mineurs?|cr[ée]anciers?|parties?|clients?|actionnaires?|b[ée]n[ée]ficiaires?|h[ée]ritiers?)\b/iu.test(
+            suffixWindow,
+          )
+        ) {
+          continue;
+        }
+      }
+
+      // Exception « prime / nomination / avancement au mérite »
+      if (normPattern === "au merite") {
+        if (
+          /\b(?:prime|avancement|promotion|promu[es]?|nomination|nomm[ée]e?s?|r[ée]mun[ée]ration|s[ée]lection|embauche|recrutement|bourse|prix|m[ée]daille|ordre|concours|r[ée]compense|[ée]valuation)\s+$/iu.test(
+            prefixWindow,
+          )
+        ) {
+          continue;
+        }
+      }
+
+      // Exception en anglais : emplois non contractuels de « consideration » (« take into consideration », « for consideration by the Court »)
+      if (normPattern === "consideration") {
+        if (
+          /\b(?:into|under|careful|serious|due|further|preliminary|main|primary|major|key|important|sole|only|judicial|court['\u2018\u2019\u02bc]s|for\s+the)\s+$/iu.test(
+            prefixWindow,
+          ) ||
+          /^\s+(?:by\s+the\s+(?:court|tribunal|judge|panel)|of\s+(?:the\s+(?:evidence|facts|record|application|motion|appeal|matter|issue|circumstances)|whether|this\s+(?:application|motion|issue|matter)))\b/iu.test(
+            suffixWindow,
+          )
+        ) {
           continue;
         }
       }
@@ -1389,7 +1858,7 @@ export async function terminologieScanText(
     occurrences: cappedOccurrences,
     provenance: {
       source: "Table curée de détection des contaminations bijuridiques et linguistiques (Québec)",
-      verified_at: "2026-11-15",
+      verified_at: "2026-11-19",
     },
     gardes,
   };
@@ -1412,7 +1881,7 @@ export async function terminologieScanText(
     "",
     "Gardes :",
     ...gardes.map((g) => `- [${g.code}] ${g.message}`),
-    `\nSource : ${structured.provenance.source} (vérifié le 2026-11-15)`,
+    `\nSource : ${structured.provenance.source} (vérifié le 2026-11-19)`,
   ].join("\n");
 
   return { structured, text };
