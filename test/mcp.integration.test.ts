@@ -87,7 +87,17 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
     expect(healthJson.version).toBe("2.1.0");
+    expect(healthJson.commit).toBe("inconnu");
     expect(healthJson.request_payload_logging).toBe(false);
+
+    const healthWithCommit = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/healthz"),
+      { COMMIT: "abc1234" },
+      dummyCtx,
+    );
+    expect(healthWithCommit.status).toBe(200);
+    const healthCommitJson = (await healthWithCommit.json()) as Record<string, unknown>;
+    expect(healthCommitJson.commit).toBe("abc1234");
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
     expect(healthJson.databases).toEqual({
       terminologie: false,

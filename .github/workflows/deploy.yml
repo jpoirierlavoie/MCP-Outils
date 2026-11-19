@@ -149,29 +149,32 @@ jobs:
         run: |
           set -euo pipefail
           tag="${ATTENDU_LONG:0:7}"
-          npx wrangler deploy --tag "$tag" --message "Deploy ${tag} (GitHub Actions)"
+          npx wrangler deploy --var "COMMIT:${tag}" --tag "$tag" --message "Deploy ${tag} (GitHub Actions)"
 
       - name: Vérification vivante (/healthz, /mcp/server-card et /mcp initialize)
         if: success()
         env:
+          ATTENDU_LONG: ${{ github.sha }}
           SANTE: https://outils.poirierlavoie.ca/healthz
           CARTE: https://outils.poirierlavoie.ca/mcp/server-card
           MCP_URL: https://outils.poirierlavoie.ca/mcp
         run: |
           set -euo pipefail
+          attendu="${ATTENDU_LONG:0:7}"
           ok=0
           for i in $(seq 1 12); do
             code=$(curl -sS --max-time 20 -o /tmp/healthz.json -w '%{http_code}' "$SANTE" || echo 000)
-            if [ "$code" = "200" ]; then
-              echo "Production joignable sur /healthz : HTTP 200 (tentative ${i}/12)."
+            enligne=$(jq -r '.commit // "absent"' /tmp/healthz.json 2>/dev/null || echo absent)
+            if [ "$code" = "200" ] && [ "$enligne" = "$attendu" ]; then
+              echo "Production alignée sur /healthz : HTTP 200, commit=${enligne} (tentative ${i}/12)."
               ok=1
               break
             fi
-            echo "Tentative ${i}/12 : /healthz HTTP ${code}."
+            echo "Tentative ${i}/12 : /healthz HTTP ${code}, commit=${enligne} (attendu ${attendu})."
             sleep 5
           done
           if [ "$ok" -ne 1 ]; then
-            echo "::error title=Vérification /healthz échouée::${SANTE} n'a pas rendu HTTP 200."
+            echo "::error title=Vérification /healthz échouée::${SANTE} n'a pas rendu HTTP 200 avec commit=${attendu}."
             exit 1
           fi
           code_carte=$(curl -sS --max-time 20 -o /tmp/server-card.json -w '%{http_code}' "$CARTE" || echo 000)

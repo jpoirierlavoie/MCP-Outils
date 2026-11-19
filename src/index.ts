@@ -18,6 +18,7 @@ import { pagePubliqueHtml } from "./site.js";
 export interface Env extends OutilsBindings {
   RATE_LIMITER?: RateLimit;
   ALLOWED_HOSTNAMES?: string;
+  COMMIT?: string;
 }
 
 export const SERVER_CARD_SCHEMA =
@@ -152,6 +153,7 @@ function healthzResponse(env: Env): Response {
       status: "ok",
       service: SERVER_NAME,
       version: SERVER_VERSION,
+      commit: env.COMMIT?.trim() || "inconnu",
       endpoint: "/mcp",
       stateless: true,
       request_payload_logging: false,
