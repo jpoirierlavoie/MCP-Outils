@@ -45,7 +45,7 @@ export const HolidayEntrySchema = z.object({
 export type HolidayEntry = z.infer<typeof HolidayEntrySchema>;
 
 export const ListHolidaysInputSchema = z.strictObject({
-  year: z.number().int().min(1900).max(2200).describe("Année civile visée (entre 1900 et 2200)."),
+  year: z.number().int().min(1900).max(2300).describe("Année civile visée (entre 1900 et 2300)."),
   regime: RegimeSchema.optional().describe(
     "Régime juridique applicable : 'qc_cpc' (défaut, C.p.c. incluant samedis, 2 janv. et 26 déc.), 'qc_prescription' (prescription C.c.Q. : art. 61 par. 23° L.I. sans 2 janv./26 déc. et report du samedi selon art. 2879 al. 2 C.c.Q.), 'qc_li' (L.I. Québec sans 2 janv./26 déc. et sans report du samedi par défaut, sauf art. 52 al. 2 L.I. au bureau de la publicité des droits), ou 'ca_li' (L.I. fédérale incluant 30 sept. et 11 nov., et 24 juin si province='QC').",
   ),
@@ -320,7 +320,7 @@ export function isNonJuridicalDate(
       const basis =
         regime === "qc_li"
           ? "samedi reporté (art. 52 al. 2 L.I. QC)"
-          : "samedi reporté selon rollover_saturday=true (art. 26 L.I. CA / pratique administrative)";
+          : "samedi reporté selon rollover_saturday=true (règle particulière / pratique administrative sous ca_li)";
       return { nonJuridical: true, reason: basis };
     }
   }
@@ -361,6 +361,8 @@ export function listHolidays(input: ListHolidaysInput): ListHolidaysOutput {
   const gardes: Garde[] = [];
   if (regime === "qc_li") {
     gardes.push(makeGarde("SAMEDI_CONGE_LOI_INTERPRETATION_QC"));
+  } else if (regime === "ca_li") {
+    gardes.push(makeGarde("SAMEDI_CONGE_LOI_INTERPRETATION_CA"));
   }
   const caNote = regime === "ca_li" ? caProvinceHolidayNote(input.province) : undefined;
   gardes.push(makeGarde("JOURS_PROCLAMES_NON_PREVISIBLES", caNote));

@@ -96,4 +96,15 @@ describe("calendrier_holidays", () => {
       expect(dates).toContain("2029-07-02");
     }
   });
+
+  it("B-N12 & B-N14 : émet SAMEDI_CONGE_LOI_INTERPRETATION_CA sous ca_li et accepte les années jusqu'à 2300", () => {
+    const outCa = ListHolidaysOutputSchema.parse(listHolidays({ year: 2026, regime: "ca_li" }));
+    expect(outCa.gardes.map((g) => g.code)).toContain("SAMEDI_CONGE_LOI_INTERPRETATION_CA");
+
+    const futureOut = ListHolidaysOutputSchema.parse(
+      listHolidays({ year: 2250, regime: "qc_cpc" }),
+    );
+    expect(futureOut.year).toBe(2250);
+    expect(futureOut.count).toBeGreaterThan(0);
+  });
 });

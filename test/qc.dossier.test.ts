@@ -162,4 +162,15 @@ describe("greffes particuliers", () => {
     expect(complet.parse_error).toBeNull();
     expect(complet.parse_warning).toBeNull();
   });
+
+  it("A-N9 & B-N7 : normalise les tirets typographiques (en-dash) avec parse_warning mais refuse toujours les espaces internes", () => {
+    const enDash = analyserNumeroDossier("500\u201305\u2013123456\u2013241");
+    expect(enDash.parse_error).toBeNull();
+    expect(enDash.greffe_number).toBe("500");
+    expect(enDash.juridiction_number).toBe("05");
+    expect(enDash.parse_warning).toContain("Tiret(s) typographique(s) normalisé(s)");
+
+    const spaced = analyserNumeroDossier("500 17 123456 241");
+    expect(spaced.parse_error).not.toBeNull();
+  });
 });

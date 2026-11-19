@@ -1,5 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+
+z.config(z.locales.fr());
+
 import {
   AdresseVerifyInputSchema,
   AdresseVerifyOutputSchema,
@@ -306,6 +309,11 @@ function formatInterestText(out: ComputeInterest1619Output): string {
   const truncBanner = out.truncated_any
     ? `[CALCUL TRONQUÉ AU ${truncEndDate} — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]`
     : "";
+  const anyOverridden = out.tranches.some((t) => t.periods.some((p) => p.overridden));
+  const overrideBanner = anyOverridden
+    ? "[TAUX L.A.F. SURCHARGÉS PAR L'APPELANT — NON VÉRIFIÉS DANS LA TABLE EMBARQUÉE]"
+    : "";
+  const omitTables = out.tranches.length > 10;
 
   const trancheBlocks = out.tranches.flatMap((t) => {
     const truncNote = t.truncated
@@ -315,16 +323,28 @@ function formatInterestText(out: ComputeInterest1619Output): string {
     if (t.periods.length === 0) {
       return [summaryLine];
     }
+    if (omitTables) {
+      return [
+        summaryLine,
+        "  (Ventilation détaillée par période omise du résumé texte pour > 10 tranches ; consulter structuredContent.tranches[].periods)",
+      ];
+    }
     const tableHeader =
       "  | Période | Dates (incluses) | Jours | Base | Taux effectif (1619 / L.A.F.) | Intérêt légal | Ind. add. 1619 | Contractuel | Sous-total exact |";
     const tableSep = "  |---|---|---:|---:|---:|---:|---:|---:|---:|";
     const periodRows = t.periods.map((p) => {
-      const rateDetail =
-        p.laf_rate_bps !== null
-          ? `${formatBpsPercent(p.effective_rate_bps)} (L.A.F. ${formatBpsPercent(p.laf_rate_bps)} = 5,00 % + ${formatBpsPercent(p.additional_rate_bps)})`
-          : p.contractual_rate_bps > 0
-            ? `${formatBpsPercent(p.effective_rate_bps)} (contractuel)`
-            : formatBpsPercent(p.effective_rate_bps);
+      const ovTag = p.overridden ? " [surcharge]" : "";
+      let rateDetail: string;
+      if (p.laf_rate_bps !== null) {
+        rateDetail =
+          p.laf_rate_bps < p.legal_rate_bps
+            ? `${formatBpsPercent(p.effective_rate_bps)} (taux légal min. 5,00 % ; L.A.F. ${formatBpsPercent(p.laf_rate_bps)} < 5,00 % ⇒ ind. add. 0,00 %)${ovTag}`
+            : `${formatBpsPercent(p.effective_rate_bps)} (L.A.F. ${formatBpsPercent(p.laf_rate_bps)} = 5,00 % + ${formatBpsPercent(p.additional_rate_bps)})${ovTag}`;
+      } else if (p.contractual_rate_bps > 0) {
+        rateDetail = `${formatBpsPercent(p.effective_rate_bps)} (contractuel)`;
+      } else {
+        rateDetail = formatBpsPercent(p.effective_rate_bps);
+      }
       return `  | ${p.period_label} | ${p.start_date_included} → ${p.end_date_included} | ${p.days} j | /${p.year_days} | ${rateDetail} | ${p.legal_interest_cad_exact_6dec} $ | ${p.additional_indemnity_cad_exact_6dec} $ | ${p.contractual_interest_cad_exact_6dec} $ | ${p.total_interest_cad_exact_6dec} $ |`;
     });
     return [summaryLine, tableHeader, tableSep, ...periodRows];
@@ -332,6 +352,7 @@ function formatInterestText(out: ComputeInterest1619Output): string {
 
   return [
     truncBanner,
+    overrideBanner,
     `Calcul d'intérêts (${out.mode}) — ${out.convention}`,
     `Capital total : ${out.total_principal_cad} $`,
     `Intérêt légal total (5 %) : ${out.total_legal_interest_cad} $`,
@@ -339,6 +360,7 @@ function formatInterestText(out: ComputeInterest1619Output): string {
     `Intérêt contractuel total : ${out.total_contractual_interest_cad} $`,
     `Intérêts cumulés : ${out.total_interest_cad} $`,
     `Grand total (capital + intérêts)${truncBanner ? ` ${truncBanner}` : ""} : ${out.grand_total_cad} $`,
+    "Arrondi : accumulation rationnelle exacte et arrondi au cent UNE fois par tranche (les sous-totaux à 6 décimales des périodes sont indicatifs et leur somme arrondie séparément peut différer de 0,01 $).",
     "",
     "Détail par tranche et ventilation par période :",
     ...trancheBlocks,

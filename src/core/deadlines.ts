@@ -96,7 +96,7 @@ export const ComputeDeadlinesInputSchema = z.strictObject({
     .boolean()
     .optional()
     .describe(
-      "Prolonger un délai échéant un samedi (toujours vrai en qc_cpc et qc_prescription ; défaut false en qc_li sauf art. 52 al. 2 L.I. au bureau de la publicité des droits ; défaut true en ca_li).",
+      "Prolonger un délai échéant un samedi (toujours vrai en qc_cpc et qc_prescription ; défaut false en qc_li et ca_li — activer true si art. 52 al. 2 L.I. QC au bureau de la publicité des droits ou règle particulière).",
     ),
   extra_non_juridical_dates: z
     .array(z.string().regex(ISO_DATE_FORMAT_RE))
@@ -206,11 +206,7 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     );
   }
   const rolloverSaturday =
-    regime === "qc_cpc" || regime === "qc_prescription"
-      ? true
-      : regime === "qc_li"
-        ? (input.rollover_saturday ?? false)
-        : (input.rollover_saturday ?? true);
+    regime === "qc_cpc" || regime === "qc_prescription" ? true : (input.rollover_saturday ?? false);
   const yearCache = new Map<number, Map<string, HolidayEntry>>();
 
   const guardReasons = new Map<GardeCode, string | undefined>();
@@ -222,6 +218,8 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
 
   if (regime === "qc_li") {
     recordGarde("SAMEDI_CONGE_LOI_INTERPRETATION_QC");
+  } else if (regime === "ca_li") {
+    recordGarde("SAMEDI_CONGE_LOI_INTERPRETATION_CA");
   }
   recordGarde(
     "JOURS_PROCLAMES_NON_PREVISIBLES",
@@ -250,9 +248,14 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
     let stepNotifMode: NotificationMode;
 
     if (step.depends_on_index !== undefined) {
+      if (idx === 0) {
+        throw new RangeError(
+          `Étape #1 (${label}) : depends_on_index ne peut pas être utilisé sur la première étape (aucune étape antérieure à référencer ; utiliser event_date ou anchor_date).`,
+        );
+      }
       if (step.depends_on_index >= idx) {
         throw new RangeError(
-          `Étape #${idx + 1} (${label}) : depends_on_index (${step.depends_on_index}) doit référencer une étape antérieure (< ${idx}).`,
+          `Étape #${idx + 1} (${label}) : depends_on_index (${step.depends_on_index}) doit référencer une étape antérieure (0..${idx - 1}).`,
         );
       }
       const parent = results[step.depends_on_index]!;

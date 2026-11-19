@@ -106,7 +106,9 @@ export function analyserNumeroDossier(brut: string): DossierAnalyse {
     return r;
   }
 
-  const parts = propre.split("-");
+  const propreTirets = propre.replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-");
+  const dashNormalized = propreTirets !== propre;
+  const parts = propreTirets.split("-");
   if (parts.length < 2) {
     r.parse_error = "Format invalide. Attendu : NNN-NN-NNNNNN-NNN (ex. : 500-05-123456-241)";
     return r;
@@ -144,11 +146,19 @@ export function analyserNumeroDossier(brut: string): DossierAnalyse {
 
   const seqStr = parts[2] ?? "";
   const ctrlStr = parts[3] ?? "";
+  const warnings: string[] = [];
+  if (dashNormalized) {
+    warnings.push("Tiret(s) typographique(s) normalisé(s) en tiret ASCII '-'.");
+  }
   if (parts.length !== 4 || !/^\d{6}$/.test(seqStr) || !/^\d{3}$/.test(ctrlStr)) {
-    r.parse_warning =
+    warnings.push(
       "Numéro incomplet ou atypique au regard du gabarit complet NNN-NN-NNNNNN-NNN " +
-      "(séquence à 6 chiffres et/ou contrôle à 3 chiffres absents ou non numériques) ; " +
-      "seuls les segments greffe et juridiction ont été analysés.";
+        "(séquence à 6 chiffres et/ou contrôle à 3 chiffres absents ou non numériques) ; " +
+        "seuls les segments greffe et juridiction ont été analysés.",
+    );
+  }
+  if (warnings.length > 0) {
+    r.parse_warning = warnings.join(" ");
   }
 
   return r;

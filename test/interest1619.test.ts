@@ -148,6 +148,21 @@ describe("interets_1619", () => {
     expect(overridden.truncated_any).toBe(false);
     expect(overridden.tranches[0]!.effective_end_date).toBe("2027-06-30");
     expect(overridden.gardes.map((g) => g.code)).not.toContain("TAUX_LAF_TRIMESTRE_MANQUANT");
+    expect(overridden.gardes.map((g) => g.code)).toContain("TAUX_LAF_SURCHARGE_APPELANT");
+    expect(overridden.provenance.source).toContain("rate_overrides");
+    const periods = overridden.tranches[0]!.periods;
+    expect(periods.find((p) => p.period_label === "2026-Q4")?.overridden).toBe(false);
+    expect(periods.find((p) => p.period_label === "2027-Q1")?.overridden).toBe(true);
+
+    // A-N1 : rate_overrides interdit sur un trimestre déjà publié dans la table embarquée
+    expect(() =>
+      computeInterest1619({
+        mode: "legal_plus_1619",
+        end_date: "2025-12-31",
+        rate_overrides: [{ quarter: "2025-Q1", laf_rate_bps: 700 }],
+        tranches: [{ principal_cents: 1_000_000, start_date: "2025-01-01" }],
+      }),
+    ).toThrow(/Surcharge interdite pour le trimestre 2025-Q1/);
   });
 
   it("retourne 0 pour une période nulle (end_date === start_date) et 0 d'indemnité quand LAF = 5%", () => {

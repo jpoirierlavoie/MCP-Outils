@@ -361,4 +361,19 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     expect(partial.text).toContain("constituées par loi spéciale");
     expect(partial.text).toContain("Hydro-Québec");
   });
+
+  it("D27 & B-N13 : une entité radiée homonyme ou nom commercial sur une société d'État n'active jamais exact_match_found", async () => {
+    // 'GESTION VIEUX-PORT LTÉE' est radiée (is_active = 0) dans le jeu de test
+    const inactiveMatch = RegistreSearchEntitiesOutputSchema.parse(
+      (await registreSearchEntities(harness.d1, { query: "GESTION VIEUX-PORT LTÉE" })).structured,
+    );
+    expect(inactiveMatch.entities.length).toBeGreaterThanOrEqual(1);
+    expect(inactiveMatch.exact_match_found).toBe(false);
+
+    // Une société par loi spéciale (Hydro-Québec) homonyme d'une fiche non corporative ou inactive reste à exact_match_found = false
+    const hydroRes = RegistreSearchEntitiesOutputSchema.parse(
+      (await registreSearchEntities(harness.d1, { query: "Hydro-Québec" })).structured,
+    );
+    expect(hydroRes.exact_match_found).toBe(false);
+  });
 });
