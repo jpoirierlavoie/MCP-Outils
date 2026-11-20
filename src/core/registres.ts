@@ -654,7 +654,7 @@ export async function registreSearchEntities(
       let bonus = 0;
       if (officialNorm === qNormFull) bonus -= 50;
       else if (officialNorm.startsWith(qNormFull)) bonus -= 15;
-      if (r.is_active === 1) bonus -= 40;
+      if (r.is_active === 1 || r.statut_code === "NI") bonus -= 40;
       byId.set(id, { row: r, score: Number(r.rank_score) + bonus });
     }
   }
@@ -711,7 +711,8 @@ export async function registreSearchEntities(
     ) {
       return true;
     }
-    if (qNormFull.length === 0 || !e.is_active) {
+    const isExemptCorporate = e.statut === "Non immatriculée" && isCorporateForm(e.forme_juridique);
+    if (qNormFull.length === 0 || (!e.is_active && !isExemptCorporate)) {
       return false;
     }
     if (isStatutoryCrownQuery) {

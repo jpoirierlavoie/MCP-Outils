@@ -1012,13 +1012,12 @@ export async function adresseVerify(
 
   const outsideProvince = detectOutsideQuebecIndicator(input);
   if (outsideProvince) {
-    corrections.push(
-      `Indicateur territorial hors Québec détecté (« ${outsideProvince} ») : adresse hors du champ de couverture du RQA (Québec uniquement).`,
-    );
     return buildFinalAdresseResult({
       status: "outside_quebec",
       candidates: [],
-      corrections,
+      corrections: [
+        `Indicateur territorial hors Québec détecté (« ${outsideProvince} ») : adresse hors du champ de couverture du RQA (Québec uniquement).`,
+      ],
       verifiedAt,
       rawQuerySummary: input.address ?? input.street ?? "",
       outsideProvinceLabel: outsideProvince,
@@ -1053,13 +1052,12 @@ export async function adresseVerify(
       const reason = nonQcCity
         ? `${parsed.municipalityOriginal ?? parsed.municipalityNorm}`
         : `code postal hors série G/H/J (${formatPostalCode(parsed.postalCodeCompact)})`;
-      corrections.push(
-        `Indicateur hors Québec détecté (${reason}) : adresse hors du champ de couverture du RQA (Québec uniquement).`,
-      );
       return buildFinalAdresseResult({
         status: "outside_quebec",
         candidates: [],
-        corrections,
+        corrections: [
+          `Indicateur hors Québec détecté (${reason}) : adresse hors du champ de couverture du RQA (Québec uniquement).`,
+        ],
         verifiedAt,
         rawQuerySummary: input.address ?? input.street ?? "",
         outsideProvinceLabel: reason,

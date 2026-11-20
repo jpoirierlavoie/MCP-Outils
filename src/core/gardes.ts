@@ -7,6 +7,7 @@ export const GARDE_CODES = [
   "DELAI_A_REBOURS_VERIFIER_TEXTE",
   "NOTIFICATION_TECHNOLOGIQUE_APRES_17H",
   "NOTIFICATION_TECHNOLOGIQUE_17H_SECONDE_EXACTE",
+  "NOTIFICATION_TECHNOLOGIQUE_SANS_HEURE",
   "JOUR_NON_SEANCE_ART_82_AL_2",
   "JOURS_PROCLAMES_NON_PREVISIBLES",
   "DEPOT_GREFFE_HEURES_OUVERTURE",
@@ -62,6 +63,8 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "En vertu de l'art. 111 al. 2 C.p.c., une notification faite par un moyen technologique après 17 h 00 ou un samedi ou un jour férié est réputée faite à 8 h 00 le jour ouvrable qui suit. Le point de départ du délai a été déplacé au jour ouvrable suivant.",
   NOTIFICATION_TECHNOLOGIQUE_17H_SECONDE_EXACTE:
     "Notification technologique reçue exactement à 17:00 sans indication des secondes : l'art. 111 al. 2 C.p.c. vise une notification faite « après 17 h 00 ». Le point de départ du délai n'a pas été déplacé par défaut (17:00:00 n'étant pas après 17 h 00) ; vérifier la seconde exacte de transmission/réception pour confirmer si le déplacement s'applique.",
+  NOTIFICATION_TECHNOLOGIQUE_SANS_HEURE:
+    "Notification technologique sans heure précisée (event_time / anchor_time omis) : l'art. 111 al. 2 C.p.c. reporte au jour ouvrable suivant toute notification faite après 17 h 00. Par défaut, l'envoi sur jour ouvrable a été présumé fait à 17 h 00 ou avant ; vérifier l'horodatage exact de transmission/réception.",
   JOUR_NON_SEANCE_ART_82_AL_2:
     "Une ou plusieurs dates calculées tombent dans une période où les tribunaux de première instance ne sont pas tenus de siéger (du 30 juin au 1er septembre ou du 20 décembre au 7 janvier, art. 82 al. 2 C.p.c.). Ces périodes ne sont PAS des jours fériés et ne suspendent ni ne prolongent les délais.",
   JOURS_PROCLAMES_NON_PREVISIBLES:

@@ -316,6 +316,8 @@ export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlines
         recordGarde("NOTIFICATION_TECHNOLOGIQUE_APRES_17H");
       } else if (isExact1700WithoutSeconds && !anchorStatus.nonJuridical) {
         recordGarde("NOTIFICATION_TECHNOLOGIQUE_17H_SECONDE_EXACTE");
+      } else if (parsedTime === null && !anchorStatus.nonJuridical) {
+        recordGarde("NOTIFICATION_TECHNOLOGIQUE_SANS_HEURE");
       }
     }
 
