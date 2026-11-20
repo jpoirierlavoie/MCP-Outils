@@ -275,6 +275,17 @@ describe("calendrier_deadlines", () => {
     expect(satExplicit.results[0]!.effective_date).toBe("2026-06-22");
     expect(satExplicit.results[0]!.rolled_over).toBe(true);
 
+    // Mode technologique sans event_time ni anchor_time -> émet la garde dédiée sans déplacer l'ancrage
+    const techNoTime = ComputeDeadlinesOutputSchema.parse(
+      computeDeadlines({
+        event_date: "2026-05-04",
+        notification_mode: "technological",
+        deadlines: [{ amount: 15, unit: "days" }],
+      }),
+    );
+    expect(techNoTime.results[0]!.effective_date).toBe("2026-05-19");
+    expect(techNoTime.gardes.map((g) => g.code)).toContain("NOTIFICATION_TECHNOLOGIQUE_SANS_HEURE");
+
     // depends_on_index à l'étape 0 -> message explicite sans borne « < 0 »
     expect(() =>
       computeDeadlines({

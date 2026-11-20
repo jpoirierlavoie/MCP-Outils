@@ -32,8 +32,10 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
 
       INSERT INTO domaine_valeur VALUES
         ('STAT_IMMAT', 'IM', 'Immatriculée'),
+        ('STAT_IMMAT', 'NI', 'Non immatriculée'),
         ('STAT_IMMAT', 'RO', 'Radiée d''office'),
         ('FORM_JURI', 'CIE', 'Société par actions ou compagnie'),
+        ('FORM_JURI', 'PM', 'Personne morale sans but lucratif'),
         ('FORM_JURI', 'SENCRL', 'Société en nom collectif à responsabilité limitée'),
         ('REGIM_JURI', '094', 'Loi sur les sociétés par actions (RLRQ, c. S-31.1)'),
         ('REGIM_JURI', '024', 'Loi sur les compagnies (RLRQ, c. C-38)'),
@@ -113,6 +115,16 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         NULL,
         'CIE', 'IM', '2008-03-20', 'Montréal', 0,
         '{"im":"2008-03-20","ad":"200 rue Sherbrooke Est, Montréal (Québec)","cp":"H2X1C8"}'
+      );
+
+      -- 8) Personne morale constituée par loi spéciale (statut REQ « Non immatriculée » / is_active=0)
+      INSERT INTO entites VALUES (
+        8, 'qc', '8814180145', NULL, 0,
+        'BARREAU DU QUÉBEC',
+        '',
+        NULL,
+        'PM', 'NI', '1849-05-30', 'Montréal', 0,
+        '{"im":"2000-03-12","ad":"445 BOUL. Saint-Laurent, Montréal (Québec)","cp":"H2Y3T8"}'
       );
 
       INSERT INTO rbq_licences VALUES (
@@ -375,5 +387,12 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       (await registreSearchEntities(harness.d1, { query: "Hydro-Québec" })).structured,
     );
     expect(hydroRes.exact_match_found).toBe(false);
+
+    // Une personne morale constituée par loi spéciale au statut REQ « Non immatriculée » active exact_match_found = true
+    const barreauRes = RegistreSearchEntitiesOutputSchema.parse(
+      (await registreSearchEntities(harness.d1, { query: "Barreau du Québec" })).structured,
+    );
+    expect(barreauRes.exact_match_found).toBe(true);
+    expect(barreauRes.entities[0]?.neq).toBe("8814180145");
   });
 });

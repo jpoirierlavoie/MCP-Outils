@@ -527,6 +527,7 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
           expect(parsed.gardes.map((g) => g.code)).not.toContain(
             "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
           );
+          expect(parsed.corrections_appliquees).toHaveLength(1);
           expect(res.text).toContain("Adresse hors Québec");
         }
       }
