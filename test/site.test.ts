@@ -28,6 +28,7 @@ const ALLOWED_URL_PREFIXES = [
   "https://www.justice.gouv.qc.ca",
   "https://schema.org",
   "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+  "https://www.apache.org/licenses/LICENSE-2.0",
   "mailto:jason@poirierlavoie.ca",
 ] as const;
 

@@ -41,7 +41,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
 
     const inserts: string[] = [
       `INSERT INTO meta_sources VALUES
-        ('glossaire_qc', 'Glossaire curé QC', 1, 'CC-BY-NC-SA-4.0', '2026-11-15', ${glossaireJson.entries.length}),
+        ('glossaire_qc', 'Glossaire curé QC', 1, 'Apache-2.0', '2026-11-15', ${glossaireJson.entries.length}),
         ('concordancier_legislatif', 'Concordancier législatif', 2, 'OGL-Canada', '2026-11-15', 5),
         ('termium_plus_droit', 'TERMIUM Plus', 3, 'OGL-Canada', '2026-11-15', 2),
         ('oqlf_droit', 'OQLF', 4, 'CC-BY-NC-SA-4.0', '2026-01-19', 1);`,
@@ -69,7 +69,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       inserts.push(
         `INSERT INTO fiches_terminologiques VALUES (
           ${ficheId}, ${sqlStr(entry.id)}, 1,
-          'Glossaire curé de pratique civile et commerciale québécoise', 'CC-BY-NC-SA-4.0',
+          'Glossaire curé de pratique civile et commerciale québécoise', 'Apache-2.0',
           ${sqlStr(entry.terme_fr)}, ${sqlStr(entry.terme_en)},
           ${sqlStr(fold(entry.terme_fr))}, ${sqlStr(fold(entry.terme_en))},
           ${sqlStr(JSON.stringify(entry.synonymes_fr))},

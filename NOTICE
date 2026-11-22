@@ -1,0 +1,81 @@
+MCP-Outils (outils.poirierlavoie.ca)
+Copyright 2026 Jason Poirier Lavoie (avocat / lawyer, Québec)
+
+Ce logiciel, son glossaire curé et sa documentation originale sont publiés sous
+la licence Apache, version 2.0 (identifiant SPDX : Apache-2.0 ; voir LICENSE).
+This software, its curated glossary, and its original documentation are licensed
+under the Apache License, Version 2.0 (SPDX Identifier: Apache-2.0; see LICENSE).
+
+================================================================================
+1. CRÉATION ASSISTÉE PAR IA ET VOCATION D'INTÉRÊT PUBLIC /
+   AI-ASSISTED CREATION & PUBLIC-BENEFIT DEDICATION
+================================================================================
+
+FRANÇAIS — Ce serveur MCP public (calculateur de délais C.p.c., intérêts
+art. 1619 C.c.Q., greffes, registres, adresses et terminologie), ses schémas,
+ses tests et son glossaire curé de rang 1 ont été élaborés en grande partie
+avec l'assistance de systèmes d'intelligence artificielle et sont mis
+gratuitement à la disposition du public pour l'intérêt général.
+
+ENGLISH — This public MCP server (C.C.P. deadlines, art. 1619 C.C.Q. interest,
+court registries, business registries, addresses, and terminology), its
+schemas, tests, and Rank-1 curated glossary were built with substantial
+assistance from artificial intelligence systems and are released free of charge
+for the public benefit.
+
+================================================================================
+2. PORTÉE DE LA LICENCE ET ATTRIBUTIONS DES JEUX DE DONNÉES OUVERTS /
+   LICENSE SCOPE & OPEN-DATA ATTRIBUTIONS
+================================================================================
+
+FRANÇAIS — La licence Apache-2.0 s'applique exclusivement au code source, aux
+schémas, aux tests, à la documentation originale et au glossaire curé dont
+Jason Poirier Lavoie est titulaire. Aucun droit d'auteur ni statut officiel
+n'est revendiqué sur les jeux de données publics tiers intégrés ou desservis,
+lesquels demeurent régis par leurs licences respectives :
+
+- Registraire des entreprises du Québec (REQ) — fichier ouvert :
+  CC BY-NC-SA 4.0 (Attribution - Pas d'Utilisation Commerciale - Partage dans
+  les Mêmes Conditions 4.0 International — https://creativecommons.org/licenses/by-nc-sa/4.0/).
+- Office québécois de la langue française (OQLF — Grand dictionnaire
+  terminologique / Vitrine linguistique) : CC BY-NC-SA 4.0.
+- Régie du bâtiment du Québec (RBQ), Office de la protection du consommateur
+  (OPC), Autorité des marchés publics (RENA) et ministère des Ressources
+  naturelles et des Forêts (RQA) : CC BY 4.0.
+- Corporations Canada, Bureau de la traduction (TERMIUM Plus®) et ministère
+  de la Justice du Canada (concordancier législatif fédéral) : Licence du
+  gouvernement ouvert – Canada (OGL-Canada).
+- Revenu Québec (taux trimestriels art. 28 L.A.F.) et ministère de la Justice
+  du Québec (palais de justice et greffes, avec les mentions officielles
+  reproduites verbatim).
+- LégisQuébec (Éditeur officiel du Québec — concordancier législatif QC).
+
+ENGLISH — Apache-2.0 applies solely to the source code, schemas, tests,
+original documentation, and curated Rank-1 glossary. No copyright or official
+status is claimed over third-party public datasets integrated or served, which
+remain governed by their respective upstream licenses:
+
+- Registraire des entreprises du Québec (REQ) & Office québécois de la langue
+  française (OQLF): CC BY-NC-SA 4.0 (NonCommercial ShareAlike).
+- RBQ, OPC, AMP (RENA), and MRNF (RQA): CC BY 4.0.
+- Corporations Canada, Translation Bureau (TERMIUM Plus®), and Department of
+  Justice Canada: Open Government Licence – Canada (OGL-Canada).
+- Revenu Québec (art. 28 T.A.A. rates), ministère de la Justice du Québec,
+  and LégisQuébec (Québec Official Publisher).
+
+================================================================================
+3. AUCUN CONSEIL JURIDIQUE, FOURNITURE « TEL QUEL » ET ABSENCE D'AVAL /
+   NO LEGAL ADVICE, "AS IS" PROVISION & NON-ENDORSEMENT
+================================================================================
+
+FRANÇAIS — Aucun conseil juridique. Fourni « TEL QUEL », sans garantie ni SLA,
+et sans droit d'utiliser le nom de l'auteur à des fins d'aval (Apache-2.0 § 6).
+Chaque utilisateur demeure seul responsable de la vérification des sources
+officielles et du respect des licences des données ouvertes (notamment la
+clause non commerciale CC BY-NC-SA 4.0 applicable aux données REQ et OQLF).
+
+ENGLISH — No legal advice. Provided "AS IS", with zero warranty or SLA, and no
+right to use the author's name for endorsement (Apache-2.0 § 6). Users remain
+solely responsible for verifying official sources and complying with upstream
+open-data licenses (including CC BY-NC-SA 4.0 non-commercial terms on REQ and
+OQLF datasets).

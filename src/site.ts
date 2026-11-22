@@ -753,9 +753,10 @@ ${biP(
       "pour Google Antigravity (plugin.json, mcp_config.json) et Gemini CLI (gemini-extension.json). " +
       "Vérification de santé sans journalisation des charges utiles : " +
       "https://outils.poirierlavoie.ca/healthz (limitation de débit à 240 requêtes / 60 s par IP).",
-    "Le code source est public sous licence CC BY-NC-SA 4.0 assortie d'une autorisation " +
-      "complémentaire de pratique professionnelle du droit pour les membres en règle du Barreau " +
-      "du Québec (voir LICENSE) ; l'ensemble des tests s'exécute localement sans accès réseau.",
+    "Le code source et le glossaire curé sont libres et gratuits sous licence Apache-2.0 " +
+      "(voir LICENSE), tandis que les jeux de données publics intégrés demeurent soumis aux " +
+      "licences de leurs éditeurs respectifs décrites dans NOTICE (dont CC BY-NC-SA 4.0 pour " +
+      "REQ et OQLF) ; l'ensemble des tests s'exécute localement sans accès réseau.",
   ],
   EN.acces,
 )}
@@ -809,7 +810,7 @@ function construireJsonLd(): string {
         url: `${ORIGINE_SITE}/`,
         documentation: `${ORIGINE_SITE}/mcp/server-card`,
         termsOfService: "https://acces.poirierlavoie.ca/cgu",
-        license: "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        license: "https://www.apache.org/licenses/LICENSE-2.0",
         isAccessibleForFree: true,
         inLanguage: ["fr-CA", "en-CA"],
         description: SERVER_DESCRIPTION,
