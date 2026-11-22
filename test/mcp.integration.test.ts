@@ -495,10 +495,10 @@ describe("Worker HTTP & intégration MCP", () => {
         readFileSync(resolve(process.cwd(), "pipeline/terminologie/schema.sql"), "utf-8"),
         readFileSync(resolve(process.cwd(), "pipeline/terminologie/indexes.sql"), "utf-8"),
         `
-          INSERT INTO meta_sources VALUES ('glossaire_curated', 'Glossaire curé', 1, 'CC-BY-NC-SA-4.0', '2026-11-15', 1);
+          INSERT INTO meta_sources VALUES ('glossaire_curated', 'Glossaire curé', 1, 'Apache-2.0', '2026-11-15', 1);
           INSERT INTO meta_sources VALUES ('concordancier_legislatif', 'Concordancier', 2, 'Domaine public', '2026-11-15', 1);
           INSERT INTO fiches_terminologiques VALUES (
-            1, 'hypotheque', 1, 'Glossaire bijuridique QC', 'CC-BY-NC-SA-4.0',
+            1, 'hypotheque', 1, 'Glossaire bijuridique QC', 'Apache-2.0',
             'hypothèque', 'hypothec', 'hypotheque', 'hypothec', '[]', '[]',
             '[{"terme":"mortgage","langue":"en","origine":"common_law","motif":"Faux ami de common law"}]',
             'hypotheque hypothec mortgage',

@@ -18,6 +18,7 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
   const geminiMd = lire("GEMINI.md");
   const securityMd = lire("SECURITY.md");
   const licenseTxt = lire("LICENSE");
+  const noticeTxt = lire("NOTICE");
   const issueCfg = lire(".github/ISSUE_TEMPLATE/config.yml");
   const prTemplate = lire(".github/PULL_REQUEST_TEMPLATE.md");
   const packageRaw = lire("package.json");
@@ -150,16 +151,24 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
     expect(octets).toBeGreaterThan(1_000);
     expect(octets).toBeLessThan(24_000);
 
-    for (const doc of [readme, claudeMd, geminiMd, securityMd, licenseTxt, issueCfg, prTemplate]) {
+    for (const doc of [
+      readme,
+      claudeMd,
+      geminiMd,
+      securityMd,
+      licenseTxt,
+      noticeTxt,
+      issueCfg,
+      prTemplate,
+    ]) {
       expect(doc).not.toContain("pratique-civile-outils");
       expect(doc).not.toContain("MCP-Socle-Juridique");
       expect(doc).not.toContain("socle-juridique");
     }
 
-    expect(licenseTxt).toContain("CC-BY-NC-SA-4.0");
-    expect(licenseTxt).toContain(
-      "AUTORISATION COMPLÉMENTAIRE DE PRATIQUE PROFESSIONNELLE DU DROIT",
-    );
-    expect(licenseTxt).toContain("COMPANION PROFESSIONAL LEGAL PRACTICE GRANT");
+    expect(licenseTxt).toContain("Apache License");
+    expect(licenseTxt).toContain("Version 2.0, January 2004");
+    expect(noticeTxt).toContain("Apache-2.0");
+    expect(noticeTxt).toContain("CC BY-NC-SA 4.0");
   });
 });

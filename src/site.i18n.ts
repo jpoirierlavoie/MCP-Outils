@@ -252,9 +252,10 @@ export const EN = {
       "https://outils.poirierlavoie.ca/mcp/server-card; the repository includes manifests " +
       "for Google Antigravity (plugin.json, mcp_config.json) and Gemini CLI (gemini-extension.json). " +
       "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz (edge rate limit: 240 req / 60 s per IP).",
-    "The source code is public under the CC BY-NC-SA 4.0 licence with a Companion Professional " +
-      "Legal Practice Grant for members in good standing of the Barreau du Québec (see LICENSE), and " +
-      "the entire test suite runs locally with no network access.",
+    "The source code and curated glossary are free and open-source under Apache-2.0 (see " +
+      "LICENSE), while integrated public datasets remain governed by their respective publishers' " +
+      "licenses documented in NOTICE (including CC BY-NC-SA 4.0 for REQ and OQLF), and the entire " +
+      "test suite runs locally with no network access.",
   ],
 
   pied: [
