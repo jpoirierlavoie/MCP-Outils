@@ -30,7 +30,7 @@ Ce serveur est conçu pour être interrogé publiquement sans secret tout en pro
 
 - **Bases D1 strictement en lecture seule à la requête et zéro appel sortant** : les trois bases Cloudflare D1 (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, région `ENAM`) contiennent exclusivement des jeux de données ouvertes préchargés hors ligne. Aucune écriture (`INSERT`/`UPDATE`/`DELETE`), aucun KV/R2, aucun témoin de connexion et aucun appel HTTP sortant n'ont lieu lors du traitement d'une requête. Aucune donnée soumise par un avocat (nom d'entreprise, adresse civique, extrait de projet d'acte) ne quitte l'isolat Cloudflare ni n'est enregistrée.
 - **Aucune journalisation des charges utiles** : `observability.enabled = false`, `logs.enabled = false`, `logs.invocation_logs = false` et `logpush = false` dans [`wrangler.jsonc`](wrangler.jsonc). Le code du Worker ne journalise ni corps de requête, ni arguments d'outils, ni adresses IP.
-- **Limitation de débit à la périphérie** : un binding Cloudflare Rate Limiting (`RATE_LIMITER`, 60 requêtes / 60 s par IP client via `CF-Connecting-IP`) protège le point d'accès contre les abus sans stocker de contenu applicatif.
+- **Limitation de débit à la périphérie** : un binding Cloudflare Rate Limiting (`RATE_LIMITER`, 240 requêtes / 60 s par IP client via `CF-Connecting-IP`) protège le point d'accès contre les abus sans stocker de contenu applicatif.
 
 ## Configuration dans les clients MCP
 

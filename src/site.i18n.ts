@@ -251,7 +251,7 @@ export const EN = {
     "The public discovery card (SEP-2127) is served at " +
       "https://outils.poirierlavoie.ca/mcp/server-card; the repository includes manifests " +
       "for Google Antigravity (plugin.json, mcp_config.json) and Gemini CLI (gemini-extension.json). " +
-      "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz (edge rate limit: 60 req / 60 s per IP).",
+      "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz (edge rate limit: 240 req / 60 s per IP).",
     "The source code is public under the CC BY-NC-SA 4.0 licence with a Companion Professional " +
       "Legal Practice Grant for members in good standing of the Barreau du Québec (see LICENSE), and " +
       "the entire test suite runs locally with no network access.",
