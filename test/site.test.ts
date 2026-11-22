@@ -162,6 +162,13 @@ describe("page publique GET / et fichiers de découverte", () => {
     expect(html).toContain('href="https://legislation.poirierlavoie.ca/"');
     expect(html).toContain('href="https://jurisprudence.poirierlavoie.ca/"');
     expect(html).toContain('href="#contenu-principal"');
+    expect(html).toContain('<h3 id="sc-calendrier_holidays">');
+    const titleMatch = /<title data-fr="[^"]+" data-en="[^"]+">([^<]+)<\/title>/.exec(html);
+    expect(titleMatch).not.toBeNull();
+    expect(titleMatch![1]!.length).toBeLessThanOrEqual(65);
+    const descMatch = /<meta name="description" content="([^"]+)">/.exec(html);
+    expect(descMatch).not.toBeNull();
+    expect(descMatch![1]!.replace(/&#39;/g, "'").length).toBeLessThanOrEqual(160);
 
     const ldMatch = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html);
     expect(ldMatch).not.toBeNull();
