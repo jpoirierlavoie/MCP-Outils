@@ -752,7 +752,7 @@ ${biP(
       "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut les manifestes " +
       "pour Google Antigravity (plugin.json, mcp_config.json) et Gemini CLI (gemini-extension.json). " +
       "Vérification de santé sans journalisation des charges utiles : " +
-      "https://outils.poirierlavoie.ca/healthz (limitation de débit à 60 requêtes / 60 s par IP).",
+      "https://outils.poirierlavoie.ca/healthz (limitation de débit à 240 requêtes / 60 s par IP).",
     "Le code source est public sous licence CC BY-NC-SA 4.0 assortie d'une autorisation " +
       "complémentaire de pratique professionnelle du droit pour les membres en règle du Barreau " +
       "du Québec (voir LICENSE) ; l'ensemble des tests s'exécute localement sans accès réseau.",
