@@ -125,7 +125,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
 } as const;
 
 export const EN = {
-  titre: "MCP Outils",
+  titre: "MCP Tools — Deadlines, Interest, Registries & Legal Terminology",
 
   intro: [
     "A public, zero-logging, deterministic MCP server for Québec civil and commercial litigation: " +

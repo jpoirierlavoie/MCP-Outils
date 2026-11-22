@@ -2,7 +2,8 @@
 
 Serveur MCP (**Model Context Protocol**) public, sans journalisation et déterministe (`mcp-outils`, Worker Cloudflare `outils`), conçu pour outiller la pratique du litige civil et commercial québécois et les compétences du greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois).
 
-Point d'accès public (Streamable HTTP) : `https://outils.poirierlavoie.ca/mcp`
+Point d'accès public (Streamable HTTP) : `https://outils.poirierlavoie.ca/mcp`  
+Page publique et découverte : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
 
 ## Outils exposés (v2.2.0 — 12 outils sur 5 familles)
 

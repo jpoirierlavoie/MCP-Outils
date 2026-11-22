@@ -13,7 +13,11 @@ import {
   SERVER_TITLE,
   SERVER_VERSION,
 } from "./mcp/server.js";
-import { pagePubliqueHtml } from "./site.js";
+import {
+  estCheminDecouvertePublique,
+  pagePubliqueHtml,
+  repondreDecouvertePublique,
+} from "./site.js";
 
 export interface Env extends OutilsBindings {
   RATE_LIMITER?: RateLimit;
@@ -192,18 +196,7 @@ function pagePublique(request: Request): Response {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (env.RATE_LIMITER && request.method !== "OPTIONS") {
-      const clientIp = request.headers.get("CF-Connecting-IP") ?? "anonymous";
-      const outcome = await env.RATE_LIMITER.limit({ key: clientIp });
-      if (!outcome.success) {
-        return rateLimitExceededResponse();
-      }
-    }
-
     const url = new URL(request.url);
-    if (url.pathname === "/healthz" && (request.method === "GET" || request.method === "HEAD")) {
-      return healthzResponse(env);
-    }
     if (url.pathname === "/") {
       if (request.method !== "GET" && request.method !== "HEAD") {
         return new Response("Method not allowed", {
@@ -212,6 +205,27 @@ export default {
         });
       }
       return pagePublique(request);
+    }
+    if (estCheminDecouvertePublique(url.pathname)) {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: { Allow: "GET, HEAD" },
+        });
+      }
+      return repondreDecouvertePublique(url.pathname, request.method);
+    }
+
+    if (env.RATE_LIMITER && request.method !== "OPTIONS") {
+      const clientIp = request.headers.get("CF-Connecting-IP") ?? "anonymous";
+      const outcome = await env.RATE_LIMITER.limit({ key: clientIp });
+      if (!outcome.success) {
+        return rateLimitExceededResponse();
+      }
+    }
+
+    if (url.pathname === "/healthz" && (request.method === "GET" || request.method === "HEAD")) {
+      return healthzResponse(env);
     }
     if (url.pathname === "/mcp/server-card") {
       return repondreCarteServeur(request.method);

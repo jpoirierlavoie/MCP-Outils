@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import lafRatesJson from "../src/data/laf_art28_rates.json" with { type: "json" };
-import worker from "../src/index.js";
+import worker, { type Env } from "../src/index.js";
 import { listToolDescriptors, SERVER_NAME, SERVER_VERSION } from "../src/mcp/server.js";
 import { analyserNumeroDossier } from "../src/qc/dossier.js";
 import { GARDE_DOSSIER, GARDE_PALAIS, GARDE_SANS_ADRESSE } from "../src/qc/format.js";
@@ -10,7 +10,7 @@ import { MJQ_MAJ } from "../src/qc/lieux.js";
 import { listerDistricts } from "../src/qc/lookup.js";
 import { RELEVE_LE } from "../src/qc/palais.js";
 import { OUTILS_EN } from "../src/site.i18n.js";
-import { esc, pagePubliqueHtml, SECTIONS } from "../src/site.js";
+import { CHEMINS_DECOUVERTE_PUBLIQUE, esc, pagePubliqueHtml, SECTIONS } from "../src/site.js";
 
 const dummyCtx = {
   waitUntil: () => {},
@@ -21,15 +21,33 @@ const dummyCtx = {
 const ALLOWED_URL_PREFIXES = [
   "https://outils.poirierlavoie.ca",
   "https://acces.poirierlavoie.ca",
+  "https://legislation.poirierlavoie.ca",
+  "https://jurisprudence.poirierlavoie.ca",
   "https://github.com/jpoirierlavoie/MCP-Outils",
   "https://github.com/jpoirierlavoie/droit-civil-quebecois",
   "https://www.justice.gouv.qc.ca",
+  "https://schema.org",
+  "https://creativecommons.org/licenses/by-nc-sa/4.0/",
   "mailto:jason@poirierlavoie.ca",
 ] as const;
 
-describe("page publique GET /", () => {
-  it("sert du HTML sécurisé sans CORS ni dépendance tierce", async () => {
-    const res = await worker.fetch(new Request("https://outils.poirierlavoie.ca/"), {}, dummyCtx);
+describe("page publique GET / et fichiers de découverte", () => {
+  it("sert du HTML sécurisé et les fichiers de découverte avant le limiteur de débit /mcp", async () => {
+    let appelsLimiteur = 0;
+    const envBloque: Env = {
+      RATE_LIMITER: {
+        limit: async () => {
+          appelsLimiteur += 1;
+          return { success: false };
+        },
+      },
+    };
+
+    const res = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/"),
+      envBloque,
+      dummyCtx,
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
@@ -42,6 +60,32 @@ describe("page publique GET /", () => {
     expect(html).not.toMatch(/<script[^>]+src=/i);
     expect(html).not.toMatch(/<link[^>]+stylesheet/i);
     expect(html).not.toMatch(/<img[^>]+http/i);
+
+    for (const dec of CHEMINS_DECOUVERTE_PUBLIQUE) {
+      const rDec = await worker.fetch(
+        new Request(`https://outils.poirierlavoie.ca${dec}`),
+        envBloque,
+        dummyCtx,
+      );
+      expect(rDec.status, dec).toBe(200);
+      expect(rDec.headers.get("access-control-allow-origin"), dec).toBeNull();
+
+      const rHead = await worker.fetch(
+        new Request(`https://outils.poirierlavoie.ca${dec}`, { method: "HEAD" }),
+        envBloque,
+        dummyCtx,
+      );
+      expect(rHead.status, `${dec} HEAD`).toBe(200);
+      expect(await rHead.text()).toBe("");
+
+      const rPost = await worker.fetch(
+        new Request(`https://outils.poirierlavoie.ca${dec}`, { method: "POST" }),
+        envBloque,
+        dummyCtx,
+      );
+      expect(rPost.status, `${dec} POST`).toBe(405);
+    }
+    expect(appelsLimiteur).toBe(0);
   });
 
   it("n'a aucune couleur en dur hors des deux jeux de variables :root et html.t-dark", () => {
@@ -75,7 +119,6 @@ describe("page publique GET /", () => {
   it("toutes les URLs externes appartiennent à la liste blanche et aucune fuite CanLII", () => {
     const html = pagePubliqueHtml();
     expect(html).not.toContain("api.canlii.org");
-    expect(html).not.toContain("jurisprudence.poirierlavoie.ca");
 
     const urls = html.match(/https?:\/\/[^\s"'<>)]+/g) ?? [];
     for (const u of urls) {
@@ -91,7 +134,7 @@ describe("page publique GET /", () => {
     }
   });
 
-  it("couvre 1:1 les outils du serveur, les traductions anglaises et les sections", () => {
+  it("couvre 1:1 les outils du serveur, les traductions anglaises, la navigation de suite, les id uniques et le JSON-LD", () => {
     const html = pagePubliqueHtml();
     const descripteurs = listToolDescriptors();
     expect(descripteurs).toHaveLength(12);
@@ -103,8 +146,28 @@ describe("page publique GET /", () => {
 
     for (const s of SECTIONS) {
       expect(html).toContain(`href="#${s.id}"`);
-      expect(html).toContain(`<h2 id="${s.id}">`);
+      expect(html).toContain(`<section id="${s.id}">`);
     }
+
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]!);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    const fr = (html.match(/data-l="fr"/g) ?? []).length;
+    const en = (html.match(/data-l="en"/g) ?? []).length;
+    expect(fr).toBe(en);
+
+    expect(html).toContain('<nav class="suite"');
+    expect(html).toContain('href="/" aria-current="page"');
+    expect(html).toContain('href="https://acces.poirierlavoie.ca/"');
+    expect(html).toContain('href="https://legislation.poirierlavoie.ca/"');
+    expect(html).toContain('href="https://jurisprudence.poirierlavoie.ca/"');
+    expect(html).toContain('href="#contenu-principal"');
+
+    const ldMatch = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html);
+    expect(ldMatch).not.toBeNull();
+    expect((JSON.parse(ldMatch![1]!) as Record<string, unknown>)["@context"]).toBe(
+      "https://schema.org",
+    );
 
     expect(html).toContain(SERVER_NAME);
     expect(html).toContain(SERVER_VERSION);

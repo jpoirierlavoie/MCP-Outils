@@ -1,5 +1,6 @@
 /**
- * Page publique du serveur MCP (`GET /`).
+ * Page publique du serveur MCP (`GET /`) et fichiers publics de découverte
+ * (`/robots.txt`, `/sitemap.xml`, `/llms.txt`).
  *
  * TOUT LE CONTENU DÉRIVE DES DONNÉES VIVES : les outils viennent de
  * `listToolDescriptors()`, les schémas de `z.toJSONSchema(...)`, les issues du vrai
@@ -12,8 +13,8 @@
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
   listToolDescriptors,
+  SERVER_DESCRIPTION,
   SERVER_NAME,
-  SERVER_TITLE,
   SERVER_VERSION,
   type ToolDescriptor,
 } from "./mcp/server.js";
@@ -26,6 +27,10 @@ import { adresseDuGreffe, listerDistricts, localitesItinerantes, siegeFixe } fro
 import { RELEVE_LE } from "./qc/palais.js";
 import { EN, OUTILS_EN } from "./site.i18n.js";
 
+const ORIGINE_SITE = "https://outils.poirierlavoie.ca";
+const DEPOT = "https://github.com/jpoirierlavoie/MCP-Outils";
+const DEPOT_PLUGIN = "https://github.com/jpoirierlavoie/droit-civil-quebecois";
+
 export function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -36,13 +41,13 @@ export function esc(s: string): string {
 }
 
 export function bi(fr: string, en: string): string {
-  return `<span data-l="fr">${esc(fr)}</span><span data-l="en">${esc(en)}</span>`;
+  return `<span data-l="fr">${esc(fr)}</span><span data-l="en" lang="en">${esc(en)}</span>`;
 }
 
 export function biP(fr: readonly string[], en: readonly string[]): string {
   return (
-    `<div data-l="fr">${fr.map((p) => `<p>${esc(p)}</p>`).join("")}</div>` +
-    `<div data-l="en">${en.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`
+    `<div data-l="fr">${fr.map((p) => `<p>${esc(p)}</p>`).join("")}</div>\n` +
+    `<div data-l="en" lang="en">${en.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`
   );
 }
 
@@ -62,17 +67,26 @@ const TITRE_SECTION = new Map<SectionId, { fr: string; en: string }>(
 
 function h2(id: SectionId): string {
   const t = TITRE_SECTION.get(id)!;
-  return `<h2 id="${id}">${bi(t.fr, t.en)}</h2>`;
+  return `<h2 id="h-${id}">${bi(t.fr, t.en)}</h2>`;
 }
 
-// ── Thème (identique au connecteur jumeau MCP-Jurisprudence) ──────────────────
+function compacterBloc(code: string): string {
+  return code
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .map((l) => l.replace(/^\s*\/\/.*$/, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+// ── Thème (identique aux connecteurs jumeaux) ─────────────────────────────────
 
 const CLAIR =
-  "--f:#111;--m:#666;--b:#e2e0da;--a:#7a2e1d;--bg:#fdfcfa;--card:#fff;" +
+  "color-scheme:light;--f:#111;--m:#666;--b:#e2e0da;--a:#7a2e1d;--bg:#fdfcfa;--card:#fff;" +
   "--th:#f7f5f1;--code:#f2efe9;--hover:#faf8f4;--avert-bg:#fbf7f1;--avert-b:#e6d9c6";
 
 const SOMBRE =
-  "--f:#e8e6e1;--m:#a09a90;--b:#3a372f;--a:#e08b6a;--bg:#16150f;--card:#1e1c16;" +
+  "color-scheme:dark;--f:#e8e6e1;--m:#a09a90;--b:#3a372f;--a:#e08b6a;--bg:#16150f;--card:#1e1c16;" +
   "--th:#252219;--code:#252219;--hover:#242118;--avert-bg:#211d15;--avert-b:#3d3527";
 
 const LARGE = "78rem";
@@ -89,6 +103,7 @@ body{margin:0;background:var(--bg);color:var(--f);font:16px/1.6 Georgia,'Times N
 .wrap{max-width:${LARGE};margin:0 auto;padding:2rem 1.25rem 4rem;display:grid;gap:1rem}
 main{min-width:0;max-width:60rem;width:100%;justify-self:center}
 section[id]{scroll-margin-top:1.5rem}
+#schema,#dossier,#greffes{content-visibility:auto;contain-intrinsic-size:auto 40rem}
 h1{font-size:1.6rem;margin:0}
 h2{font-size:1.35rem;margin:2.75rem 0 .75rem;padding-bottom:.3rem;border-bottom:2px solid var(--b)}
 h3{font-size:1.1rem;margin:1.75rem 0 .5rem}
@@ -96,18 +111,31 @@ h4{font-size:1rem;margin:1.25rem 0 .25rem}
 p{margin:.6rem 0}
 a{color:var(--a)}
 code{font:.9em ui-monospace,Menlo,Consolas,monospace;background:var(--code);padding:.1em .35em;border-radius:3px}
-
+:where(a,button,input,select,summary,[tabindex]):focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.saut{position:fixed;left:1rem;top:1rem;z-index:20;padding:.45rem .85rem;background:var(--card);
+  color:var(--a);border:2px solid var(--a);border-radius:6px;font-weight:700;text-decoration:none}
+.saut:not(:focus-visible){position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;border:0}
+.suite{display:flex;align-items:center;justify-content:space-between;gap:.5rem 1rem;flex-wrap:wrap;
+  margin:0 0 1rem;padding:0 0 .65rem;border-bottom:1px solid var(--b);font-size:.88rem}
+.suite-t{font-weight:700;color:var(--m);letter-spacing:.02em}
+.suite ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.35rem}
+.suite a{display:inline-block;padding:.28rem .65rem;border:1px solid transparent;border-radius:999px;
+  color:var(--m);text-decoration:none;min-height:1.75rem}
+.suite a:hover{color:var(--a);border-color:var(--b);background:var(--card)}
+.suite a[aria-current=page]{color:var(--a);font-weight:700;border-color:var(--a);background:var(--card)}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-.btns{display:flex;gap:.5rem;flex-wrap:wrap}
-#bascule,#theme{font:inherit;font-size:.8rem;letter-spacing:.05em;background:none;border:1px solid var(--b);
-  border-radius:999px;padding:.35rem .9rem;cursor:pointer;color:var(--m);white-space:nowrap}
-#bascule:hover,#theme:hover{border-color:var(--a);color:var(--a)}
+.btn-sec,#bascule,#theme{font:inherit;font-size:.8rem;letter-spacing:.04em;background:var(--card);border:1px solid var(--b);
+  border-radius:999px;padding:.35rem .9rem;cursor:pointer;color:var(--m);text-decoration:none;white-space:nowrap;display:inline-block}
+.btn-sec:hover,#bascule:hover,#theme:hover{border-color:var(--a);color:var(--a)}
+.btns{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
 #theme{min-width:6.5rem;text-align:center}
 #theme [data-t]{display:none}
 html:not(.t-light):not(.t-dark) #theme [data-t=auto],
 html.t-light #theme [data-t=light],
 html.t-dark #theme [data-t=dark]{display:inline}
-
+.badge{display:inline-block;font-size:.78rem;padding:.2rem .6rem;border-radius:999px;
+  border:1px solid var(--avert-b);background:var(--avert-bg);color:var(--f)}
 .ctl{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:1rem 0}
 .ctl input,.ctl select{font:inherit;font-size:.9rem;padding:.4rem .6rem;border:1px solid var(--b);
   border-radius:4px;background:var(--card);color:var(--f)}
@@ -121,7 +149,6 @@ td.n,th.n{text-align:right;white-space:nowrap}
 tbody tr:hover{background:var(--hover)}
 pre{background:var(--code);border:1px solid var(--b);border-radius:6px;padding:.7rem .9rem;
   overflow-x:auto;font-size:.85rem;line-height:1.5}
-
 .tdm{max-width:60rem;width:100%;justify-self:center}
 .tdm ul{list-style:none;margin:.5rem 0 0;padding:0;font-size:.85rem}
 .tdm li{margin:.15rem 0}
@@ -131,12 +158,10 @@ pre{background:var(--code);border:1px solid var(--b);border-radius:6px;padding:.
 .tdm a.on{font-weight:700}
 details{border:1px solid var(--b);border-radius:6px;background:var(--card);margin:.5rem 0;padding:.6rem .9rem}
 summary{cursor:pointer;font-weight:700}
-
 #outils article{border-left:3px solid var(--b);padding-left:1rem;margin:1.5rem 0}
 #outils .titre{color:var(--m);font-style:italic;margin:.1rem 0 .5rem}
 .avert{background:var(--avert-bg);border:1px solid var(--avert-b);border-radius:6px;padding:.25rem 1.25rem 1rem}
 footer{margin-top:3.5rem;padding-top:1.25rem;border-top:2px solid var(--b);font-size:.9rem;color:var(--m)}
-
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
   clip-path:inset(50%);white-space:nowrap;border:0}
 .haut{position:fixed;right:1.25rem;bottom:1.25rem;z-index:10;width:2.6rem;height:2.6rem;
@@ -148,6 +173,9 @@ html.js .haut.on{opacity:1;visibility:visible}
 @media(prefers-reduced-motion:no-preference){
   html{scroll-behavior:smooth}
   .haut{transition:opacity .2s,visibility .2s,color .2s,border-color .2s}
+}
+@media(forced-colors:active){
+  .suite a[aria-current=page],.tdm a.on{outline:2px solid Highlight}
 }
 html.l-fr [data-l=en],html.l-en [data-l=fr]{display:none}
 @media(min-width:${LARGE}){
@@ -241,12 +269,13 @@ const JS = String.raw`
     var plier=function(s){
       return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     };
+    var idx=rangs.map(function(r){return plier(r.textContent);});
     var filtrer=function(){
       var t=plier(q.value.trim()), dd=sel.value, n=0;
       for(var i=0;i<rangs.length;i++){
         var r=rangs[i];
         var okd=(dd===''||r.getAttribute('data-d')===dd);
-        var okt=(t===''||plier(r.textContent).indexOf(t)>=0);
+        var okt=(t===''||idx[i].indexOf(t)>=0);
         var vu=okd&&okt;
         r.style.display=vu?'':'none';
         if(vu) n++;
@@ -266,11 +295,28 @@ function jsClient(): string {
   return JS.replace("LARGEUR", LARGE);
 }
 
+function sautContenu(): string {
+  return `<a href="#contenu-principal" class="saut">${bi("Aller au contenu principal", "Skip to main content")}</a>`;
+}
+
+function barreSuite(): string {
+  return `<nav class="suite" aria-labelledby="suite-t">
+<span id="suite-t" class="sr">${bi("Suite Droit civil québécois", "Québec Civil Law suite")}</span>
+<span class="suite-t">${bi("Droit civil québécois", "Québec Civil Law")}</span>
+<ul>
+<li><a href="https://acces.poirierlavoie.ca/">${bi("Accès", "Access")}</a></li>
+<li><a href="https://legislation.poirierlavoie.ca/">${bi("Législation", "Legislation")}</a></li>
+<li><a href="https://jurisprudence.poirierlavoie.ca/">${bi("Jurisprudence", "Case Law")}</a></li>
+<li><a href="/" aria-current="page">${bi("Outils", "Tools")}</a></li>
+</ul>
+</nav>`;
+}
+
 function tdm(): string {
   const items = SECTIONS.map((s) => `<li><a href="#${s.id}">${bi(s.fr, s.en)}</a></li>`).join("");
   return `<details class="tdm" open>
-<summary>${bi("Sommaire", "Contents")}</summary>
-<nav><ul>${items}</ul></nav>
+<summary id="tdm-t">${bi("Sommaire", "Contents")}</summary>
+<nav aria-labelledby="tdm-t"><ul>${items}</ul></nav>
 </details>`;
 }
 
@@ -287,8 +333,9 @@ function etat(t: string, fr: string, en: string): string {
 
 function entete(): string {
   return `<header>
+${barreSuite()}
 <div class="bar">
-<h1>${bi(SERVER_TITLE, EN.titre)}</h1>
+<h1>${bi("MCP Outils — Délais, intérêts, greffes, registres et terminologie", EN.titre)}</h1>
 <div class="btns">
 <button id="theme" type="button" title="Thème / Theme">${etat("auto", "◐ Auto", "◐ Auto")}${etat("light", `${SOLEIL} Clair`, `${SOLEIL} Light`)}${etat("dark", "☾ Sombre", "☾ Dark")}</button>
 <button id="bascule" type="button" title="Français / English">FR&nbsp;·&nbsp;EN</button>
@@ -320,6 +367,11 @@ ${biP(
   EN.avertissement,
 )}
 </div>
+<p class="btns">
+<span class="badge">${bi("Accès public · Aucun compte requis", "Public access · No account required")}</span>
+<code>https://outils.poirierlavoie.ca/mcp</code>
+<a class="btn-sec" href="https://acces.poirierlavoie.ca/#connecteurs">${bi("Connecteurs réservés aux membres →", "Member connectors (Legislation & Case Law) →")}</a>
+</p>
 </header>`;
 }
 
@@ -446,8 +498,9 @@ function schemas(): string {
     const props = schema.properties ?? {};
     const requis = new Set(schema.required ?? []);
     const noms = Object.keys(props);
+    const idTitre = `sc-${esc(d.name)}`;
     if (noms.length === 0) {
-      return `<h4><code>${esc(d.name)}</code></h4>
+      return `<h4 id="${idTitre}"><code>${esc(d.name)}</code></h4>
 <p class="m">${bi("Aucun paramètre.", "No parameters.")}</p>`;
     }
 
@@ -476,10 +529,10 @@ function schemas(): string {
       })
       .join("");
 
-    return `<h4><code>${esc(d.name)}</code></h4>
-<div class="tw"><table><thead><tr>
-<th>${bi("Paramètre", EN.colParam)}</th><th>${bi("Type", EN.colType)}</th>
-<th>${bi("Contraintes", EN.colContrainte)}</th><th>${bi("Description", EN.colDescription)}</th>
+    return `<h4 id="${idTitre}"><code>${esc(d.name)}</code></h4>
+<div class="tw" tabindex="0" role="region" aria-labelledby="${idTitre}"><table><thead><tr>
+<th scope="col">${bi("Paramètre", EN.colParam)}</th><th scope="col">${bi("Type", EN.colType)}</th>
+<th scope="col">${bi("Contraintes", EN.colContrainte)}</th><th scope="col">${bi("Description", EN.colDescription)}</th>
 </tr></thead><tbody>${lignes}</tbody></table></div>`;
   };
 
@@ -557,7 +610,7 @@ ${biP(
   ],
   EN.dossierTexte,
 )}
-<h3>${bi("Les issues, rendues par le vrai parseur", EN.dossierExemples)}</h3>
+<h3 id="h-dossier-ex">${bi("Les issues, rendues par le vrai parseur", EN.dossierExemples)}</h3>
 ${biP(
   [
     "Les exemples ci-dessous ne sont pas transcrits : la page exécute le parseur au moment du " +
@@ -566,11 +619,11 @@ ${biP(
   ],
   EN.dossierExemplesTexte,
 )}
-<div class="tw"><table><thead><tr>
-<th>${bi("Entrée", EN.colEntree)}</th><th>${bi("Issue", EN.colIssue)}</th>
+<div class="tw" tabindex="0" role="region" aria-labelledby="h-dossier-ex"><table><thead><tr>
+<th scope="col">${bi("Entrée", EN.colEntree)}</th><th scope="col">${bi("Issue", EN.colIssue)}</th>
 </tr></thead><tbody>${lignes}</tbody></table></div>
 <div class="avert"><p>${bi(GARDE_DOSSIER, GARDE_DOSSIER)}</p></div>
-<h3>${bi("Codes de juridiction", EN.juridictionsTitre)}</h3>
+<h3 id="h-dossier-jur">${bi("Codes de juridiction", EN.juridictionsTitre)}</h3>
 ${biP(
   [
     "Le code à deux chiffres des positions 5 et 6. Le tiret cadratin des codes 46, 72 et 73 est " +
@@ -578,9 +631,9 @@ ${biP(
   ],
   EN.juridictionsTexte,
 )}
-<div class="tw"><table><thead><tr>
-<th>${bi("Code", EN.colCode)}</th><th>${bi("Tribunal", EN.colTribunal)}</th>
-<th>${bi("Compétence", EN.colCompetence)}</th><th>${bi("Type de greffe", EN.colGreffeType)}</th>
+<div class="tw" tabindex="0" role="region" aria-labelledby="h-dossier-jur"><table><thead><tr>
+<th scope="col">${bi("Code", EN.colCode)}</th><th scope="col">${bi("Tribunal", EN.colTribunal)}</th>
+<th scope="col">${bi("Compétence", EN.colCompetence)}</th><th scope="col">${bi("Type de greffe", EN.colGreffeType)}</th>
 </tr></thead><tbody>${jur}</tbody></table></div>
 </section>`;
 }
@@ -637,15 +690,17 @@ ${biP(
   ],
   EN.greffesTexte,
 )}
-<div class="ctl">
-<input id="q" type="search" placeholder="Filtrer…" aria-label="Filtrer">
-<select id="dist" aria-label="District"><option value="">${bi("Tous les districts", EN.tousDistricts)}</option>${options}</select>
-<span class="m" id="compte"></span>
-</div>
-<div class="tw"><table id="tgreffes"><thead><tr>
-<th>${bi("Greffe", EN.colGreffe)}</th><th>${bi("Palais", EN.colPalais)}</th>
-<th>${bi("District judiciaire", EN.colDistrict)}</th><th>${bi("Adresse", EN.colAdresse)}</th>
-<th>${bi("Type", EN.colTypeLieu)}</th>
+<search class="ctl">
+<label class="sr" for="q">${bi("Filtrer les greffes et palais", "Filter registries and courthouses")}</label>
+<input id="q" type="search" placeholder="Filtrer / Filter">
+<label class="sr" for="dist">${bi("Filtrer par district judiciaire", "Filter by judicial district")}</label>
+<select id="dist"><option value="">Tous les districts · All districts</option>${options}</select>
+<span class="m" id="compte" role="status" aria-live="polite"></span>
+</search>
+<div class="tw" tabindex="0" role="region" aria-labelledby="h-greffes"><table id="tgreffes"><thead><tr>
+<th scope="col">${bi("Greffe", EN.colGreffe)}</th><th scope="col">${bi("Palais", EN.colPalais)}</th>
+<th scope="col">${bi("District judiciaire", EN.colDistrict)}</th><th scope="col">${bi("Adresse", EN.colAdresse)}</th>
+<th scope="col">${bi("Type", EN.colTypeLieu)}</th>
 </tr></thead><tbody>${lignes}</tbody></table></div>
 
 <div class="avert">
@@ -700,9 +755,11 @@ ${biP(
   ],
   EN.acces,
 )}
-<p><a href="https://acces.poirierlavoie.ca">acces.poirierlavoie.ca</a>
- · <a href="https://github.com/jpoirierlavoie/MCP-Outils">github.com/jpoirierlavoie/MCP-Outils</a>
- · <a href="https://github.com/jpoirierlavoie/droit-civil-quebecois">droit-civil-quebecois</a>
+<p><a href="https://acces.poirierlavoie.ca/">acces.poirierlavoie.ca</a>
+ · <a href="https://legislation.poirierlavoie.ca/">${bi("Législation", "Legislation")}</a>
+ · <a href="https://jurisprudence.poirierlavoie.ca/">${bi("Jurisprudence", "Case Law")}</a>
+ · <a href="${DEPOT_PLUGIN}">droit-civil-quebecois</a>
+ · <a href="${DEPOT}">github.com/jpoirierlavoie/MCP-Outils</a>
  · <a href="mailto:jason@poirierlavoie.ca">jason@poirierlavoie.ca</a></p>
 </section>`;
 }
@@ -723,28 +780,91 @@ ${biP(
 </footer>`;
 }
 
+function construireJsonLd(): string {
+  const nomsOutils = listToolDescriptors().map((d) => d.name);
+  const graphe = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${ORIGINE_SITE}/#site`,
+        url: `${ORIGINE_SITE}/`,
+        name: ["MCP Outils — Délais, intérêts, greffes, registres et terminologie", EN.titre],
+        inLanguage: ["fr-CA", "en-CA"],
+        isPartOf: {
+          "@type": "SoftwareApplication",
+          "@id": `${DEPOT_PLUGIN}#plugin`,
+          name: "Droit civil québécois",
+          url: DEPOT_PLUGIN,
+        },
+      },
+      {
+        "@type": "WebAPI",
+        "@id": `${ORIGINE_SITE}/#api`,
+        name: "MCP Outils (outils)",
+        url: `${ORIGINE_SITE}/`,
+        documentation: `${ORIGINE_SITE}/mcp/server-card`,
+        termsOfService: "https://acces.poirierlavoie.ca/cgu",
+        license: "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        isAccessibleForFree: true,
+        inLanguage: ["fr-CA", "en-CA"],
+        description: SERVER_DESCRIPTION,
+        featureList: nomsOutils,
+      },
+      {
+        "@type": "Dataset",
+        "@id": `${ORIGINE_SITE}/#open-data`,
+        name: [
+          "Tables judiciaires MJQ, taux art. 28 L.A.F., registres d'entreprises, adresses RQA et terminologie bijuridique",
+          "MJQ judicial directories, art. 28 T.A.A. rates, business registries, RQA addresses, and bijural terminology",
+        ],
+        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, and read-only REQ/RBQ/OPC/RENA, RQA, and bijural terminology snapshots.`,
+        url: `${ORIGINE_SITE}/#greffes`,
+        inLanguage: ["fr-CA", "en-CA"],
+        dateModified: RELEVE_LE,
+        license: "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      },
+    ],
+  };
+  return JSON.stringify(graphe).replace(/</g, "\\u003c");
+}
+
 export function renderSite(): string {
   const corps = [entete(), outils(), schemas(), dossier(), greffes(), acces(), pied()].join("\n");
+  const titrePage =
+    "MCP Outils — délais, intérêts art. 1619 C.c.Q., greffes, registres, adresses et terminologie";
+  const descMeta =
+    "Serveur MCP public et sans journalisation : jours fériés, délais procéduraux (C.p.c. / L.I.), intérêts art. 1619 C.c.Q., greffes et palais, registres d'entreprises, adresses RQA et terminologie juridique bilingue.";
 
   return `<!doctype html>
 <html lang="fr" class="l-fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MCP Outils — délais, intérêts art. 1619 C.c.Q., greffes, registres, adresses et terminologie</title>
-<meta name="description" content="Serveur MCP public et sans journalisation : jours fériés, délais procéduraux (C.p.c. / L.I.), intérêts art. 1619 C.c.Q., greffes et palais, registres d'entreprises, adresses RQA et terminologie juridique bilingue.">
-<style>${CSS}</style>
-<script>${BOOT}</script>
+<title>${esc(titrePage)}</title>
+<meta name="description" content="${esc(descMeta)}">
+<link rel="canonical" href="${ORIGINE_SITE}/">
+<link rel="alternate" type="application/mcp-server-card+json" href="${ORIGINE_SITE}/mcp/server-card">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${esc(titrePage)}">
+<meta property="og:description" content="${esc(descMeta)}">
+<meta property="og:url" content="${ORIGINE_SITE}/">
+<meta property="og:locale" content="fr_CA">
+<meta property="og:locale:alternate" content="en_CA">
+<style>${compacterBloc(CSS)}</style>
+<script type="application/ld+json">${construireJsonLd()}</script>
+<script>${compacterBloc(BOOT)}</script>
 </head>
 <body>
+${sautContenu()}
 <div class="wrap">
 ${tdm()}
-<main>
+<main id="contenu-principal" tabindex="-1">
 ${corps}
 </main>
 </div>
 ${haut()}
-<script>${jsClient()}</script>
+<script>${compacterBloc(jsClient())}</script>
 </body>
 </html>`;
 }
@@ -754,4 +874,87 @@ let memo: string | null = null;
 export function pagePubliqueHtml(): string {
   if (memo === null) memo = renderSite();
   return memo;
+}
+
+// ── Découverte publique (/robots.txt, /sitemap.xml, /llms.txt) ───────────────
+
+export const CHEMINS_DECOUVERTE_PUBLIQUE = ["/robots.txt", "/sitemap.xml", "/llms.txt"] as const;
+export type CheminDecouvertePublique = (typeof CHEMINS_DECOUVERTE_PUBLIQUE)[number];
+
+export function estCheminDecouvertePublique(
+  pathname: string,
+): pathname is CheminDecouvertePublique {
+  return (CHEMINS_DECOUVERTE_PUBLIQUE as readonly string[]).includes(pathname);
+}
+
+const ROBOTS_TXT = [
+  "User-agent: *",
+  "Allow: /",
+  "Disallow: /mcp",
+  "Disallow: /healthz",
+  `Sitemap: ${ORIGINE_SITE}/sitemap.xml`,
+  "",
+].join("\n");
+
+const SITEMAP_XML = [
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+  `  <url><loc>${ORIGINE_SITE}/</loc></url>`,
+  "</urlset>",
+  "",
+].join("\n");
+
+let llmsMemo: string | null = null;
+
+function construireLlmsTxt(): string {
+  const outilsLignes = listToolDescriptors().map(
+    (d) => `- \`${d.name}\` — ${d.title} / ${OUTILS_EN[d.name]?.titre ?? d.title}`,
+  );
+  return [
+    `# MCP Outils (\`outils\`, ${SERVER_NAME} v${SERVER_VERSION}) — Public Québec Civil Litigation Tools`,
+    "",
+    `> ${SERVER_DESCRIPTION}`,
+    "",
+    "## Public Endpoint (no authentication or secret required)",
+    "",
+    `- Streamable HTTP: \`${ORIGINE_SITE}/mcp\``,
+    `- MCP Server Card (SEP-2127): ${ORIGINE_SITE}/mcp/server-card`,
+    "",
+    "## Tools (12 deterministic read-only MCP tools, derived from live registry)",
+    "",
+    ...outilsLignes,
+    "",
+    "## Québec Civil Law MCP Suite (`droit-civil-quebecois`)",
+    "",
+    "- [MCP Accès (Admission & OAuth 2.1 Portal)](https://acces.poirierlavoie.ca/): Barreau du Québec admission (`/demande`) and `/moi` self-service portal for authenticated connectors.",
+    "- [MCP Législation (`lois`)](https://legislation.poirierlavoie.ca/): Official Québec & federal statutes, regulations, court directives, and AMF texts.",
+    "- [MCP Jurisprudence (`juris`)](https://jurisprudence.poirierlavoie.ca/): Case-law citation verification & CanLII metadata (BYOK CanLII).",
+    `- [MCP Outils (\`outils\` — Public)](${ORIGINE_SITE}/): Calculators, judicial registries, corporate snapshots, RQA addresses, and bijural terminology.`,
+    `- [Umbrella Plugin Repository](${DEPOT_PLUGIN}) · [Connector Repository](${DEPOT})`,
+    "",
+  ].join("\n");
+}
+
+export function repondreDecouvertePublique(
+  chemin: CheminDecouvertePublique,
+  method: string,
+): Response {
+  if (llmsMemo === null) llmsMemo = construireLlmsTxt();
+  const { corps, type } =
+    chemin === "/robots.txt"
+      ? { corps: ROBOTS_TXT, type: "text/plain; charset=utf-8" }
+      : chemin === "/sitemap.xml"
+        ? { corps: SITEMAP_XML, type: "application/xml; charset=utf-8" }
+        : { corps: llmsMemo, type: "text/markdown; charset=utf-8" };
+
+  const headers = {
+    "Content-Type": type,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "public, max-age=600",
+  };
+
+  return method === "HEAD"
+    ? new Response(null, { status: 200, headers })
+    : new Response(corps, { status: 200, headers });
 }
