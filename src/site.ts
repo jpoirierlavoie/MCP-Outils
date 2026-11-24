@@ -349,21 +349,21 @@ ${barreSuite()}
 </div>
 ${biP(
   [
-    `Serveur MCP public, sans journalisation et déterministe (${SERVER_NAME} v${SERVER_VERSION}). ` +
-      "Il calcule les jours fériés, les délais procéduraux, les intérêts légaux et l'indemnité " +
-      "additionnelle (art. 1619 C.c.Q.), lit la nomenclature judiciaire québécoise (numéros de " +
-      "dossier, greffes et palais), et consulte des instantanés locaux en lecture seule pour les " +
-      "registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), les adresses civiques " +
-      "(RQA) et la terminologie juridique bilingue et bijuridique.",
+    `Serveur MCP public en lecture seule (${SERVER_NAME} v${SERVER_VERSION}) conçu pour la ` +
+      "pratique du litige civil et commercial québécois. Il calcule les jours fériés, délais " +
+      "procéduraux et intérêts (art. 1619 C.c.Q.) et donne accès hors ligne aux numéros de " +
+      "dossier de cour, aux coordonnées des palais de justice, aux registres d'entreprises " +
+      "(REQ, RBQ, OPC, RENA, Corporations Canada), aux adresses civiques (RQA) et à la " +
+      "terminologie juridique bilingue.",
   ],
   EN.intro,
 )}
 <div class="avert">
 ${biP(
   [
-    "Chaque calcul et chaque consultation s'exécute localement sans appel HTTP sortant, sans écriture " +
-      "à la requête (bases D1 strictement en lecture seule) et sans journalisation des charges utiles, " +
-      "noms de parties, adresses, extraits d'actes, dates, montants ou numéros de dossier.",
+    "Chaque calcul et chaque consultation s'exécute localement sur des jeux de données publics en " +
+      "lecture seule, sans appel réseau externe ni journalisation des requêtes, noms de parties, " +
+      "adresses, extraits de projets d'actes, dates, montants ou numéros de dossier.",
     "Cet outil applique des règles arithmétiques et lit des instantanés datés : il n'établit jamais " +
       "l'existence d'un dossier, ne remplace ni le portail officiel du Registraire des entreprises ni " +
       "le Registre foncier du Québec, n'établit pas le domicile d'une partie et n'effectue aucune " +
@@ -383,8 +383,8 @@ ${biP(
 
 function marqueurAppel(d: ToolDescriptor): string {
   return `<p class="m"><code>openWorldHint: ${d.annotations.openWorldHint}</code> · <code>readOnlyHint: ${d.annotations.readOnlyHint}</code> — ${bi(
-    "aucun appel sortant : calcul pur, table compilée ou base D1 locale en lecture seule.",
-    "no outbound call: pure computation, compiled table, or read-only local D1 snapshot.",
+    "aucun appel externe : calcul local ou consultation hors ligne en lecture seule.",
+    "no outbound call: local calculation or read-only offline lookup.",
   )}</p>`;
 }
 
@@ -411,8 +411,8 @@ ${h2("outils")}
 <h3>${bi("Calculateurs déterministes (jours fériés, délais, intérêts art. 1619 C.c.Q.)", EN.familleCalcul)}</h3>
 ${biP(
   [
-    "Trois outils arithmétiques purs portant sur le Code de procédure civile, les lois d'interprétation " +
-      "(Québec et Canada) et le Code civil du Québec (art. 1618–1620 C.c.Q., table art. 28 L.A.F. " +
+    "Trois calculateurs arithmétiques fondés sur le Code de procédure civile, les lois d'interprétation " +
+      "(Québec et Canada) et le Code civil du Québec (art. 1618–1620 C.c.Q., taux de l'art. 28 L.A.F. " +
       `jusqu'au trimestre ${lafRatesJson.metadata.last_quarter}).`,
   ],
   EN.familleCalculTexte,
@@ -421,9 +421,9 @@ ${calculs.map(carte).join("\n")}
 <h3>${bi("Tables locales du Québec — numéros de dossier et palais de justice", EN.familleGreffe)}</h3>
 ${biP(
   [
-    "Trois outils qui lisent des tables de référence compilées dans le Worker, relevées auprès " +
-      `du ministère de la Justice du Québec (palais le ${RELEVE_LE}, rattachements le ${MJQ_MAJ}). ` +
-      "Ils ne consultent aucun plumitif, ne font aucune requête sortante et n'écrivent rien.",
+    "Trois outils s'appuyant sur des tables de référence tirées du ministère de la Justice du Québec " +
+      `(palais relevés le ${RELEVE_LE}, rattachements du ${MJQ_MAJ}). Ils ne consultent aucun ` +
+      "plumitif et n'effectuent aucun appel externe.",
   ],
   EN.familleGreffeTexte,
 )}
@@ -431,9 +431,9 @@ ${greffe.map(carte).join("\n")}
 <h3>${bi("Registres d'entreprises (QC / Canada) — REQ, RBQ, OPC, RENA et Corporations Canada", EN.familleRegistre)}</h3>
 ${biP(
   [
-    "Deux outils adossés à une base D1 en lecture seule regroupant les jeux de données ouvertes " +
-      "corporatifs. Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus " +
-      "du fichier ouvert du REQ conformément à la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1).",
+    "Deux outils adossés à un instantané local en lecture seule des registres publics d'entreprises. " +
+      "Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du fichier " +
+      "ouvert du REQ conformément à la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1).",
   ],
   EN.familleRegistreTexte,
 )}
@@ -441,9 +441,9 @@ ${registre.map(carte).join("\n")}
 <h3>${bi("Adresses civiques du Québec — Référentiel québécois des adresses (RQA)", EN.familleAdresse)}</h3>
 ${biP(
   [
-    "Un outil adossé à une base D1 normalisée en lecture seule du Référentiel québécois des adresses " +
-      "(MRNF, ~5 millions d'adresses) et d'Odonymes et renvois. Confirme l'existence municipale d'une " +
-      "adresse civique sans jamais établir le domicile d'une partie ni la propriété foncière.",
+    "Un outil adossé à une copie locale en lecture seule du Référentiel québécois des adresses " +
+      "(MRNF, ~5 millions d'adresses) et d'Odonymes et renvois. Il confirme l'existence municipale " +
+      "d'une adresse civique sans jamais établir le domicile d'une partie ni la propriété foncière.",
   ],
   EN.familleAdresseTexte,
 )}
@@ -451,10 +451,9 @@ ${adresse.map(carte).join("\n")}
 <h3>${bi("Terminologie juridique bilingue et bijuridique (FR / EN)", EN.familleTerminologie)}</h3>
 ${biP(
   [
-    "Trois outils adossés à une base D1 terminologique en lecture seule croisant un glossaire curé " +
-      "de droit civil québécois, les concordances statutaires bilingues alignées, TERMIUM Plus® " +
-      "(Droit et justice) et les fiches juridiques de l'OQLF afin de prévenir les contaminations " +
-      "de common law et de droit français.",
+    "Trois outils adossés à une base terminologique locale en lecture seule réunissant un glossaire " +
+      "de droit civil québécois, des concordances législatives bilingues, TERMIUM Plus® (Droit et " +
+      "justice) et les fiches de l'OQLF afin de repérer les calques de common law ou de droit français.",
   ],
   EN.familleTerminologieTexte,
 )}
@@ -546,11 +545,10 @@ function schemas(): string {
 ${h2("schema")}
 ${biP(
   [
-    "Chaque outil déclare un schéma d'entrée FERMÉ (additionalProperties: false) : toute propriété " +
-      "non listée est refusée. Ces tables sont générées par z.toJSONSchema depuis les schémas Zod " +
-      "mêmes que le serveur applique à l'appel.",
-    "La colonne Description reste en FRANÇAIS dans les deux vues : ces phrases sont le texte " +
-      "canonique reçu par le modèle.",
+    "Chaque outil n'accepte que les paramètres listés ci-dessous : ces tableaux sont générés " +
+      "directement à partir des schémas de validation appliqués par le serveur.",
+    "La colonne Description reste en français dans les deux vues, car ces phrases sont le texte " +
+      "exact reçu par l'assistant.",
   ],
   EN.schemaTexte,
 )}
@@ -604,15 +602,13 @@ ${h2("dossier")}
 ${biP(
   [
     "Un numéro de dossier judiciaire québécois se lit NNN-NN-NNNNNN-NNN. Les positions 1 à 3 " +
-      "sont le greffe — palais de justice et district judiciaire. Les positions 5 et 6 sont la " +
-      "juridiction — tribunal, compétence, type de greffe. Le reste est une séquence et des " +
-      "chiffres de contrôle.",
-    "Les positions 7 et suivantes ne sont PAS analysées, et aucune somme de contrôle n'est " +
-      "vérifiée : il n'y en a pas. En inventer une rejetterait des numéros valides, ce qui est " +
-      "le pire des deux défauts.",
-    "Un préfixe alphabétique court-circuite tout cela : TAL-, TAQ-, C.F.- et leurs pareils " +
-      "nomment un corps qui numérote ses dossiers lui-même. Le préfixe EST la réponse à " +
-      "« quel tribunal ».",
+      "indiquent le greffe (palais de justice et district judiciaire), et les positions 5 et 6 " +
+      "indiquent la juridiction (tribunal, compétence, type de greffe). Le reste correspond au " +
+      "numéro séquentiel et aux chiffres finaux.",
+    "Les positions 7 et suivantes ne sont pas analysées et aucun chiffre de contrôle n'est vérifié, " +
+      "faute de règle officielle permettant d'éviter de faux rejets sur des dossiers valides.",
+    "Lorsqu'un numéro commence par un préfixe alphabétique (TAL-, TAQ-, C.F.-), ce préfixe désigne " +
+      "directement un tribunal ou organisme qui numérote ses propres dossiers.",
   ],
   EN.dossierTexte,
 )}
@@ -690,9 +686,9 @@ function greffes(): string {
 ${h2("greffes")}
 ${biP(
   [
-    "Les greffes du Québec, cléés sur le numéro à trois chiffres par lequel commence un numéro " +
-      "de dossier. Un greffe est un REGISTRE ; un palais est un BÂTIMENT — la relation n'est ni " +
-      "bijective ni totale, et un greffe dessert souvent plusieurs lieux.",
+    "Les greffes du Québec, classés selon les trois premiers chiffres d'un numéro de dossier. " +
+      "Un greffe est un registre administratif et un palais est un bâtiment : un même numéro de " +
+      "greffe peut desservir plusieurs lieux, et un même palais peut regrouper plusieurs greffes.",
   ],
   EN.greffesTexte,
 )}
@@ -744,21 +740,19 @@ function acces(): string {
 ${h2("acces")}
 ${biP(
   [
-    "Point d'accès Streamable HTTP public (aucun secret requis) : " +
-      "https://outils.poirierlavoie.ca/mcp — se connecte sans authentification dans Claude Research, " +
-      "Gemini Deep Research, Claude Code / Desktop, Antigravity et Gemini CLI, et accompagne les " +
-      "compétences du greffon « droit-civil-quebecois » aux côtés des connecteurs de sources " +
-      "primaires authentifiés (admission des membres en règle du Barreau du Québec sur " +
-      "https://acces.poirierlavoie.ca).",
-    "La fiche publique de découverte (SEP-2127) est publiée sur " +
-      "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut les manifestes " +
-      "pour Google Antigravity (plugin.json, mcp_config.json) et Gemini CLI (gemini-extension.json). " +
-      "Vérification de santé sans journalisation des charges utiles : " +
-      "https://outils.poirierlavoie.ca/healthz (limitation de débit à 240 requêtes / 60 s par IP).",
-    "Le code source et le glossaire curé sont libres et gratuits sous licence Apache-2.0 " +
+    "Point d'accès public sans compte ni jeton : https://outils.poirierlavoie.ca/mcp — utilisable " +
+      "directement dans claude.ai, Claude Desktop, Claude Code, ChatGPT, Google Antigravity, " +
+      "Gemini et les modes de recherche approfondie (Claude Research, Gemini Deep Research), seul " +
+      "ou avec le greffon « droit-civil-quebecois » et les connecteurs réservés aux membres du " +
+      "Barreau du Québec (https://acces.poirierlavoie.ca).",
+    "La fiche publique de découverte MCP est publiée sur " +
+      "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut aussi les manifestes " +
+      "autonomes pour Google Antigravity et Gemini CLI. Vérification de santé sans journalisation : " +
+      "https://outils.poirierlavoie.ca/healthz (limite de 240 requêtes par minute et par adresse IP).",
+    "Le code source et le glossaire de droit civil sont libres et gratuits sous licence Apache-2.0 " +
       "(voir LICENSE), tandis que les jeux de données publics intégrés demeurent soumis aux " +
       "licences de leurs éditeurs respectifs décrites dans NOTICE (dont CC BY-NC-SA 4.0 pour " +
-      "REQ et OQLF) ; l'ensemble des tests s'exécute localement sans accès réseau.",
+      "le REQ et l'OQLF) ; l'ensemble des tests s'exécute localement hors ligne.",
   ],
   EN.acces,
 )}
