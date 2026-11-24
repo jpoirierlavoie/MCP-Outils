@@ -1,9 +1,11 @@
 # MCP-Outils
 
-Serveur MCP (**Model Context Protocol**) public, sans journalisation et déterministe (`mcp-outils`, Worker Cloudflare `outils`), conçu pour outiller la pratique du litige civil et commercial québécois et les compétences du greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois).
+Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`), sans authentification et sans journalisation, conçu pour la pratique du litige civil et commercial québécois et les compétences du greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois).
 
-Point d'accès public (Streamable HTTP) : `https://outils.poirierlavoie.ca/mcp`  
-Page publique et découverte : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
+> **In English:** Public, unauthenticated, read-only MCP server for Québec civil and commercial litigation (`outils.poirierlavoie.ca/mcp`). Provides deterministic C.C.P. holiday/deadline and art. 1619 C.C.Q. interest calculators alongside offline lookups for court file numbers, courthouses, corporate registries (REQ, Corporations Canada), Québec civic addresses (RQA), and bilingual/bijural legal terminology. Queries and inputs are never logged.
+
+Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
+Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
 
 ## Outils exposés (v2.2.0 — 12 outils sur 5 familles)
 
@@ -26,13 +28,17 @@ Chaque réponse réussie retourne à la fois des données structurées validées
 
 ## Confidentialité et politique de journalisation zéro
 
-Ce serveur est conçu pour être interrogé publiquement sans secret tout en protégeant rigoureusement la confidentialité des dossiers :
+Ce serveur est public (sans secret ni compte requis) tout en protégeant la confidentialité des dossiers :
 
-- **Bases D1 strictement en lecture seule à la requête et zéro appel sortant** : les trois bases Cloudflare D1 (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, région `ENAM`) contiennent exclusivement des jeux de données ouvertes préchargés hors ligne. Aucune écriture (`INSERT`/`UPDATE`/`DELETE`), aucun KV/R2, aucun témoin de connexion et aucun appel HTTP sortant n'ont lieu lors du traitement d'une requête. Aucune donnée soumise par un avocat (nom d'entreprise, adresse civique, extrait de projet d'acte) ne quitte l'isolat Cloudflare ni n'est enregistrée.
-- **Aucune journalisation des charges utiles** : `observability.enabled = false`, `logs.enabled = false`, `logs.invocation_logs = false` et `logpush = false` dans [`wrangler.jsonc`](wrangler.jsonc). Le code du Worker ne journalise ni corps de requête, ni arguments d'outils, ni adresses IP.
-- **Limitation de débit à la périphérie** : un binding Cloudflare Rate Limiting (`RATE_LIMITER`, 240 requêtes / 60 s par IP client via `CF-Connecting-IP`) protège le point d'accès contre les abus sans stocker de contenu applicatif.
+- **Traitement local en lecture seule et zéro appel externe :** toutes les bases de données (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`) ne contiennent que des jeux de données ouvertes préchargés en lecture seule. Aucune écriture, aucun témoin de connexion et aucun appel réseau sortant n'a lieu lors d'une requête. Les données soumises (nom d'entreprise, adresse civique, extrait de projet d'acte) ne sont ni conservées ni transmises à un tiers.
+- **Aucune journalisation des requêtes :** les journaux d'invocation Cloudflare (`observability`, `logs`, `logpush` dans [`wrangler.jsonc`](wrangler.jsonc)) sont désactivés et le serveur n'enregistre ni les requêtes, ni les paramètres, ni les adresses IP.
+- **Limitation de débit :** un plafond technique de 240 requêtes par minute et par adresse IP (`RATE_LIMITER`) protège la disponibilité du service sans stocker le contenu des appels.
 
 ## Configuration dans les clients MCP
+
+### `claude.ai` et ChatGPT (Web / Desktop)
+
+Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé sans authentification (*No authentication*).
 
 ### Claude Desktop / Claude Code (`.mcp.json`)
 

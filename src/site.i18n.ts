@@ -128,62 +128,61 @@ export const EN = {
   titre: "MCP Tools — Deadlines, Interest, Registries & Legal Terminology",
 
   intro: [
-    "A public, zero-logging, deterministic MCP server for Québec civil and commercial litigation: " +
-      "statutory holidays, procedural deadlines, legal interest and additional indemnity, court file " +
-      "number parsing and courthouses, business registries (REQ / RBQ / OPC / RENA / Corporations " +
-      "Canada), Québec civic addresses (RQA), and bilingual bijural legal terminology.",
+    "Public, read-only MCP server designed for Québec civil and commercial litigation. It computes " +
+      "statutory holidays, procedural deadlines, and interest (art. 1619 C.C.Q.), and provides " +
+      "offline lookups for court file numbers, courthouses, business registries (REQ / RBQ / OPC / " +
+      "RENA / Corporations Canada), Québec civic addresses (RQA), and bilingual legal terminology.",
   ],
 
   avertissement: [
-    "Every computation and lookup executes locally with zero outbound HTTP calls, read-only D1 " +
-      "open-data snapshots, zero runtime writes, and zero logging of request payloads, party names, " +
-      "addresses, draft excerpts, dates, amounts, or file numbers.",
+    "Every computation and lookup runs locally on read-only public datasets, with zero outbound " +
+      "network calls and no logging of request payloads, party names, addresses, draft excerpts, " +
+      "dates, amounts, or file numbers.",
     "This server performs arithmetic and reads dated snapshots only: it never establishes whether " +
       "a court file exists, never replaces live Registraire des entreprises or Land Register " +
-      "verifications, never proves a party's domicile, and never qualifies legal deadlines automatically. " +
-      "Verify official primary sources before serving or filing.",
+      "checks, never proves a party's domicile, and never qualifies legal deadlines automatically. " +
+      "Verify official sources before serving or filing.",
   ],
 
   // ── Les cinq familles d'outils ─────────────────────────────────────────────
   familleCalcul: "Deterministic calculators (holidays, deadlines, art. 1619 C.C.Q. interest)",
   familleCalculTexte: [
-    "Three pure arithmetic tools built around the Code of Civil Procedure, Québec and federal " +
+    "Three arithmetic calculators based on the Code of Civil Procedure, Québec and federal " +
       "Interpretation Acts, and the Civil Code of Québec (art. 1618–1620 C.C.Q., embedded art. 28 " +
       "T.A.A. quarterly table).",
   ],
   familleGreffe: "Local Québec tables — court file numbers and courthouses",
   familleGreffeTexte: [
-    "Three tools that read reference tables compiled into the Worker, surveyed from the " +
-      "ministère de la Justice du Québec (courthouses and contact details 2026-11-17, registry attachments 2026-07-22). " +
-      "They make no outbound calls, consult no court docket (plumitif), and write nothing.",
+    "Three tools reading reference tables compiled from the ministère de la Justice du Québec " +
+      "(courthouses surveyed 2026-11-17, registry attachments 2026-07-22). They make no outbound " +
+      "calls and consult no court docket (plumitif).",
   ],
   familleRegistre:
     "Business registries (QC / Canada) — REQ, RBQ, OPC, RENA and Corporations Canada",
   familleRegistreTexte: [
-    "Two tools backed by a read-only D1 snapshot of public corporate open data. Natural-person " +
+    "Two tools backed by a read-only local snapshot of public corporate open data. Natural-person " +
       "directors, officers, and shareholders are excluded from the REQ public dataset pursuant to " +
       "the Act respecting the legal publicity of enterprises (CQLR, c. P-44.1).",
   ],
   familleAdresse: "Québec civic addresses — Référentiel québécois des adresses (RQA)",
   familleAdresseTexte: [
-    "One tool backed by a normalized read-only D1 snapshot of the ~5M-address Référentiel québécois " +
-      "des adresses (MRNF) and Odonymes et renvois. Confirms municipal civic existence without ever " +
+    "One tool backed by a read-only local copy of the ~5M-address Référentiel québécois des " +
+      "adresses (MRNF) and Odonymes et renvois. Confirms municipal civic existence without ever " +
       "establishing domicile or land title.",
   ],
   familleTerminologie: "Bilingual and bijural legal terminology (FR / EN)",
   familleTerminologieTexte: [
-    "Three tools backed by a read-only D1 terminology database combining a curated Québec civil-law " +
+    "Three tools backed by a read-only local terminology database combining a Québec civil-law " +
       "glossary, aligned bilingual statutory concordances, TERMIUM Plus (Law and Justice), and OQLF " +
-      "legal entries to prevent common-law and continental-French terminology contamination.",
+      "legal entries to flag common-law and continental-French calques.",
   ],
 
   // ── Schémas ────────────────────────────────────────────────────────────────
   schemaTexte: [
-    "Every tool declares a closed input schema: any unrecognised property is rejected. These " +
-      "tables are generated directly from the live Zod schemas applied at call time, so they cannot " +
-      "drift from what the server accepts.",
-    "The Description column stays in FRENCH in both language views, deliberately: those sentences " +
-      "are the canonical strings sent to the model.",
+    "Every tool only accepts the parameters listed below: these tables are generated directly " +
+      "from the validation schemas applied by the server.",
+    "The Description column stays in French in both views because those sentences are the exact " +
+      "canonical strings sent to the assistant.",
   ],
   colParam: "Parameter",
   colType: "Type",
@@ -193,13 +192,13 @@ export const EN = {
 
   // ── Numéro de dossier ──────────────────────────────────────────────────────
   dossierTexte: [
-    "A Québec judicial file number reads NNN-NN-NNNNNN-NNN. Positions 1-3 are the registry — " +
-      "courthouse and judicial district. Positions 5-6 are the jurisdiction — court, competence, " +
-      "registry type. The remainder is a sequence and check digits.",
-    "Positions 7 onward are NOT parsed, and no checksum is verified: there is none. Inventing " +
-      "one would reject valid numbers, which is the worse of the two faults.",
-    "A letter prefix short-circuits all of this: TAL-, TAQ-, C.F.- and the like name a tribunal " +
-      "that numbers its own files. The prefix IS the answer to « which tribunal ».",
+    "A Québec judicial file number reads NNN-NN-NNNNNN-NNN. Positions 1–3 identify the registry " +
+      "(courthouse and judicial district), and positions 5–6 identify the jurisdiction (court, " +
+      "competence, registry type). The remainder contains the sequence number and trailing digits.",
+    "Positions 7 onward are not parsed and no checksum is verified, as there is no official " +
+      "rule that would avoid falsely rejecting valid numbers.",
+    "When a number starts with a letter prefix (TAL-, TAQ-, C.F.-), that prefix directly names " +
+      "a court or tribunal that issues its own file numbers.",
   ],
   dossierExemples: "Outcomes, produced by the real parser",
   dossierExemplesTexte: [
@@ -211,9 +210,9 @@ export const EN = {
 
   // ── Greffes et palais ──────────────────────────────────────────────────────
   greffesTexte: [
-    "The registries of Québec, keyed on the three-digit number a court file number begins with. " +
-      "A registry is a REGISTER; a courthouse is a BUILDING — the relation is neither one-to-one " +
-      "nor total, and one registry often serves several locations.",
+    "Québec court registries, indexed by the three-digit number at the start of a court file " +
+      "number. A registry is an administrative register and a courthouse is a building: a single " +
+      "registry number can serve several locations, and a single courthouse can house several registries.",
   ],
   colGreffe: "Registry",
   colPalais: "Courthouse",
@@ -243,19 +242,19 @@ export const EN = {
 
   // ── Accès & pied ───────────────────────────────────────────────────────────
   acces: [
-    "Public Streamable HTTP endpoint (no secret or authentication required): " +
-      "https://outils.poirierlavoie.ca/mcp — connects without authentication in Claude Research, " +
-      "Gemini Deep Research, Claude Code / Desktop, Antigravity and Gemini CLI, and pairs with the " +
-      "« droit-civil-quebecois » skill plugin alongside authenticated primary-source connectors " +
-      "(Barreau du Québec member admission at https://acces.poirierlavoie.ca).",
-    "The public discovery card (SEP-2127) is served at " +
-      "https://outils.poirierlavoie.ca/mcp/server-card; the repository includes manifests " +
-      "for Google Antigravity (plugin.json, mcp_config.json) and Gemini CLI (gemini-extension.json). " +
-      "Health endpoint without payload logging: https://outils.poirierlavoie.ca/healthz (edge rate limit: 240 req / 60 s per IP).",
-    "The source code and curated glossary are free and open-source under Apache-2.0 (see " +
-      "LICENSE), while integrated public datasets remain governed by their respective publishers' " +
-      "licenses documented in NOTICE (including CC BY-NC-SA 4.0 for REQ and OQLF), and the entire " +
-      "test suite runs locally with no network access.",
+    "Public endpoint with no account or token required: https://outils.poirierlavoie.ca/mcp — " +
+      "connects directly in claude.ai, Claude Desktop, Claude Code, ChatGPT, Google Antigravity, " +
+      "Gemini, and deep research workflows (Claude Research, Gemini Deep Research), standalone or " +
+      "with the « droit-civil-quebecois » plugin alongside the Barreau-restricted primary-source " +
+      "connectors (https://acces.poirierlavoie.ca).",
+    "The public MCP Server Card is published at https://outils.poirierlavoie.ca/mcp/server-card; " +
+      "the repository also includes standalone manifests for Google Antigravity and Gemini CLI. " +
+      "Zero-logging health check: https://outils.poirierlavoie.ca/healthz (rate limit: 240 requests " +
+      "per minute per IP).",
+    "The source code and civil-law glossary are free and open-source under Apache-2.0 (see " +
+      "LICENSE), while integrated public datasets remain governed by their publishers' licenses " +
+      "documented in NOTICE (including CC BY-NC-SA 4.0 for REQ and OQLF); the entire test suite " +
+      "runs locally offline.",
   ],
 
   pied: [
