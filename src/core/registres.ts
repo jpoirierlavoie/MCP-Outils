@@ -794,6 +794,40 @@ function appendJurisdictionFilter(
   return "";
 }
 
+function buildGleifLikePattern(token: string): string {
+  const consonants = token.replace(/[aeiouy]/g, "");
+  if (token.length >= 4 && consonants.length >= 2) {
+    const pattern = token
+      .replace(/oe/g, "_")
+      .replace(/ae/g, "_")
+      .replace(/[aeiouy]/g, "_");
+    return `%${pattern}%`;
+  }
+  return `%${token}%`;
+}
+
+function buildSyntheticGleifRow(g: RawGleifEntiteRow, syntheticId: number): RawEntiteRow {
+  const gFiche = parseJsonSafe<{ autres_noms?: string[] }>(g.fiche_json, {});
+  const autres = Array.isArray(gFiche.autres_noms) ? gFiche.autres_noms : [];
+  return {
+    id: syntheticId,
+    juridiction: "lei",
+    identifiant_principal: g.lei,
+    bn_ne: null,
+    is_active: g.entity_status === "ACTIVE" ? 1 : 0,
+    nom_officiel: g.legal_name,
+    nom_recherche: "",
+    autres_noms_appercu: autres.length > 0 ? JSON.stringify(autres) : null,
+    forme_code: g.entity_category,
+    statut_code: g.registration_status ?? g.entity_status ?? "ACTIVE",
+    date_constitution: null,
+    ville: g.city,
+    flags: 0,
+    fiche_json: "{}",
+    lei: g.lei,
+  };
+}
+
 export async function registreSearchEntities(
   db: D1Database,
   input: RegistreSearchEntitiesInput,
@@ -854,6 +888,31 @@ export async function registreSearchEntities(
     }
   }
 
+  let nextSyntheticId = -1;
+  if (isLeiQuery && caps.hasGleifEntites && (jurisdiction === "gleif" || jurisdiction === "all")) {
+    const alreadyHasLei = Array.from(byId.values()).some(
+      ({ row }) => row.lei === alnumOnly || row.identifiant_principal === alnumOnly,
+    );
+    if (!alreadyHasLei) {
+      const gRow = await db
+        .prepare(
+          `SELECT lei, is_canadian, legal_name, legal_jurisdiction, entity_category, entity_status,
+                  legal_form_code, registration_status, initial_registration_date, next_renewal_date,
+                  last_update_date, managing_lou, validation_sources, ra_id, ra_entity_id,
+                  matched_neq, matched_corp_no, country, region, city, postal_code, fiche_json
+             FROM gleif_entites
+            WHERE lei = ? AND is_canadian = 1${activeOnly ? " AND entity_status = 'ACTIVE'" : ""}
+            LIMIT 1`,
+        )
+        .bind(alnumOnly)
+        .first<RawGleifEntiteRow>();
+      if (gRow) {
+        const synId = nextSyntheticId--;
+        byId.set(synId, { row: buildSyntheticGleifRow(gRow, synId), score: -950 });
+      }
+    }
+  }
+
   // 2) Recherche plein texte FTS5 (avec normalisation des accents, suffixes et sociétés à numéro)
   const ftsQuery = buildRegistreFtsQuery(input.query);
   if (ftsQuery) {
@@ -887,6 +946,91 @@ export async function registreSearchEntities(
       else if (officialNorm.startsWith(qNormFull)) bonus -= 15;
       if (r.is_active === 1 || r.statut_code === "NI") bonus -= 40;
       byId.set(id, { row: r, score: Number(r.rank_score) + bonus });
+    }
+  }
+
+  // 2b) Repli additif sur `gleif_entites` pour les entités canadiennes titulaires d'un LEI sans ligne `juridiction='lei'` dans `entites`
+  if (caps.hasGleifEntites && (jurisdiction === "gleif" || jurisdiction === "all") && !isLeiQuery) {
+    const qNormFull = normalizeEntitySearch(input.query);
+    const rawTokens = qNormFull.split(" ").filter(Boolean);
+    const coreTokens = rawTokens.filter((t) => !LEGAL_SUFFIX_TOKENS.has(t));
+    const matchTokens = (coreTokens.length > 0 ? coreTokens : rawTokens)
+      .filter((t) => t.length >= 2)
+      .slice(0, 6);
+
+    if (matchTokens.length > 0) {
+      const likeClauses = matchTokens.map(
+        () => "(legal_name LIKE ? OR COALESCE(fiche_json, '') LIKE ?)",
+      );
+      const likeParams: string[] = [];
+      for (const tok of matchTokens) {
+        const pat = buildGleifLikePattern(tok);
+        likeParams.push(pat, pat);
+      }
+
+      const gFallbackSql = `
+        SELECT lei, is_canadian, legal_name, legal_jurisdiction, entity_category, entity_status,
+               legal_form_code, registration_status, initial_registration_date, next_renewal_date,
+               last_update_date, managing_lou, validation_sources, ra_id, ra_entity_id,
+               matched_neq, matched_corp_no, country, region, city, postal_code, fiche_json
+          FROM gleif_entites
+         WHERE is_canadian = 1${activeOnly ? " AND entity_status = 'ACTIVE'" : ""}
+           AND ${likeClauses.join(" AND ")}
+         LIMIT 60
+      `;
+      const gFallbackRes = await db
+        .prepare(gFallbackSql)
+        .bind(...likeParams)
+        .all<RawGleifEntiteRow>();
+
+      const seenLeis = new Set<string>();
+      const seenNeqs = new Set<string>();
+      const seenCorps = new Set<string>();
+      for (const { row } of byId.values()) {
+        if (row.lei) seenLeis.add(row.lei);
+        if (row.juridiction === "lei") seenLeis.add(row.identifiant_principal);
+        if (row.juridiction === "qc") seenNeqs.add(row.identifiant_principal);
+        if (row.juridiction === "ca") {
+          for (const variant of corpNumberCandidates(row.identifiant_principal)) {
+            seenCorps.add(variant);
+          }
+        }
+      }
+
+      for (const g of gFallbackRes.results) {
+        if (seenLeis.has(g.lei)) continue;
+        if (g.matched_neq && seenNeqs.has(g.matched_neq)) continue;
+        if (
+          g.matched_corp_no &&
+          corpNumberCandidates(g.matched_corp_no).some((v) => seenCorps.has(v))
+        ) {
+          continue;
+        }
+        const gFiche = parseJsonSafe<{ autres_noms?: string[] }>(g.fiche_json, {});
+        const altNames = Array.isArray(gFiche.autres_noms) ? gFiche.autres_noms : [];
+        const hayTokens = new Set<string>([
+          ...normalizeEntitySearch(g.legal_name).split(" "),
+          ...altNames.flatMap((a) => normalizeEntitySearch(a).split(" ")),
+        ]);
+        const tokensMatched = matchTokens.every((tok) => {
+          for (const ht of hayTokens) {
+            if (tok.length >= 4 ? ht.startsWith(tok) : ht === tok) {
+              return true;
+            }
+          }
+          return false;
+        });
+        if (!tokensMatched) continue;
+
+        const officialNorm = normalizeEntitySearch(g.legal_name);
+        let score = 0;
+        if (officialNorm === qNormFull) score -= 50;
+        else if (officialNorm.startsWith(qNormFull)) score -= 15;
+        if (g.entity_status === "ACTIVE") score -= 40;
+        const synId = nextSyntheticId--;
+        seenLeis.add(g.lei);
+        byId.set(synId, { row: buildSyntheticGleifRow(g, synId), score });
+      }
     }
   }
 

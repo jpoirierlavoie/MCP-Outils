@@ -682,4 +682,87 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(parsed.federal?.corporation_number).toBe("463117");
     }
   });
+
+  it("GLEIF PR 2 : retrouve les entités LEI canadiennes autonomes en mode additif (entites CHECK qc/ca sans ligne juridiction='lei')", async () => {
+    const additiveSchema = `
+      CREATE TABLE meta_sources (source_key TEXT PRIMARY KEY, source_label TEXT NOT NULL, licence TEXT NOT NULL, version_date TEXT NOT NULL, row_count INTEGER NOT NULL);
+      CREATE TABLE domaine_valeur (typ_dom_val TEXT NOT NULL, cod_dom_val TEXT NOT NULL, libelle_fr TEXT NOT NULL, PRIMARY KEY (typ_dom_val, cod_dom_val));
+      CREATE TABLE entites (
+        id INTEGER PRIMARY KEY, juridiction TEXT NOT NULL CHECK (juridiction IN ('qc', 'ca')),
+        identifiant_principal TEXT NOT NULL, bn_ne TEXT, is_active INTEGER NOT NULL DEFAULT 0,
+        nom_officiel TEXT NOT NULL, nom_recherche TEXT NOT NULL DEFAULT '',
+        autres_noms_appercu TEXT, forme_code TEXT, statut_code TEXT NOT NULL,
+        date_constitution TEXT, ville TEXT, flags INTEGER NOT NULL DEFAULT 0,
+        fiche_json TEXT NOT NULL, lei TEXT
+      );
+      CREATE TABLE rbq_licences (neq TEXT NOT NULL, numero_licence TEXT NOT NULL, payload_json TEXT NOT NULL, PRIMARY KEY (neq, numero_licence));
+      CREATE TABLE opc_permis (id INTEGER PRIMARY KEY, neq TEXT NOT NULL, numero_permis TEXT NOT NULL, payload_json TEXT NOT NULL);
+      CREATE TABLE rena_inscriptions (id INTEGER PRIMARY KEY, neq TEXT, nom_entreprise TEXT NOT NULL, nom_norm TEXT NOT NULL, payload_json TEXT NOT NULL);
+      CREATE TABLE gleif_entites (
+        lei TEXT PRIMARY KEY, is_canadian INTEGER NOT NULL DEFAULT 1, legal_name TEXT NOT NULL,
+        legal_jurisdiction TEXT, entity_category TEXT, entity_status TEXT, legal_form_code TEXT,
+        registration_status TEXT, initial_registration_date TEXT, next_renewal_date TEXT,
+        last_update_date TEXT, managing_lou TEXT, validation_sources TEXT, ra_id TEXT,
+        ra_entity_id TEXT, matched_neq TEXT, matched_corp_no TEXT, country TEXT,
+        region TEXT, city TEXT, postal_code TEXT, fiche_json TEXT
+      );
+      CREATE TABLE gleif_liens (
+        id INTEGER PRIMARY KEY, child_lei TEXT NOT NULL, parent_lei TEXT NOT NULL,
+        relationship_type TEXT NOT NULL, relationship_status TEXT NOT NULL, accounting_standard TEXT,
+        quantifier_amount REAL, quantifier_units TEXT, period_start TEXT, period_end TEXT, validation_sources TEXT
+      );
+      CREATE TABLE gleif_exceptions (lei TEXT NOT NULL, category TEXT NOT NULL, reasons_json TEXT NOT NULL, references_json TEXT, PRIMARY KEY (lei, category)) WITHOUT ROWID;
+      CREATE VIRTUAL TABLE entites_fts USING fts5(nom_officiel, nom_recherche, content='entites', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
+
+      INSERT INTO meta_sources VALUES ('req', 'REQ', 'CC-BY-NC-SA-4.0', '2026-11-15', 1), ('gleif', 'GLEIF', 'CC0-1.0', '2026-11-25', 3);
+      INSERT INTO entites VALUES (1, 'qc', '1170123456', NULL, 1, '9123-4567 QUÉBEC INC.', '', NULL, 'CIE', 'IM', '2018-04-12', 'Montréal', 0, '{"im":"2018-04-12"}', '549300QC912345670001');
+      INSERT INTO entites_fts(rowid, nom_officiel, nom_recherche) SELECT id, nom_officiel, nom_recherche FROM entites;
+      INSERT INTO gleif_entites VALUES
+        ('549300QC912345670001', 1, '9123-4567 QUÉBEC INC.', 'CA-QC', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', NULL, '2027-04-12T00:00:00Z', NULL, NULL, NULL, 'RA000081', '1170123456', '1170123456', NULL, 'CA', 'CA-QC', 'Montréal', 'H2Z 1W7', NULL),
+        ('549300SOCGENADD00009', 1, 'SOCIÉTÉ GÉNÉRALE ADDITIVE (CANADA)', 'CA', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', NULL, '2027-08-01T00:00:00Z', NULL, NULL, NULL, 'RA000831', 'BS-990', NULL, NULL, 'CA', 'CA-QC', 'Montréal', 'H3B 2Y5', '{"autres_noms":["Societe Generale Additive"]}'),
+        ('549300FOREIGNADD0010', 0, 'SOCIÉTÉ MÈRE ÉTRANGÈRE LLC', 'US-DE', 'GENERAL', 'ACTIVE', 'H435', 'ISSUED', NULL, '2027-08-01T00:00:00Z', NULL, NULL, NULL, 'RA000602', 'DE-1', NULL, NULL, 'US', 'US-DE', 'Wilmington', '19801', NULL);
+    `;
+    const addHarness = createSqliteD1Harness({ seedSql: [additiveSchema], enforceQueryOnly: true });
+    try {
+      // 1) Recherche par nom sans accents sur entité autonome uniquement présente dans gleif_entites
+      const byName = RegistreSearchEntitiesOutputSchema.parse(
+        (await registreSearchEntities(addHarness.d1, { query: "Societe Generale Additive" }))
+          .structured,
+      );
+      expect(byName.count).toBe(1);
+      expect(byName.exact_match_found).toBe(true);
+      expect(byName.entities[0]?.jurisdiction).toBe("gleif");
+      expect(byName.entities[0]?.lei).toBe("549300SOCGENADD00009");
+
+      // 2) Recherche directe par LEI à 20 caractères sur cette entité autonome
+      const byLei = RegistreSearchEntitiesOutputSchema.parse(
+        (
+          await registreSearchEntities(addHarness.d1, {
+            query: "549300socgenadd00009",
+            jurisdiction: "gleif",
+          })
+        ).structured,
+      );
+      expect(byLei.count).toBe(1);
+      expect(byLei.exact_match_found).toBe(true);
+      expect(byLei.entities[0]?.lei).toBe("549300SOCGENADD00009");
+
+      // 3) Aucune duplication d'une entité déjà appariée dans entites (9123-4567 QUÉBEC INC.)
+      const noDup = RegistreSearchEntitiesOutputSchema.parse(
+        (await registreSearchEntities(addHarness.d1, { query: "9123-4567 Québec inc." }))
+          .structured,
+      );
+      expect(noDup.count).toBe(1);
+      expect(noDup.entities[0]?.jurisdiction).toBe("qc");
+
+      // 4) Entité étrangère (is_canadian = 0) toujours exclue
+      const foreign = RegistreSearchEntitiesOutputSchema.parse(
+        (await registreSearchEntities(addHarness.d1, { query: "Société Mère Étrangère" }))
+          .structured,
+      );
+      expect(foreign.count).toBe(0);
+    } finally {
+      addHarness.close();
+    }
+  });
 });
