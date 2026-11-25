@@ -19,6 +19,13 @@ export const GARDE_CODES = [
   "TAUX_BOC_NOON_HISTORIQUE_PRE_2017",
   "TAUX_BOC_REPORT_JOUR_OUVRABLE_PRECEDENT",
   "TAUX_BOC_CONVERSION_LOI_MONNAIE",
+  "IPC_INSTANTANE_HORS_LIGNE",
+  "IPC_BASE_REINDEXATION_ATTENTION",
+  "IPC_INDEXATION_CONTRACTUELLE_NON_NORMATIVE",
+  "TAL_REGIME_TRANSITOIRE_PRE_2026",
+  "TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ",
+  "TAL_POUVOIR_DISCRETIONNAIRE_FIXATION",
+  "SCHL_LOYER_MOYEN_INDICATIF",
   "INTERET_SIMPLE_ART_1620_CCQ",
   "DOSSIER_NOMENCLATURE_SEULEMENT",
   "GREFFE_SANS_PLUMITIF",
@@ -96,6 +103,20 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "Aucune observation n'ayant été publiée à la date demandée (fin de semaine, jour férié ou date sans cotation), le taux du jour ouvrable ou de cotation précédent disponible a été retenu ; vérifier si le contrat, le jugement ou la loi applicable prescrit plutôt le jour ouvrable suivant.",
   TAUX_BOC_CONVERSION_LOI_MONNAIE:
     "La conversion en monnaie canadienne utilise le taux indicatif de la Banque du Canada à la date retenue ; en vertu de l'art. 12 de la Loi sur la monnaie (L.R.C. 1985, c. C-52) et des art. 1561 et 3161 C.c.Q., les jugements canadiens sont rendus en monnaie canadienne et la date de conversion juridique (exigibilité, jugement ou paiement) relève de l'analyse juridique ou du jugement.",
+  IPC_INSTANTANE_HORS_LIGNE:
+    "Données issues d'un instantané local en lecture seule de Statistique Canada (tableaux 18-10-0004-01 mensuel et 18-10-0005-01 annuel, Licence du gouvernement ouvert – Canada), sans requête réseau au moment de l'appel ni extrapolation au-delà de la dernière période publiée.",
+  IPC_BASE_REINDEXATION_ATTENTION:
+    "Vérifier l'année de base (UOM, p. ex. '2002=100' vs '1992=100') et la série exacte stipulée au contrat : une indexation directe entre deux périodes ayant des années de base différentes est mathématiquement invalide sans facteur de raccordement officiel de Statistique Canada. Vérifier également si la clause prévoit un décalage du mois de référence ou un indice spécifique (Ensemble vs Logement).",
+  IPC_INDEXATION_CONTRACTUELLE_NON_NORMATIVE:
+    "L'indexation arithmétique exacte en BigInt (y compris les options de plancher, de plafond et d'arrondi) constitue une aide au calcul et n'interprète pas la clause contractuelle ou légale (p. ex. cumulativité, plafond annuel vs pluriannuel, ou inapplicabilité d'une clause d'indexation automatique aux baux résidentiels régis par l'art. 1942 C.c.Q. et le Règlement sur les critères de fixation de loyer).",
+  TAL_REGIME_TRANSITOIRE_PRE_2026:
+    "Régime transitoire (art. 6 du Décret 1455-2025) : lorsque l'avis de modification visé à l'art. 1942 C.c.Q. a été donné avant le 1er janvier 2026 (ou qu'une demande de réajustement prend effet avant cette date), les articles 1, 3, 3.1, 5, 11 et 13 du Règlement sur les critères de fixation de loyer (RLRQ, c. T-15.01, r. 2) tels qu'ils se lisaient le 31 décembre 2025 continuent de s'appliquer (grille multi-composantes énergie, entretien, services, gestion, revenu net et immobilisations), et non le taux IPC post-2026.",
+  TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ:
+    "Exemption de 5 ans (art. 1955 C.c.Q., Section F du bail obligatoire) : la fixation de loyer par le TAL ne s'applique pas pendant les 5 ans suivant l'état prêt à l'habitation d'un immeuble nouvellement bâti ou nouvellement converti à des fins locatives (sauf changement d'affectation d'une RPA visé à l'art. 1955.1 C.c.Q.), pourvu que la restriction et le loyer maximal sur 5 ans (le cas échéant) figurent à la Section F du bail ; vérifier également les exemptions statutaires (coopératives, HLM).",
+  TAL_POUVOIR_DISCRETIONNAIRE_FIXATION:
+    "En vertu du Règlement sur les critères de fixation de loyer (RLRQ, c. T-15.01, r. 2), les pourcentages publiés par le TAL servent au calcul judiciaire en cas de demande de fixation et ne constituent pas un plafond automatique ni une décision du tribunal : le TAL conserve un pouvoir d'appréciation et de preuve (art. 6 loyer de faveur, art. 7 bail non mensuel, art. 8–9 réduction/relèvement de services, art. 11–12 chambres/maisons mobiles, art. 13 pièces justificatives et subventions, art. 15 absence de renseignements).",
+  SCHL_LOYER_MOYEN_INDICATIF:
+    "Les loyers moyens publiés par la SCHL (Statistique Canada, tableau 34-10-0133-01, enquête d'octobre dans les centres de 10 000 habitants et plus, Licence du gouvernement ouvert – Canada) reflètent une moyenne statistique sur le parc locatif existant et sont fournis à titre purement indicatif : ils ne constituent ni un plafond légal de loyer au sens du Code civil du Québec ni une preuve de loyer de logements comparables au sens de l'art. 1896 ou 1950 C.c.Q.",
   INTERET_SIMPLE_ART_1620_CCQ:
     "En vertu de l'art. 1620 C.c.Q., les intérêts légaux et l'indemnité additionnelle de l'art. 1619 C.c.Q. sont des intérêts simples (sans capitalisation), sauf disposition législative particulière, convention écrite valable ou ordonnance judiciaire contraire.",
   DOSSIER_NOMENCLATURE_SEULEMENT: GARDE_DOSSIER,

@@ -1,9 +1,20 @@
-name: Synchronisation quotidienne DB_ECONOMIE (taux BdC et change)
+name: Synchronisation DB_ECONOMIE (taux BdC, change, IPC StatCan et loyers SCHL)
 
 on:
   schedule:
-    - cron: "15 22 * * 1-5"
+    - cron: "15 22 * * 1-5" # Jours ouvrables : FX_RATES_DAILY + V39079/V122530/V80691311
+    - cron: "30 14 20 * *"  # Mensuel (le 20) : IPC StatCan 18-10-0004-01/05 + SCHL 34-10-0133-01
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Jeu de données à synchroniser"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - fx
+          - statcan
 
 permissions:
   contents: read
@@ -79,6 +90,7 @@ jobs:
       - run: npm ci
 
       - name: Synchronisation incrémentale D1 (FX_RATES_DAILY + V39079/V122530/V80691311)
+        if: github.event.schedule == '15 22 * * 1-5' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'all' || inputs.mode == 'fx'))
         env:
           PYTHONUTF8: "1"
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -87,3 +99,14 @@ jobs:
           set -euo pipefail
           python3 --version
           python3 -m pipeline.economie.ingest_economie --incremental-fx --push-remote
+
+      - name: Synchronisation mensuelle D1 (IPC StatCan 18-10-0004/05 + SCHL 34-10-0133)
+        if: github.event.schedule == '30 14 20 * *' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'all' || inputs.mode == 'statcan'))
+        env:
+          PYTHONUTF8: "1"
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_COMPTE }}
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m pipeline.economie.ingest_economie --sync-statcan --push-remote

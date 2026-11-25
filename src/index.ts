@@ -5,6 +5,7 @@ import {
 import { createMcpHandler } from "agents/mcp/server";
 import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
+import talCriteresJson from "./data/tal_criteres.json" with { type: "json" };
 import {
   createOutilsMcpServer,
   listToolDescriptors,
@@ -164,6 +165,7 @@ function healthzResponse(env: Env): Response {
       request_payload_logging: false,
       laf_table_last_quarter: lafRatesJson.metadata.last_quarter,
       prime_table_last_verified_date: bocPrimeRatesJson.metadata.last_verified_date,
+      tal_table_last_lease_renewal_end_date: talCriteresJson.metadata.last_lease_renewal_end_date,
       databases: {
         terminologie: Boolean(env.DB_TERMINOLOGIE),
         registres: Boolean(env.DB_REGISTRES),

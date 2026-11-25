@@ -53,7 +53,7 @@ export function biP(fr: readonly string[], en: readonly string[]): string {
 }
 
 export const SECTIONS = [
-  { id: "outils", fr: "Les 13 outils", en: "The 13 tools" },
+  { id: "outils", fr: "Les 15 outils", en: "The 15 tools" },
   { id: "dossier", fr: "Numéro de dossier", en: "Court file numbers" },
   { id: "greffes", fr: "Greffes et palais", en: "Registries and courthouses" },
   { id: "acces", fr: "Accès et installation", en: "Access & setup" },
@@ -352,10 +352,10 @@ ${biP(
   [
     "Connecteur public gratuit pour la pratique du litige civil et commercial québécois (aucun " +
       "compte ni aucune clé requis). Il permet à votre assistant IA de calculer avec exactitude " +
-      "les jours fériés, les délais de procédure et les intérêts (art. 1619 C.c.Q.) et de consulter " +
-      "hors ligne les numéros de dossier de cour, les palais de justice, les registres d'entreprises " +
-      "(REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), les adresses civiques (RQA) et la terminologie " +
-      "juridique bilingue.",
+      "les jours fériés, les délais de procédure, les intérêts (art. 1619 C.c.Q.) et la fixation " +
+      "de loyer TAL, et de consulter hors ligne les dossiers de cour, palais de justice, registres " +
+      "d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses/lots RQA, " +
+      "terminologie bijuridique, taux Banque du Canada, IPC StatCan et loyers SCHL.",
   ],
   EN.intro,
 )}
@@ -426,6 +426,14 @@ export const RESUME_OUTILS_FR: Readonly<Record<string, readonly string[]>> = {
   taux_boc_rates: [
     "Consulte hors ligne les taux de change de la Banque du Canada face au CAD (2001–2026+) et les taux directeur, d'escompte et préférentiel (V39079, V122530, V80691311), avec conversion exacte en BigInt selon l'art. 12 de la Loi sur la monnaie.",
     "Distingue explicitement le régime au comptant de midi (avant le 1er mai 2017) de la moyenne quotidienne de 16 h 30 HE et signale tout report au jour ouvrable précédent.",
+  ],
+  indice_ipc: [
+    "Consulte hors ligne les indices des prix à la consommation de Statistique Canada (tableaux 18-10-0004-01 mensuel et 18-10-0005-01 annuel : Ensemble, Logement, Logement locatif, Loyer et Soins de santé pour Québec, Montréal, RMR de Québec et Canada) avec variation annuelle (%).",
+    "Calcule une indexation contractuelle exacte en BigInt (plancher, plafond et arrondi) et bloque toute division entre années de base distinctes (2002=100 vs 1992=100) sans facteur officiel.",
+  ],
+  loyer_tal: [
+    "Fournit les barèmes officiels du TAL (2015–2027), exécute le calculateur déterministe post-1er janvier 2026 en BigInt (RLRQ, c. T-15.01, r. 2 ; Décret 1455-2025) avec part RPA, taxes/assurances asymétriques, travaux 5 % et arrondi art. 15.1, et consulte les loyers moyens SCHL (34-10-0133-01).",
+    "Signale les avis antérieurs au 1er janvier 2026 (art. 6 Décret 1455-2025), l'exemption de 5 ans (art. 1955 C.c.Q., Section F) et le pouvoir d'appréciation du TAL.",
   ],
 };
 
@@ -521,12 +529,13 @@ ${biP(
   EN.familleTerminologieTexte,
 )}
 ${terminologie.map(carte).join("\n")}
-<h3>${bi("Économie et taux (Banque du Canada — change et taux directeurs)", EN.familleEconomie)}</h3>
+<h3>${bi("Économie, IPC et logement (Banque du Canada, StatCan et TAL)", EN.familleEconomie)}</h3>
 ${biP(
   [
-    "Un outil adossé à une base locale en lecture seule (DB_ECONOMIE) réunissant les taux de change " +
-      "quotidiens (moyenne 16 h 30 HE depuis 2017) et historiques au comptant de midi (2001–2017, Banque " +
-      "du Canada et Statistique Canada 10-10-0008-01), ainsi que les taux directeur, d'escompte et préférentiel.",
+    "Trois outils réunissant une base locale en lecture seule (DB_ECONOMIE : taux de change et taux " +
+      "directeurs Banque du Canada depuis 2001, IPC mensuel/annuel Statistique Canada 18-10-0004-01 " +
+      "et 18-10-0005-01, loyers moyens SCHL 34-10-0133-01) et les barèmes réglementaires embarqués " +
+      "du Tribunal administratif du logement (RLRQ, c. T-15.01, r. 2).",
   ],
   EN.familleEconomieTexte,
 )}
@@ -626,7 +635,7 @@ ${biP(
   EN.schemaTexte,
 )}
 <details>
-<summary>${bi("Afficher les tables de paramètres des 13 outils (référence technique)", EN.schemaResume)}</summary>
+<summary>${bi("Afficher les tables de paramètres des 15 outils (référence technique)", EN.schemaResume)}</summary>
 ${listToolDescriptors().map(bloc).join("\n")}
 </details>
 </section>`;
@@ -852,8 +861,10 @@ function pied(): string {
 ${biP(
   [
     "Jason Poirier Lavoie, avocat (Québec). Sources de données ouvertes : Revenu Québec " +
-      "(art. 28 L.A.F.), Banque du Canada (taux de change et taux directeurs/préférentiels), " +
-      "Statistique Canada (Tableau 10-10-0008-01, OGL-Canada), ministère de la Justice du Québec, " +
+      "(art. 28 L.A.F.), Tribunal administratif du logement / LégisQuébec (RLRQ, c. T-15.01, r. 2), " +
+      "Banque du Canada (taux de change et taux directeurs/préférentiels), " +
+      "Statistique Canada (Tableaux 10-10-0008-01, 18-10-0004-01, 18-10-0005-01 et 34-10-0133-01 SCHL, OGL-Canada), " +
+      "ministère de la Justice du Québec, " +
       "Registraire des entreprises (CC BY-NC-SA 4.0), RBQ / OPC / AMP — RENA / MRNF — RQA (CC BY 4.0), " +
       "Corporations Canada et TERMIUM Plus® (OGL-Canada), GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), " +
       "Office québécois de la langue française (CC BY-NC-SA 4.0).",
@@ -900,10 +911,10 @@ function construireJsonLd(): string {
         "@type": "Dataset",
         "@id": `${ORIGINE_SITE}/#open-data`,
         name: [
-          "Tables judiciaires MJQ, taux art. 28 L.A.F., taux Banque du Canada, registres d'entreprises, adresses RQA et terminologie bijuridique",
-          "MJQ judicial directories, art. 28 T.A.A. rates, Bank of Canada rates, business registries, RQA addresses, and bijural terminology",
+          "Tables judiciaires MJQ, taux art. 28 L.A.F., taux BdC, IPC StatCan, critères TAL, registres d'entreprises, adresses RQA et terminologie bijuridique",
+          "MJQ judicial directories, art. 28 T.A.A. rates, BoC rates, StatCan CPI/CMHC, TAL rent criteria, business registries, RQA addresses, and bijural terminology",
         ],
-        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, Bank of Canada rates through ${bocPrimeRatesJson.metadata.last_verified_date}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, StatCan 10-10-0008-01, and bijural terminology snapshots.`,
+        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, Bank of Canada rates through ${bocPrimeRatesJson.metadata.last_verified_date}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, StatCan (10-10-0008-01, 18-10-0004-01, 18-10-0005-01, 34-10-0133-01), TAL T-15.01 r. 2, and bijural terminology snapshots.`,
         url: `${ORIGINE_SITE}/#greffes`,
         inLanguage: ["fr-CA", "en-CA"],
         dateModified: RELEVE_LE,
@@ -1006,7 +1017,7 @@ function construireLlmsTxt(): string {
     `- Streamable HTTP: \`${ORIGINE_SITE}/mcp\``,
     `- MCP Server Card (SEP-2127): ${ORIGINE_SITE}/mcp/server-card`,
     "",
-    "## Tools (13 deterministic read-only MCP tools, derived from live registry)",
+    "## Tools (15 deterministic read-only MCP tools, derived from live registry)",
     "",
     ...outilsLignes,
     "",

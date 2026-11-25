@@ -283,15 +283,15 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
       `spread_bps global ne doit être fourni qu'en mode 'prime_plus_margin' (reçu avec mode='${mode}').`,
     );
   }
-  if (mode === "prime_plus_margin" && input.rate_overrides && input.rate_overrides.length > 0) {
+  if (mode !== "legal_plus_1619" && input.rate_overrides && input.rate_overrides.length > 0) {
     throw new RangeError(
-      "rate_overrides ne s'applique qu'aux trimestres art. 28 L.A.F. (mode 'legal_plus_1619') et est interdit en mode 'prime_plus_margin'.",
+      `rate_overrides ne s'applique qu'aux trimestres art. 28 L.A.F. (mode 'legal_plus_1619', reçu avec mode='${mode}').`,
     );
   }
 
-  const lafData = buildLafRateMap(input.rate_overrides);
-  const lafRateMap = mode === "legal_plus_1619" ? lafData.map : null;
-  const overrideQuarters = lafData.overrideQuarters;
+  const lafData = mode === "legal_plus_1619" ? buildLafRateMap(input.rate_overrides) : null;
+  const lafRateMap = lafData ? lafData.map : null;
+  const overrideQuarters = lafData ? lafData.overrideQuarters : new Set<string>();
   const usedOverrideQuarters = new Set<string>();
   const primeChanges = bocPrimeRatesJson.series.V80691311.changes;
   const primeFirstDate = bocPrimeRatesJson.metadata.first_date;

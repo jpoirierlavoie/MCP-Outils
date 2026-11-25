@@ -12,13 +12,19 @@ from pipeline.common.blue_green import swap_wrangler_binding
 from pipeline.economie import ingest_economie
 from pipeline.economie.ingest_economie import (
     CURRENCY_NAMES_FR,
+    _parse_cpi_wds,
+    _parse_statcan_cmhc,
     _parse_statcan_fx,
     _resolve_economie_binding_from_wrangler,
+    _sample_statcan_payloads,
     build_local_sqlite,
     export_local_batches,
     incremental_fx_sync,
+    sync_statcan_data,
     to_bps,
+    to_milli,
     to_micros,
+    to_rent_dollars,
 )
 
 
@@ -273,6 +279,135 @@ class IngestEconomieTest(unittest.TestCase):
                 all(call.args[0] == override_uuid for call in mock_query.call_args_list)
             )
             mock_exec.assert_not_called()
+
+    def test_cpi_wds_skips_vector_id_zero_and_null_points(self) -> None:
+        self.assertEqual(to_milli("168.4"), 168_400)
+        self.assertEqual(to_milli(161.0), 161_000)
+        with self.assertRaises(ValueError):
+            to_milli("168.1234")
+
+        codesets, cube_metas, series_infos, vector_datas, _, _ = _sample_statcan_payloads()
+        series_rows, obs_rows, meta = _parse_cpi_wds(
+            codesets, cube_metas, series_infos, vector_datas, require_all_mandatory=True
+        )
+        # 32 séries 2002=100 + 8 séries 1992=100 = 40 séries (les 8 vectorId=0 RMR rent/soins santé ignorés)
+        self.assertEqual(len(series_rows), 40)
+        geo_codes = {s["geo_code"] for s in series_rows}
+        self.assertEqual(geo_codes, {"canada", "quebec", "quebec_rmr", "montreal_rmr"})
+
+        # Vérifier absence de rent et health_care_services sur RMR
+        rmr_products = {
+            (s["geo_code"], s["product_code"])
+            for s in series_rows
+            if s["geo_code"] in {"quebec_rmr", "montreal_rmr"}
+        }
+        self.assertNotIn(("quebec_rmr", "rent"), rmr_products)
+        self.assertNotIn(("montreal_rmr", "health_care_services"), rmr_products)
+
+        # Vérifier UOM exacts (2002=100 vs 1992=100) et rejet de value=None (1978-08-01)
+        uoms = {s["uom"] for s in series_rows}
+        self.assertEqual(uoms, {"2002=100", "1992=100"})
+        qc_m_all = next(
+            s
+            for s in series_rows
+            if s["frequency"] == "M"
+            and s["geo_code"] == "quebec"
+            and s["product_code"] == "all_items"
+            and s["uom"] == "2002=100"
+        )
+        qc_periods = [p for sid, p, _ in obs_rows if sid == qc_m_all["id"]]
+        self.assertNotIn(197808, qc_periods)
+        self.assertIn(202610, qc_periods)
+        self.assertEqual(meta["M"]["version_date"], "2026-10-01")
+        self.assertEqual(meta["A"]["version_date"], "2025-01-01")
+
+    def test_cmhc_csv_skips_suppressed_and_normalizes_centres(self) -> None:
+        self.assertEqual(to_rent_dollars("1346"), 1346)
+        with self.assertRaises(ValueError):
+            to_rent_dollars("1346.50")
+
+        _, _, _, _, cmhc_meta, cmhc_zip_bytes = _sample_statcan_payloads()
+        centres, rents, release_date = _parse_statcan_cmhc(cmhc_zip_bytes, cmhc_meta)
+        self.assertEqual(release_date, "2025-12-17")
+        by_id = {c["geo_member_id"]: c for c in centres}
+        self.assertEqual(by_id[46]["search_norm"], "montreal")
+        self.assertEqual(by_id[46]["is_quebec"], 1)
+        self.assertEqual(by_id[48]["search_norm"], "quebec")
+        self.assertEqual(by_id[37]["is_quebec"], 1)
+        self.assertEqual(by_id[37]["province_code"], "QC")
+        self.assertEqual(by_id[105]["is_quebec"], 0)
+        self.assertEqual(by_id[105]["province_code"], "ON/QC")
+        self.assertEqual(by_id[219]["search_norm"], "sainte sophie")
+        self.assertEqual(by_id[203]["search_norm"], "saint lin laurentides")
+
+        # Les cellules supprimées (48.2.1 STATUS=".." / VALUE="0" et 219.3.3 STATUS="F") doivent être absentes
+        rent_keys = {(g, s, u, y) for g, s, u, y, _ in rents}
+        self.assertNotIn((48, 2, 1, 2025), rent_keys)
+        self.assertNotIn((48, 2, 1, 1987), rent_keys)
+        self.assertNotIn((219, 3, 3, 2025), rent_keys)
+        self.assertIn((219, 1, 3, 2025), rent_keys)
+        self.assertIn((46, 3, 3, 2025), rent_keys)
+
+    def test_sample_build_export_and_statcan_sync_e2e(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            work_dir = tmp_path / "work"
+            batch_dir = tmp_path / "batches"
+
+            db_path = build_local_sqlite(sample_only=True, work_dir=work_dir)
+            conn = sqlite3.connect(db_path)
+            conn.execute("PRAGMA query_only = ON;")
+            cpi_cnt = conn.execute("SELECT COUNT(*) FROM cpi_series").fetchone()[0]
+            obs_cnt = conn.execute("SELECT COUNT(*) FROM cpi_observations").fetchone()[0]
+            cmhc_cnt = conn.execute("SELECT COUNT(*) FROM cmhc_centres").fetchone()[0]
+            rent_cnt = conn.execute("SELECT COUNT(*) FROM cmhc_rents").fetchone()[0]
+            meta_cnt = conn.execute("SELECT COUNT(*) FROM meta_sources").fetchone()[0]
+            self.assertEqual(cpi_cnt, 40)
+            self.assertGreater(obs_cnt, 80)
+            self.assertEqual(cmhc_cnt, 6)
+            self.assertEqual(rent_cnt, 8)
+            self.assertEqual(meta_cnt, 7)
+            conn.close()
+
+            batch_files, counts = export_local_batches(db_path=db_path, batch_dir=batch_dir)
+            self.assertEqual(counts["cpi_series"], 40)
+            self.assertEqual(counts["cmhc_centres"], 6)
+            self.assertEqual(counts["cmhc_rents"], 8)
+
+            replay_db = tmp_path / "replay_statcan.db"
+            rconn = sqlite3.connect(replay_db)
+            try:
+                rconn.execute("PRAGMA foreign_keys = ON;")
+                for bf in batch_files:
+                    raw_bytes = bf.read_bytes()
+                    self.assertNotIn(b"\r\n", raw_bytes)
+                    txt = raw_bytes.decode("utf-8")
+                    self.assertNotIn("BEGIN", txt.upper())
+                    self.assertNotIn("COMMIT", txt.upper())
+                    rconn.executescript(txt)
+
+                sync_file = sync_statcan_data(
+                    sample_only=True,
+                    push_remote=False,
+                    db_path=db_path,
+                    batch_dir=batch_dir,
+                )
+                self.assertIsNotNone(sync_file)
+                sync_bytes = sync_file.read_bytes()
+                self.assertNotIn(b"\r\n", sync_bytes)
+                sync_txt = sync_bytes.decode("utf-8")
+                self.assertIn("ON CONFLICT", sync_txt)
+                rconn.executescript(sync_txt)
+
+                # Idempotence : le nombre de séries et de loyers reste identique après rejeu
+                self.assertEqual(
+                    rconn.execute("SELECT COUNT(*) FROM cpi_series").fetchone()[0], 40
+                )
+                self.assertEqual(
+                    rconn.execute("SELECT COUNT(*) FROM cmhc_rents").fetchone()[0], 8
+                )
+            finally:
+                rconn.close()
 
 
 if __name__ == "__main__":

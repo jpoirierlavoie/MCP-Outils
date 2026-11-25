@@ -44,16 +44,20 @@ lesquels demeurent régis par leurs licences respectives :
   naturelles et des Forêts (RQA) : CC BY 4.0.
 - Corporations Canada, Bureau de la traduction (TERMIUM Plus®), ministère
   de la Justice du Canada (concordancier législatif fédéral) et Statistique
-  Canada (Tableau 10-10-0008-01 — taux de change au comptant de midi 2001–2007) :
+  Canada (Tableau 10-10-0008-01 — taux de change au comptant de midi 2001–2007 ;
+  Tableaux 18-10-0004-01 et 18-10-0005-01 — Indice des prix à la consommation ;
+  Tableau 34-10-0133-01 — Loyers moyens du marché de la SCHL) :
   Licence du gouvernement ouvert – Canada (OGL-Canada).
 - Banque du Canada (API Valet — FX_RATES_DAILY, LEGACY_NOON_RATES, taux
   directeur V39079, taux officiel d'escompte V122530 et taux préférentiel
   V80691311) : données statistiques publiques soumises aux conditions
   d'utilisation de la Banque du Canada (https://www.bankofcanada.ca/terms/).
-- Revenu Québec (taux trimestriels art. 28 L.A.F.) et ministère de la Justice
-  du Québec (palais de justice et greffes, avec les mentions officielles
-  reproduites verbatim).
-- LégisQuébec (Éditeur officiel du Québec — concordancier législatif QC).
+- Revenu Québec (taux trimestriels art. 28 L.A.F.), Tribunal administratif
+  du logement (TAL — pourcentages annuels publiés et calculateurs officiels)
+  et ministère de la Justice du Québec (palais de justice et greffes, avec les
+  mentions officielles reproduites verbatim).
+- LégisQuébec (Éditeur officiel du Québec — concordancier législatif QC et
+  Règlement sur les critères de fixation de loyer, RLRQ, c. T-15.01, r. 2).
 - Global Legal Entity Identifier Foundation (GLEIF — Golden Copy Level 1
   LEI-CDF, Level 2 RR-CDF et exceptions de déclaration REPEX) : CC0 1.0
   Universel (https://creativecommons.org/publicdomain/zero/1.0/ ; conditions
@@ -69,13 +73,17 @@ remain governed by their respective upstream licenses:
 - RBQ, OPC, AMP (RENA), and MRNF (RQA): CC BY 4.0.
 - Corporations Canada, Translation Bureau (TERMIUM Plus®), Department of
   Justice Canada, and Statistics Canada (Table 10-10-0008-01 — noon spot FX
-  rates 2001–2007): Open Government Licence – Canada (OGL-Canada).
+  rates 2001–2007; Tables 18-10-0004-01 & 18-10-0005-01 — Consumer Price Index;
+  Table 34-10-0133-01 — CMHC average market rents): Open Government Licence –
+  Canada (OGL-Canada).
 - Bank of Canada (Valet API — FX_RATES_DAILY, LEGACY_NOON_RATES, Target
   overnight rate V39079, Bank Rate V122530, and Prime rate V80691311): public
   statistical series governed by Bank of Canada Terms of Use
   (https://www.bankofcanada.ca/terms/).
-- Revenu Québec (art. 28 T.A.A. rates), ministère de la Justice du Québec,
-  and LégisQuébec (Québec Official Publisher).
+- Revenu Québec (art. 28 T.A.A. rates), Tribunal administratif du logement
+  (TAL — published annual rent-fixing percentages), ministère de la Justice du
+  Québec, and LégisQuébec (Québec Official Publisher — bilingual statutes and
+  Regulation respecting the criteria for the fixing of rent, CQLR, c. T-15.01, r. 2).
 - Global Legal Entity Identifier Foundation (GLEIF — Golden Copy Level 1
   LEI-CDF, Level 2 RR-CDF, and REPEX reporting exceptions): CC0 1.0 Universal
   (https://creativecommons.org/publicdomain/zero/1.0/; LEI Data Terms of Use:

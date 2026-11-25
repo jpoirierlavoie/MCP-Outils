@@ -324,4 +324,20 @@ describe("interets_1619", () => {
       }),
     ).toThrow(/rate_overrides/);
   });
+
+  it("rejette rate_overrides dans les modes legal_only et contractual (trimestres publiés ou non)", () => {
+    for (const invalidMode of ["legal_only", "contractual"] as const) {
+      for (const quarter of ["2025-Q1", "2027-Q1"]) {
+        expect(() =>
+          computeInterest1619({
+            mode: invalidMode,
+            end_date: "2027-03-01",
+            ...(invalidMode === "contractual" ? { rate_bps: 800 } : {}),
+            rate_overrides: [{ quarter, laf_rate_bps: 700 }],
+            tranches: [{ principal_cents: 1_000_000, start_date: "2025-01-01" }],
+          }),
+        ).toThrow(/rate_overrides/);
+      }
+    }
+  });
 });

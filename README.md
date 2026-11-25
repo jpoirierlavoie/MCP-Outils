@@ -2,12 +2,12 @@
 
 Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`), sans authentification et sans journalisation, conçu pour la pratique du litige civil et commercial québécois et les compétences du greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois).
 
-> **In English:** Public, unauthenticated, read-only MCP server for Québec civil and commercial litigation (`outils.poirierlavoie.ca/mcp`). Provides deterministic C.C.P. holiday/deadline and art. 1619 C.C.Q. interest calculators alongside offline lookups for court file numbers, courthouses, corporate registries and LEI hierarchies (REQ, Corporations Canada, GLEIF), Québec civic addresses (RQA), and bilingual/bijural legal terminology. Queries and inputs are never logged.
+> **In English:** Public, unauthenticated, read-only MCP server for Québec civil and commercial litigation (`outils.poirierlavoie.ca/mcp`). Provides deterministic C.C.P. holiday/deadline, art. 1619 C.C.Q. interest, and TAL rent-fixing calculators alongside offline lookups for court file numbers, courthouses, corporate registries and LEI hierarchies (REQ, Corporations Canada, GLEIF), Québec civic addresses and lots (RQA), bijural legal terminology, Bank of Canada FX/policy rates, StatCan CPI, and CMHC rents. Queries and inputs are never logged.
 
 Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
 Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
 
-## Outils exposés (v2.2.0 — 13 outils sur 6 familles)
+## Outils exposés (v2.2.0 — 15 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
@@ -24,6 +24,8 @@ Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `
 | `terminologie` | `termino_attestations` | Comptage exact et extraits bilingues alignés FR/EN dans le corpus législatif consolidé du Québec et du Canada (art. 8.1–8.2 L.I.). | Concordancier bilingue dérivé de LégisQuébec et Justice Canada (97 lois alignées). Ne remplace pas la lecture intégrale via `MCP-Legislation`. |
 | `terminologie` | `terminologie_scan` | Contrôle en lecture seule d'un extrait de projet d'acte (jusqu'à 32 000 car., FR/EN) pour signaler francismes de France, anglicismes / faux amis de common law et archaïsmes d'avant 2016. | Signale positions, motifs, remplacements civilistes suggérés et fondements légaux sans jamais réécrire le texte. |
 | `economie` | `taux_boc_rates` | Consultation hors ligne des taux de change face au CAD (2001–2026+) et des taux directeur (`V39079`), d'escompte (`V122530`) et préférentiel (`V80691311`), avec conversion exacte `BigInt` (*Loi sur la monnaie*, art. 12). | `DB_ECONOMIE` en lecture seule : Banque du Canada (`FX_RATES_DAILY` 2017+ à 16 h 30 HE ; `LEGACY_NOON_RATES` 2007–2017 à midi HE) et Statistique Canada `10-10-0008-01` (2001–2007, `OGL-Canada`). |
+| `economie` | `indice_ipc` | Consultation hors ligne des indices IPC StatCan (mensuel `18-10-0004-01`, annuel `18-10-0005-01`) pour Québec, Montréal, RMR de Québec et Canada, variation annuelle (%) et indexation contractuelle `BigInt` (plancher/plafond, contrôle d'année de base). | `DB_ECONOMIE` en lecture seule : Statistique Canada (`OGL-Canada`), bases `2002=100` et `1992=100` avec refus sécuritaire de division entre bases distinctes (`IPC_BASE_REINDEXATION_ATTENTION`). |
+| `economie` | `loyer_tal` | Barèmes officiels du TAL (2015–2027), calculateur déterministe post-1er janv. 2026 en `BigInt` (base IPC, part RPA, taxes/assurances asymétriques, travaux 5 % et arrondi art. 15.1) et loyers moyens du marché SCHL (`34-10-0133-01`). | *Règlement sur les critères de fixation de loyer* (`RLRQ, c. T-15.01, r. 2` ; Décret 1455-2025) dans `tal_criteres.json` + `DB_ECONOMIE` (`34-10-0133-01`, `OGL-Canada`). Gardes `< 2026-01-01`, art. 1955 C.c.Q. et appréciation du TAL. |
 
 Chaque réponse réussie retourne un résumé lisible en français (`content[0].text`), des données structurées validées (`structuredContent`), la provenance des sources et des mises en garde (`gardes`) rappelant les limites documentaires à vérifier (tous les outils sont hors ligne et en lecture seule : `openWorldHint: false`, `readOnlyHint: true`).
 
@@ -96,8 +98,8 @@ plugin.json          Manifeste autonome Google Antigravity
 mcp_config.json      Configuration Streamable HTTP Antigravity (`outils`)
 gemini-extension.json Manifeste autonome Gemini CLI (`outils`, `contextFileName: []`)
 src/
-  core/              Logique pure TypeScript + Zod (`holidays`, `deadlines`, `interest1619`, `qcTools`, `registres`, `adresses`, `terminologie`, `economie`, `gardes`)
-  data/              Tables statiques versionnées (`laf_art28_rates.json`, `boc_prime_rates.json`, `glossaire_bijuridique_qc.json`)
+  core/              Logique pure TypeScript + Zod (`holidays`, `deadlines`, `interest1619`, `qcTools`, `registres`, `adresses`, `terminologie`, `economie`, `ipc`, `tal`, `gardes`)
+  data/              Tables statiques versionnées (`laf_art28_rates.json`, `boc_prime_rates.json`, `tal_criteres.json`, `glossaire_bijuridique_qc.json`)
   qc/                Tables et parseur de nomenclature judiciaire QC (dossiers, greffes, palais, lieux MJQ)
   mcp/               Serveur McpServer agnostique du transport (`createOutilsMcpServer`, `listToolDescriptors`)
   site.ts            Page HTML publique (`GET /`) et traductions (`site.i18n.ts`)
@@ -107,7 +109,7 @@ pipeline/
   terminologie/      Schéma, index FTS5 et ingestion (`build_glossaire.py`, `ingest_terminologie.py`)
   registres/         Schéma, index FTS5 et ingestion REQ + RBQ + OPC + RENA + Corporations Canada + GLEIF (`ingest_req.py`)
   adresses/          Schéma normalisé 3 tables, index FTS5 odonymes et ingestion RQA (`ingest_adresses.py`)
-  economie/          Schéma compact `WITHOUT ROWID` et ingestion Valet BdC + StatCan `10-10-0008-01` (`ingest_economie.py`)
+  economie/          Schéma compact `WITHOUT ROWID` et ingestion Valet BdC + StatCan `10-10-0008-01`, IPC `18-10-0004/05-01` et SCHL `34-10-0133-01` (`ingest_economie.py`)
 sources-officielles/ Instantanés officiels du ministère de la Justice (greffes/lieux et fiches des palais `mjq-palais-2026-11-17.json`)
 scripts/             Générateurs des tables MJQ (`extraire-lieux-mjq.mjs`, `extraire-palais-mjq.mjs`)
 test/                Suite de tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`, parité des manifestes)
@@ -135,13 +137,14 @@ pipeline\.venv\Scripts\python.exe -m pipeline.adresses.ingest_adresses --build-l
 pipeline\.venv\Scripts\python.exe -m pipeline.economie.ingest_economie --build-local --push-remote --blue-green --swap
 ```
 
-### Mise à jour des taux (art. 28 L.A.F. & Banque du Canada)
+### Mise à jour des taux (art. 28 L.A.F., Banque du Canada & TAL)
 
 1. Consultez les taux publiés par Revenu Québec (`metadata.source_url` dans [`src/data/laf_art28_rates.json`](src/data/laf_art28_rates.json)). Le workflow [`.github/workflows/check-laf-rates.yml`](.github/workflows/check-laf-rates.yml) ouvre automatiquement un billet de rappel trimestriel lorsque le trimestre suivant manque.
-2. Pour le taux préférentiel et les taux directeurs de la Banque du Canada ([`src/data/boc_prime_rates.json`](src/data/boc_prime_rates.json)), le workflow [`.github/workflows/check-boc-rates.yml`](.github/workflows/check-boc-rates.yml) ouvre un billet de rappel `[Taux BdC]` en cas de variation ou de décalage `>= 28` jours, et [`.github/workflows/sync-economie.yml`](.github/workflows/sync-economie.yml) synchronise incrémentalement `DB_ECONOMIE` les jours ouvrables sans commit Git.
-3. Après mise à jour des tables statiques, exécutez `npm.cmd run typecheck`, `npm.cmd test` et `npm.cmd run build`.
+2. Pour le taux préférentiel et les taux directeurs de la Banque du Canada ([`src/data/boc_prime_rates.json`](src/data/boc_prime_rates.json)), le workflow [`.github/workflows/check-boc-rates.yml`](.github/workflows/check-boc-rates.yml) ouvre un billet de rappel `[Taux BdC]` en cas de variation ou de décalage `>= 28` jours, et [`.github/workflows/sync-economie.yml`](.github/workflows/sync-economie.yml) synchronise incrémentalement `DB_ECONOMIE` les jours ouvrables (FX/taux) et mensuellement le 20 (IPC StatCan et loyers SCHL) sans commit Git.
+3. Pour les critères annuels de fixation de loyer du TAL ([`src/data/tal_criteres.json`](src/data/tal_criteres.json)), le workflow [`.github/workflows/check-tal-criteres.yml`](.github/workflows/check-tal-criteres.yml) vérifie chaque 20 janvier et 20 février la couverture du cycle à venir.
+4. Après mise à jour des tables statiques, exécutez `npm.cmd run typecheck`, `npm.cmd test` et `npm.cmd run build`.
 
 ## Sécurité, confidentialité et licences
 
 - **Sécurité, vie privée et secret professionnel :** Consulter [`SECURITY.md`](SECURITY.md) pour signaler de manière privée et coordonnée toute vulnérabilité ou question de confidentialité / secret professionnel à Jason Poirier Lavoie (`jason@poirierlavoie.ca`).
-- **Licence logicielle et attributions de données ouvertes :** Le logiciel, les schémas, le glossaire curé, les tests et la documentation originale (élaborés en grande partie avec l'assistance de l'IA pour l'intérêt public) sont publiés gratuitement sous licence **`Apache-2.0`** ([`LICENSE`](LICENSE)). Aucun droit d'auteur n'est revendiqué sur les jeux de données publics tiers — voir [`NOTICE`](NOTICE). Attributions des jeux de données publics : Revenu Québec (art. 28 L.A.F.) ; Banque du Canada (API Valet : taux de change quotidiens et historiques au comptant de midi, `V39079`, `V122530`, `V80691311`) ; ministère de la Justice du Québec (greffes et palais) ; Registraire des entreprises du Québec et Office québécois de la langue française (`CC BY-NC-SA 4.0`) ; Régie du bâtiment du Québec, Office de la protection du consommateur, Autorité des marchés publics (RENA) et ministère des Ressources naturelles et des Forêts — RQA (`CC BY 4.0`) ; Corporations Canada, Statistique Canada (Tableau `10-10-0008-01`) et TERMIUM Plus®, Bureau de la traduction (`OGL-Canada`) ; Global Legal Entity Identifier Foundation — GLEIF Golden Copy L1/L2/REPEX (`CC0 1.0`).
+- **Licence logicielle et attributions de données ouvertes :** Le logiciel, les schémas, le glossaire curé, les tests et la documentation originale (élaborés en grande partie avec l'assistance de l'IA pour l'intérêt public) sont publiés gratuitement sous licence **`Apache-2.0`** ([`LICENSE`](LICENSE)). Aucun droit d'auteur n'est revendiqué sur les jeux de données publics tiers — voir [`NOTICE`](NOTICE). Attributions des jeux de données publics : Revenu Québec (art. 28 L.A.F.) ; Tribunal administratif du logement / LégisQuébec (`RLRQ, c. T-15.01, r. 2`) ; Banque du Canada (API Valet : taux de change quotidiens et historiques au comptant de midi, `V39079`, `V122530`, `V80691311`) ; ministère de la Justice du Québec (greffes et palais) ; Registraire des entreprises du Québec et Office québécois de la langue française (`CC BY-NC-SA 4.0`) ; Régie du bâtiment du Québec, Office de la protection du consommateur, Autorité des marchés publics (RENA) et ministère des Ressources naturelles et des Forêts — RQA (`CC BY 4.0`) ; Corporations Canada, Statistique Canada (Tableaux `10-10-0008-01`, `18-10-0004-01`, `18-10-0005-01` et `34-10-0133-01` SCHL) et TERMIUM Plus®, Bureau de la traduction (`OGL-Canada`) ; Global Legal Entity Identifier Foundation — GLEIF Golden Copy L1/L2/REPEX (`CC0 1.0`).
