@@ -183,6 +183,32 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "and Prime (V80691311) series. Computes exact BigInt foreign <-> CAD conversions under s. 12 " +
       "of the Currency Act while flagging methodology and business-day rollbacks.",
   },
+  indice_ipc: {
+    titre: "Consumer Price Index (Statistics Canada — offline)",
+    resume: [
+      "Queries offline Statistics Canada Consumer Price Index series (Tables 18-10-0004-01 monthly and 18-10-0005-01 annual: All-items, Shelter, Rented accommodation, Rent, and Health care services for Québec, Montréal CMA, Québec CMA, and Canada) with year-over-year percentage changes.",
+      "Computes exact BigInt contractual escalation with optional floor/cap and rounding, and blocks division across differing base years (2002=100 vs. 1992=100) without an official linking factor.",
+    ],
+    texte:
+      "Offline read-only lookup in DB_ECONOMIE for Statistics Canada CPI levels (18-10-0004-01 " +
+      "monthly and 18-10-0005-01 annual: All-items, Shelter, Rented accommodation, Rent, and Health " +
+      "care services across Québec, Montréal CMA, Québec CMA, and Canada, 2002=100 base and " +
+      "historical 1992=100 series), year-over-year %, and exact BigInt contractual escalation with " +
+      "floor_bps, cap_bps, rounding options, and strict base-year mismatch protection.",
+  },
+  loyer_tal: {
+    titre: "TAL rent fixing (CQLR, c. T-15.01, r. 2) and CMHC market rents",
+    resume: [
+      "Returns official TAL annual percentages (2015–2027), runs the deterministic post-Jan. 1, 2026 BigInt rent-fixing calculator (CQLR, c. T-15.01, r. 2; Order in Council 1455-2025) including RPA personal services, asymmetric taxes/insurance, 5% major capital works, and s. 15.1 rounding, and queries CMHC average market rents (34-10-0133-01).",
+      "Flags pre-2026 notices (s. 6 O.C. 1455-2025), the 5-year Section F exemption (art. 1955 C.C.Q.), and TAL adjudicator discretion.",
+    ],
+    texte:
+      "Comprehensive Québec rent-fixing tool: 1) 'bareme' mode returns official published TAL " +
+      "percentages (pre-2026 2015–2026 including 2024 fuel oil -10.0%, and post-2026 O.C. 1455-2025: " +
+      "4.5%/6.0% for Jan.–Apr. 1, 2026 and 3.1%/6.7% + 5.0% capital works for Apr. 2, 2026–Apr. 1, 2027); " +
+      "2) 'calcul_2026' runs the exact BigInt 2026 TAL calculator with pre-2026 and art. 1955 C.C.Q. " +
+      "guards; 3) 'schl' queries CMHC average market rents (StatCan 34-10-0133-01) in DB_ECONOMIE.",
+  },
 } as const;
 
 export const EN = {
@@ -190,9 +216,10 @@ export const EN = {
 
   intro: [
     "Free public connector for Québec civil and commercial litigation (no account or key required). " +
-      "It lets your AI assistant compute statutory holidays, C.C.P. deadlines, and art. 1619 C.C.Q. " +
-      "interest accurately, and look up Québec court file numbers, courthouses, business registries " +
-      "(REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), civic addresses, and bilingual civil-law terminology.",
+      "It lets your AI assistant compute statutory holidays, C.C.P. deadlines, art. 1619 C.C.Q. " +
+      "interest, and TAL rent adjustments accurately, and look up court file numbers, courthouses, " +
+      "business registries (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), civic addresses/lots (RQA), " +
+      "bijural terminology, Bank of Canada rates, StatCan CPI, and CMHC rents.",
   ],
 
   avertissement: [
@@ -243,11 +270,11 @@ export const EN = {
       "glossary, aligned bilingual statutory concordances, TERMIUM Plus (Law and Justice), and OQLF " +
       "legal entries to flag common-law and continental-French calques.",
   ],
-  familleEconomie: "Economy and rates (Bank of Canada — FX & policy rates)",
+  familleEconomie: "Economy, CPI, and housing (Bank of Canada, StatCan, and TAL)",
   familleEconomieTexte: [
-    "One tool backed by a read-only local database (DB_ECONOMIE) containing Bank of Canada daily " +
-      "average FX rates (16:30 ET since 2017) and historical noon spot rates (2001–2017, Bank of Canada " +
-      "and StatCan 10-10-0008-01), plus Policy, Bank, and Prime interest series.",
+    "Three tools combining a read-only local database (DB_ECONOMIE: Bank of Canada FX and policy " +
+      "rates since 2001, StatCan monthly/annual CPI 18-10-0004-01 & 18-10-0005-01, and CMHC average " +
+      "market rents 34-10-0133-01) with embedded Tribunal administratif du logement schedules (CQLR, c. T-15.01, r. 2).",
   ],
 
   // ── Schémas ────────────────────────────────────────────────────────────────
@@ -257,7 +284,7 @@ export const EN = {
     "The Description column stays in French in both views because those sentences are the exact " +
       "canonical strings sent to the assistant.",
   ],
-  schemaResume: "Show parameter tables for all 13 tools (technical reference)",
+  schemaResume: "Show parameter tables for all 15 tools (technical reference)",
   colParam: "Parameter",
   colType: "Type",
   colContrainte: "Constraints",
@@ -333,7 +360,9 @@ export const EN = {
 
   pied: [
     "Jason Poirier Lavoie, lawyer (Québec). Open-data sources: Revenu Québec (art. 28 T.A.A.), " +
-      "Bank of Canada (FX and policy/prime rates), Statistics Canada (Table 10-10-0008-01, OGL-Canada), " +
+      "Tribunal administratif du logement / LégisQuébec (CQLR, c. T-15.01, r. 2), " +
+      "Bank of Canada (FX and policy/prime rates), Statistics Canada (Tables 10-10-0008-01, " +
+      "18-10-0004-01, 18-10-0005-01, and 34-10-0133-01 CMHC, OGL-Canada), " +
       "ministère de la Justice du Québec, Registraire des entreprises (CC BY-NC-SA 4.0), RBQ / OPC / " +
       "AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada & TERMIUM Plus® (OGL-Canada), " +
       "GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), and Office québécois de la langue française (CC BY-NC-SA 4.0).",

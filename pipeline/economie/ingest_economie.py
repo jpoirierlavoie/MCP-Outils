@@ -1,4 +1,4 @@
-"""Pipeline d'ingestion et de chargement D1 — Domaine E : Économie (taux BoC & change).
+"""Pipeline d'ingestion et de chargement D1 — Domaine E : Économie (taux BoC, change, IPC & loyers SCHL).
 
 Sources intégrées (zéro appel réseau sortant au moment de la requête MCP) :
   1. Banque du Canada — Valet `FX_RATES_DAILY` (`regime=2`, moyennes quotidiennes 16 h 30 HE
@@ -12,12 +12,16 @@ Sources intégrées (zéro appel réseau sortant au moment de la requête MCP) :
      quotidien ouvrable à compter du 2009-04-21), `V122530` (taux officiel d'escompte mensuel),
      `V80691311` (taux préférentiel hebdomadaire du mercredi, amorcé dès 2000-12-27 pour couvrir
      le 2001-01-01).
+  5. Statistique Canada — IPC WDS (`18-10-0004-01` mensuel, `18-10-0005-01` annuel ; Canada,
+     Québec, RMR de Québec, RMR de Montréal ; `2002=100` et série historique `1992=100`, `OGL-Canada`).
+  6. Statistique Canada / SCHL — Loyers moyens du marché (`34-10-0133-01`, `OGL-Canada`).
 
 Usage :
   python -m pipeline.economie.ingest_economie --build-local --sample --export-batches
   python -m pipeline.economie.ingest_economie --build-local --export-batches
   python -m pipeline.economie.ingest_economie --incremental-fx --sample --export-batches
   python -m pipeline.economie.ingest_economie --incremental-fx --push-remote
+  python -m pipeline.economie.ingest_economie --sync-statcan --push-remote
 """
 from __future__ import annotations
 
@@ -28,6 +32,8 @@ import io
 import json
 import re
 import sqlite3
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from decimal import Decimal, InvalidOperation
@@ -45,6 +51,7 @@ from pipeline.common.d1_batch import (
     d1_query_remote,
     execute_sql_files_remote,
     export_table_batches,
+    normalize_search_text,
     provision_or_get_d1,
     sql_literal,
 )
@@ -58,6 +65,53 @@ MAX_ECONOMIE_DB_BYTES = 15 * 1024 * 1024  # 15 Mio max
 
 BOC_VALET_BASE = "https://www.bankofcanada.ca/valet/observations"
 STATCAN_FX_ZIP_URL = "https://www150.statcan.gc.ca/n1/en/tbl/csv/10100008-eng.zip"
+STATCAN_WDS_BASE = "https://www150.statcan.gc.ca/t1/wds/rest"
+STATCAN_CMHC_ZIP_URL = "https://www150.statcan.gc.ca/n1/en/tbl/csv/34100133-eng.zip"
+
+CPI_CUBES: tuple[tuple[int, str, int], ...] = (
+    (18100004, "M", 2000),
+    (18100005, "A", 200),
+)
+CPI_GEOS: tuple[tuple[int, str], ...] = (
+    (2, "canada"),
+    (11, "quebec"),
+    (12, "quebec_rmr"),
+    (13, "montreal_rmr"),
+)
+CPI_PRODUCTS: tuple[tuple[int, str], ...] = (
+    (2, "all_items"),
+    (79, "shelter"),
+    (80, "rented_accommodation"),
+    (81, "rent"),
+    (311, "health_care_services"),
+    (309, "all_items"),
+)
+MANDATORY_CPI_COORDS: set[str] = {
+    f"{geo_id}.{prod_id}.0.0.0.0.0.0.0.0"
+    for geo_id, _ in CPI_GEOS
+    for prod_id, _ in CPI_PRODUCTS
+    if prod_id != 309 and not (geo_id in (12, 13) and prod_id in (81, 311))
+}
+
+PROVINCE_SUFFIX_TO_CODE: dict[str, str] = {
+    "Quebec": "QC",
+    "Ontario": "ON",
+    "Ontario/Quebec": "ON/QC",
+    "New-Brunswick/Quebec": "NB/QC",
+    "New Brunswick/Quebec": "NB/QC",
+    "New Brunswick": "NB",
+    "Nova Scotia": "NS",
+    "Prince Edward Island": "PE",
+    "Newfoundland and Labrador": "NL",
+    "Manitoba": "MB",
+    "Saskatchewan": "SK",
+    "Alberta": "AB",
+    "British Columbia": "BC",
+    "Yukon": "YT",
+    "Northwest Territories": "NT",
+    "Nunavut": "NU",
+    "Canada": "CA",
+}
 
 BOC_SERIES = ("V39079", "V122530", "V80691311")
 LEGACY_EXCLUDE = {"IEXE0105", "IEXE0124", "IEXE0125"}
@@ -199,16 +253,92 @@ def to_bps(val_str: str) -> int:
     return int(scaled)
 
 
-def _http_get_bytes(url: str, accept: str = "application/json") -> bytes:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "mcp-outils-pipeline/2.2",
-            "Accept": accept,
-        },
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return resp.read()
+def to_milli(val_str: str | float | int) -> int:
+    try:
+        scaled = Decimal(str(val_str).strip()) * 1_000
+    except InvalidOperation as exc:
+        raise ValueError(f"Valeur IPC invalide : {val_str!r}") from exc
+    if scaled != scaled.to_integral_value():
+        raise ValueError(
+            f"Précision > 3 décimales détectée pour un indice IPC ({val_str!r}) ; troncature refusée."
+        )
+    ival = int(scaled)
+    if ival <= 0:
+        raise ValueError(f"Indice IPC non positif inattendu : {val_str!r}")
+    return ival
+
+
+def to_rent_dollars(val_str: str) -> int:
+    try:
+        d = Decimal(str(val_str).strip())
+    except InvalidOperation as exc:
+        raise ValueError(f"Valeur de loyer SCHL invalide : {val_str!r}") from exc
+    if d != d.to_integral_value():
+        raise ValueError(f"Loyer SCHL non entier inattendu ({val_str!r}).")
+    ival = int(d)
+    if ival <= 0:
+        raise ValueError(f"Loyer SCHL non positif inattendu : {val_str!r}")
+    return ival
+
+
+def _http_get_bytes(url: str, accept: str = "application/json", retries: int = 3) -> bytes:
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "mcp-outils-pipeline/2.2",
+                "Accept": accept,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return resp.read()
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+            last_exc = exc
+            if isinstance(exc, urllib.error.HTTPError) and 400 <= exc.code < 500 and exc.code != 429:
+                raise
+            if attempt < retries - 1:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise
+    assert last_exc is not None
+    raise last_exc
+
+
+def _http_post_json(url: str, payload: object, retries: int = 3) -> object:
+    body = json.dumps(payload).encode("utf-8")
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        req = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "User-Agent": "mcp-outils-pipeline/2.2",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            TimeoutError,
+            OSError,
+            json.JSONDecodeError,
+        ) as exc:
+            last_exc = exc
+            if isinstance(exc, urllib.error.HTTPError) and 400 <= exc.code < 500 and exc.code != 429:
+                raise
+            if attempt < retries - 1:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise
+    assert last_exc is not None
+    raise last_exc
 
 
 def _download_cached(url: str, dest: Path, force: bool = False, accept: str = "*/*") -> Path:
@@ -291,6 +421,178 @@ def _sample_payloads() -> tuple[dict, dict, bytes, dict[str, dict]]:
         },
     }
     return fx_daily, legacy_noon, zip_bytes.getvalue(), boc_series
+
+
+def _sample_statcan_payloads() -> tuple[dict, dict[int, dict], list[dict], list[dict], dict, bytes]:
+    """Construit des jeux StatCan IPC & SCHL déterministes hors ligne pour `--sample`."""
+    codesets = {
+        "status": "SUCCESS",
+        "object": {
+            "uom": [
+                {"memberUomCode": 7, "memberUomEn": "1992=100", "memberUomFr": "1992=100"},
+                {"memberUomCode": 17, "memberUomEn": "2002=100", "memberUomFr": "2002=100"},
+                {"memberUomCode": 81, "memberUomEn": "Dollars", "memberUomFr": "Dollars"},
+            ]
+        },
+    }
+    cpi_geo_members = [
+        {"memberId": 2, "memberNameEn": "Canada", "memberNameFr": "Canada"},
+        {"memberId": 11, "memberNameEn": "Quebec", "memberNameFr": "Québec"},
+        {"memberId": 12, "memberNameEn": "Québec, Quebec", "memberNameFr": "Québec, Québec"},
+        {"memberId": 13, "memberNameEn": "Montréal, Quebec", "memberNameFr": "Montréal, Québec"},
+    ]
+    cpi_prod_members = [
+        {"memberId": 2, "memberNameEn": "All-items", "memberNameFr": "Ensemble", "memberUomCode": 17},
+        {"memberId": 79, "memberNameEn": "Shelter", "memberNameFr": "Logement", "memberUomCode": 17},
+        {"memberId": 80, "memberNameEn": "Rented accommodation", "memberNameFr": "Logement locatif", "memberUomCode": 17},
+        {"memberId": 81, "memberNameEn": "Rent", "memberNameFr": "Loyer", "memberUomCode": 17},
+        {"memberId": 311, "memberNameEn": "Health care services", "memberNameFr": "Services de soins de santé", "memberUomCode": 17},
+        {"memberId": 309, "memberNameEn": "All-items (1992=100)", "memberNameFr": "Ensemble (1992=100)", "memberUomCode": 7},
+    ]
+    cube_metas = {
+        18100004: {
+            "productId": 18100004,
+            "releaseTime": "2026-11-16T08:30",
+            "cubeEndDate": "2026-10-01",
+            "dimension": [{"member": cpi_geo_members}, {"member": cpi_prod_members}],
+        },
+        18100005: {
+            "productId": 18100005,
+            "releaseTime": "2026-01-19T08:30",
+            "cubeEndDate": "2025-01-01",
+            "dimension": [{"member": cpi_geo_members}, {"member": cpi_prod_members}],
+        },
+    }
+
+    series_infos: list[dict] = []
+    vector_datas: list[dict] = []
+    next_vid = 41690001
+    for pid, freq, _ in CPI_CUBES:
+        for gid, _ in CPI_GEOS:
+            for pmid, _ in CPI_PRODUCTS:
+                coord = f"{gid}.{pmid}.0.0.0.0.0.0.0.0"
+                # RMR Québec (12) et Montréal (13) n'ont pas Rent (81) ni Health care services (311)
+                if gid in (12, 13) and pmid in (81, 311):
+                    series_infos.append(
+                        {
+                            "status": "SUCCESS",
+                            "object": {
+                                "responseStatusCode": 2,
+                                "productId": pid,
+                                "coordinate": coord,
+                                "vectorId": 0,
+                                "memberUomCode": None,
+                            },
+                        }
+                    )
+                    continue
+                vid = next_vid
+                next_vid += 1
+                uom_code = 7 if pmid == 309 else 17
+                series_infos.append(
+                    {
+                        "status": "SUCCESS",
+                        "object": {
+                            "responseStatusCode": 0,
+                            "productId": pid,
+                            "coordinate": coord,
+                            "vectorId": vid,
+                            "memberUomCode": uom_code,
+                        },
+                    }
+                )
+                if freq == "M":
+                    if pmid == 309:
+                        pts = [
+                            {"refPer": "2017-12-01", "value": 152.1},
+                            {"refPer": "2018-12-01", "value": 154.6},
+                        ]
+                    else:
+                        pts = [
+                            {"refPer": "1978-08-01", "value": None},
+                            {"refPer": "2024-10-01", "value": 164.3 if gid == 11 and pmid == 2 else 160.0},
+                            {"refPer": "2025-10-01", "value": 168.4 if gid == 11 and pmid == 2 else 163.2},
+                            {"refPer": "2026-10-01", "value": 171.2 if gid == 11 and pmid == 2 else 166.5},
+                        ]
+                else:
+                    if pmid == 309:
+                        pts = [
+                            {"refPer": "2017-01-01", "value": 151.0},
+                            {"refPer": "2018-01-01", "value": 153.5},
+                        ]
+                    elif gid == 11 and pmid == 2:
+                        # Reproduit exactement les variations QC 2022->2025 (moyenne 3,1 %)
+                        pts = [
+                            {"refPer": "2022-01-01", "value": 147.0},
+                            {"refPer": "2023-01-01", "value": 153.6},
+                            {"refPer": "2024-01-01", "value": 157.2},
+                            {"refPer": "2025-01-01", "value": 161.0},
+                        ]
+                    elif gid == 11 and pmid == 311:
+                        # Reproduit exactement les variations QC soins santé 2022->2025 (moyenne 6,7 %)
+                        pts = [
+                            {"refPer": "2022-01-01", "value": 140.6},
+                            {"refPer": "2023-01-01", "value": 150.6},
+                            {"refPer": "2024-01-01", "value": 160.0},
+                            {"refPer": "2025-01-01", "value": 170.7},
+                        ]
+                    else:
+                        pts = [
+                            {"refPer": "2024-01-01", "value": 158.0},
+                            {"refPer": "2025-01-01", "value": 162.0},
+                        ]
+                vector_datas.append(
+                    {
+                        "status": "SUCCESS",
+                        "object": {
+                            "productId": pid,
+                            "coordinate": coord,
+                            "vectorId": vid,
+                            "vectorDataPoint": pts,
+                        },
+                    }
+                )
+
+    cmhc_meta = {
+        "productId": 34100133,
+        "releaseTime": "2025-12-17T08:30",
+        "cubeEndDate": "2025-01-01",
+        "dimension": [
+            {
+                "member": [
+                    {"memberId": 37, "memberNameEn": "Ottawa-Gatineau, Quebec part, Ontario/Quebec", "memberNameFr": "Ottawa-Gatineau, partie québécoise, Ontario/Québec"},
+                    {"memberId": 46, "memberNameEn": "Montréal, Quebec", "memberNameFr": "Montréal, Québec"},
+                    {"memberId": 48, "memberNameEn": "Québec, Quebec", "memberNameFr": "Québec, Québec"},
+                    {"memberId": 105, "memberNameEn": "Ottawa-Gatineau, Ontario/Quebec", "memberNameFr": "Ottawa-Gatineau, Ontario/Québec"},
+                    {"memberId": 203, "memberNameEn": "Saint-Lin--Laurentides, Quebec", "memberNameFr": "Saint-Lin--Laurentides, Québec"},
+                    {"memberId": 219, "memberNameEn": "Sainte- Sophie, Quebec", "memberNameFr": "Sainte- Sophie, Québec"},
+                ]
+            }
+        ],
+    }
+
+    cmhc_buf = io.StringIO()
+    cw = csv.writer(cmhc_buf, lineterminator="\n")
+    cw.writerow(
+        ["REF_DATE", "GEO", "DGUID", "Type of structure", "Type of unit", "UOM", "UOM_ID", "SCALAR_FACTOR", "SCALAR_ID", "VECTOR", "COORDINATE", "VALUE", "STATUS", "SYMBOL", "TERMINATED", "DECIMALS"]
+    )
+    cw.writerow(["2024", "Montréal, Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v3823089", "46.3.3", "1240", "", "", "", "0"])
+    cw.writerow(["2025", "Montréal, Quebec", "", "Row and apartment structures of three units and over", "One bedroom units", "Dollars", "81", "units", "0", "v3822955", "46.3.2", "1131", "", "", "", "0"])
+    cw.writerow(["2025", "Montréal, Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v3823089", "46.3.3", "1346", "", "", "", "0"])
+    cw.writerow(["2025", "Québec, Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v3823095", "48.3.3", "1276", "", "", "", "0"])
+    cw.writerow(["2025", "Québec, Quebec", "", "Row structures of three units and over", "Bachelor units", "Dollars", "81", "units", "0", "v3823363", "48.2.1", "", "..", "", "", "0"])
+    cw.writerow(["1987", "Québec, Quebec", "", "Row structures of three units and over", "Bachelor units", "Dollars", "81", "units", "0", "v3823363", "48.2.1", "0", "", "", "", "0"])
+    cw.writerow(["2025", "Ottawa-Gatineau, Quebec part, Ontario/Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v3823080", "37.3.3", "1452", "", "", "", "0"])
+    cw.writerow(["2025", "Ottawa-Gatineau, Ontario/Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v3823148", "105.3.3", "1740", "", "", "", "0"])
+    cw.writerow(["2025", "Saint-Lin--Laurentides, Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v9990001", "203.3.3", "1050", "", "", "", "0"])
+    cw.writerow(["2025", "Sainte- Sophie, Quebec", "", "Row and apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v9990002", "219.3.3", "", "F", "", "", "0"])
+    cw.writerow(["2025", "Sainte- Sophie, Quebec", "", "Apartment structures of three units and over", "Two bedroom units", "Dollars", "81", "units", "0", "v9990003", "219.1.3", "1105", "", "", "", "0"])
+
+    cmhc_zip = io.BytesIO()
+    with zipfile.ZipFile(cmhc_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("34100133.csv", cmhc_buf.getvalue())
+
+    return codesets, cube_metas, series_infos, vector_datas, cmhc_meta, cmhc_zip.getvalue()
 
 
 def _parse_fx_daily(
@@ -480,6 +782,377 @@ def _parse_boc_rates(
     return rows, max_dates
 
 
+def _parse_cpi_wds(
+    codesets_payload: dict,
+    cube_metas: dict[int, dict],
+    series_infos: list[dict],
+    vector_datas: list[dict],
+    require_all_mandatory: bool = True,
+) -> tuple[list[dict], list[tuple[int, int, int]], dict[str, dict]]:
+    uom_map: dict[int, str] = {}
+    for entry in (codesets_payload.get("object") or {}).get("uom") or []:
+        code = entry.get("memberUomCode")
+        if code is not None:
+            uom_map[int(code)] = str(entry.get("memberUomEn") or entry.get("memberUomFr") or "")
+
+    geo_code_map = dict(CPI_GEOS)
+    prod_code_map = dict(CPI_PRODUCTS)
+    cube_freq_map = {pid: freq for pid, freq, _ in CPI_CUBES}
+
+    cube_dim_labels: dict[int, tuple[dict[int, tuple[str, str]], dict[int, tuple[str, str, int | None]]]] = {}
+    meta_dates: dict[str, str] = {}
+    for pid, freq, _ in CPI_CUBES:
+        meta = cube_metas.get(pid) or {}
+        dims = meta.get("dimension") or []
+        geo_dim = {
+            int(m["memberId"]): (str(m.get("memberNameEn") or ""), str(m.get("memberNameFr") or ""))
+            for m in (dims[0].get("member") if len(dims) > 0 else []) or []
+        }
+        prod_dim = {
+            int(m["memberId"]): (
+                str(m.get("memberNameEn") or ""),
+                str(m.get("memberNameFr") or ""),
+                int(m["memberUomCode"]) if m.get("memberUomCode") is not None else None,
+            )
+            for m in (dims[1].get("member") if len(dims) > 1 else []) or []
+        }
+        cube_dim_labels[pid] = (geo_dim, prod_dim)
+        end_d = str(meta.get("cubeEndDate") or "")[:10]
+        rel_d = str(meta.get("releaseTime") or "")[:10]
+        meta_dates[freq] = end_d or rel_d or dt.date.today().isoformat()
+
+    obs_by_vid: dict[int, list[tuple[int, int]]] = {}
+    for v_item in vector_datas:
+        if v_item.get("status") != "SUCCESS":
+            continue
+        v_obj = v_item.get("object") or {}
+        vid = int(v_obj.get("vectorId") or 0)
+        if vid <= 0:
+            continue
+        pid = int(v_obj.get("productId") or 0)
+        freq = cube_freq_map.get(pid, "M")
+        pts: list[tuple[int, int]] = []
+        for pt in v_obj.get("vectorDataPoint") or []:
+            val = pt.get("value")
+            if val is None or val == "":
+                continue
+            ref_per = str(pt.get("refPer") or "").strip()
+            if len(ref_per) < 4:
+                continue
+            period_int = int(ref_per[:7].replace("-", "")) if freq == "M" else int(ref_per[:4])
+            pts.append((period_int, to_milli(val)))
+        obs_by_vid[vid] = pts
+
+    series_list: list[dict] = []
+    seen_mandatory: dict[int, set[str]] = {pid: set() for pid, _, _ in CPI_CUBES}
+    for s_item in series_infos:
+        if s_item.get("status") != "SUCCESS":
+            continue
+        s_obj = s_item.get("object") or {}
+        vid = int(s_obj.get("vectorId") or 0)
+        if s_obj.get("responseStatusCode") not in (0, None) or vid <= 0:
+            continue
+        pid = int(s_obj.get("productId") or 0)
+        if pid not in cube_freq_map:
+            continue
+        freq = cube_freq_map[pid]
+        coord = str(s_obj.get("coordinate") or "")
+        parts = coord.split(".")
+        if len(parts) < 2:
+            continue
+        geo_mid = int(parts[0])
+        prod_mid = int(parts[1])
+        geo_code = geo_code_map.get(geo_mid)
+        prod_code = prod_code_map.get(prod_mid)
+        if not geo_code or not prod_code:
+            continue
+        if coord in MANDATORY_CPI_COORDS:
+            seen_mandatory[pid].add(coord)
+
+        geo_dim, prod_dim = cube_dim_labels[pid]
+        geo_en, geo_fr = geo_dim.get(geo_mid, (geo_code, geo_code))
+        prod_en, prod_fr, prod_uom_code = prod_dim.get(prod_mid, (prod_code, prod_code, None))
+        uom_code = s_obj.get("memberUomCode")
+        if uom_code is None:
+            uom_code = prod_uom_code
+        uom = uom_map.get(int(uom_code), "2002=100") if uom_code is not None else "2002=100"
+
+        pts = obs_by_vid.get(vid, [])
+        if not pts:
+            continue
+        periods = [p for p, _ in pts]
+        series_list.append(
+            {
+                "product_id": pid,
+                "frequency": freq,
+                "geo_code": geo_code,
+                "geo_en": geo_en,
+                "geo_fr": geo_fr,
+                "product_code": prod_code,
+                "product_en": prod_en,
+                "product_fr": prod_fr,
+                "coordinate": coord,
+                "vector_id": vid,
+                "uom": uom,
+                "first_period": min(periods),
+                "last_period": max(periods),
+                "points": pts,
+            }
+        )
+
+    if require_all_mandatory:
+        for pid, _, _ in CPI_CUBES:
+            missing = MANDATORY_CPI_COORDS - seen_mandatory[pid]
+            if missing:
+                raise RuntimeError(
+                    f"Vecteurs IPC obligatoires manquants pour cube {pid} : {sorted(missing)}"
+                )
+
+    series_list.sort(key=lambda s: (s["product_id"], s["coordinate"], s["uom"]))
+    obs_rows: list[tuple[int, int, int]] = []
+    final_series: list[dict] = []
+    counts_by_freq = {"M": 0, "A": 0}
+    for sid, s in enumerate(series_list, 1):
+        entry = {k: v for k, v in s.items() if k != "points"}
+        entry["id"] = sid
+        final_series.append(entry)
+        for p_int, val_m in sorted(set(s["points"])):
+            obs_rows.append((sid, p_int, val_m))
+            counts_by_freq[s["frequency"]] += 1
+
+    meta_out = {
+        "M": {"version_date": meta_dates.get("M", ""), "row_count": counts_by_freq["M"]},
+        "A": {"version_date": meta_dates.get("A", ""), "row_count": counts_by_freq["A"]},
+    }
+    return final_series, obs_rows, meta_out
+
+
+def _fetch_cpi_wds_payloads(
+    months_n: int = 2000,
+    years_n: int = 200,
+    work_dir: Path | None = None,
+    force_download: bool = False,
+) -> tuple[dict, dict[int, dict], list[dict], list[dict]]:
+    cache_path = (work_dir / "statcan_cpi_wds.json") if work_dir else None
+    if cache_path and cache_path.exists() and not force_download:
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        return (
+            cached["codesets"],
+            {int(k): v for k, v in cached["cube_metas"].items()},
+            cached["series_infos"],
+            cached["vector_datas"],
+        )
+
+    codesets = json.loads(_http_get_bytes(f"{STATCAN_WDS_BASE}/getCodeSets", accept="application/json").decode("utf-8"))
+    meta_resp = _http_post_json(
+        f"{STATCAN_WDS_BASE}/getCubeMetadata",
+        [{"productId": pid} for pid, _, _ in CPI_CUBES],
+    )
+    cube_metas: dict[int, dict] = {}
+    for item in meta_resp if isinstance(meta_resp, list) else []:
+        if item.get("status") == "SUCCESS" and isinstance(item.get("object"), dict):
+            obj = item["object"]
+            cube_metas[int(obj["productId"])] = obj
+
+    coord_reqs = [
+        {"productId": pid, "coordinate": f"{gid}.{pmid}.0.0.0.0.0.0.0.0"}
+        for pid, _, _ in CPI_CUBES
+        for gid, _ in CPI_GEOS
+        for pmid, _ in CPI_PRODUCTS
+    ]
+    series_infos = _http_post_json(f"{STATCAN_WDS_BASE}/getSeriesInfoFromCubePidCoord", coord_reqs)
+    if not isinstance(series_infos, list):
+        raise RuntimeError("Réponse inattendue de StatCan getSeriesInfoFromCubePidCoord.")
+
+    latest_by_pid = {18100004: months_n, 18100005: years_n}
+    vec_reqs = []
+    for item in series_infos:
+        if item.get("status") != "SUCCESS":
+            continue
+        obj = item.get("object") or {}
+        vid = int(obj.get("vectorId") or 0)
+        pid = int(obj.get("productId") or 0)
+        if obj.get("responseStatusCode") in (0, None) and vid > 0 and pid in latest_by_pid:
+            vec_reqs.append({"vectorId": vid, "latestN": latest_by_pid[pid]})
+
+    vector_datas = _http_post_json(
+        f"{STATCAN_WDS_BASE}/getDataFromVectorsAndLatestNPeriods",
+        vec_reqs,
+    )
+    if not isinstance(vector_datas, list):
+        raise RuntimeError("Réponse inattendue de StatCan getDataFromVectorsAndLatestNPeriods.")
+
+    if cache_path:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps(
+                {
+                    "codesets": codesets,
+                    "cube_metas": {str(k): v for k, v in cube_metas.items()},
+                    "series_infos": series_infos,
+                    "vector_datas": vector_datas,
+                }
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+    return codesets, cube_metas, series_infos, vector_datas
+
+
+def _normalize_cmhc_centre(
+    geo_id: int,
+    name_en: str,
+    name_fr: str,
+    used_keys: set[str],
+) -> tuple[str, str, str, int]:
+    is_qc = 1 if (name_en.endswith(", Quebec") or ", Quebec part," in name_en) else 0
+
+    prov_code = ""
+    if ", Quebec part," in name_en:
+        prov_code = "QC"
+    elif ", Ontario part," in name_en:
+        prov_code = "ON"
+    elif ", New Brunswick part," in name_en:
+        prov_code = "NB"
+    elif "," in name_en:
+        suffix = name_en.rsplit(",", 1)[1].strip()
+        prov_code = PROVINCE_SUFFIX_TO_CODE.get(suffix, "")
+
+    cleaned_fr = re.sub(r"-\s+", "-", name_fr)
+    cleaned_fr = re.sub(r"-{2,}", "-", cleaned_fr).strip()
+    if "," in cleaned_fr:
+        locality_fr = cleaned_fr.rsplit(",", 1)[0].strip()
+    else:
+        locality_fr = cleaned_fr
+    search_norm = normalize_search_text(locality_fr)
+
+    slug = "-".join(search_norm.split()) or f"centre-{geo_id}"
+    prov_slug = prov_code.lower().replace("/", "-")
+    base_key = f"{slug}-{prov_slug}" if prov_slug else slug
+    geo_key = base_key if base_key not in used_keys else f"{base_key}-{geo_id}"
+    used_keys.add(geo_key)
+    return geo_key, search_norm, prov_code, is_qc
+
+
+def _parse_statcan_cmhc(
+    zip_bytes: bytes,
+    cmhc_meta: dict,
+) -> tuple[list[dict], list[tuple[int, int, int, int, int]], str]:
+    release_date = str(cmhc_meta.get("releaseTime") or cmhc_meta.get("cubeEndDate") or "")[:10]
+    dims = cmhc_meta.get("dimension") or []
+    member_labels: dict[int, tuple[str, str]] = {}
+    for m in (dims[0].get("member") if len(dims) > 0 else []) or []:
+        member_labels[int(m["memberId"])] = (
+            str(m.get("memberNameEn") or ""),
+            str(m.get("memberNameFr") or ""),
+        )
+
+    rents_map: dict[tuple[int, int, int, int], int] = {}
+    year_bounds: dict[int, tuple[int, int]] = {}
+    csv_geo_fallback: dict[int, str] = {}
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        csv_names = [n for n in zf.namelist() if n.endswith(".csv") and "MetaData" not in n]
+        if not csv_names:
+            raise RuntimeError("Aucun CSV trouvé dans l'archive StatCan 34-10-0133-01.")
+        with zf.open(csv_names[0]) as fh:
+            reader = csv.DictReader(io.TextIOWrapper(fh, encoding="utf-8-sig"))
+            for row in reader:
+                uom = (row.get("UOM") or "").strip()
+                if uom and uom != "Dollars":
+                    raise ValueError(f"Unité SCHL inattendue : {uom!r} (attendu 'Dollars').")
+                if (row.get("STATUS") or "").strip() or (row.get("SYMBOL") or "").strip():
+                    continue
+                val_str = (row.get("VALUE") or "").strip()
+                if not val_str:
+                    continue
+                # StatCan 34-10-0133-01 encode parfois des cellules non enquêtées par '0'
+                if Decimal(val_str) == 0:
+                    continue
+                coord = (row.get("COORDINATE") or "").strip()
+                parts = coord.split(".")
+                if len(parts) != 3:
+                    continue
+                geo_id = int(parts[0])
+                struct_id = int(parts[1])
+                unit_id = int(parts[2])
+                if not (1 <= struct_id <= 4 and 1 <= unit_id <= 4):
+                    continue
+                ref_raw = (row.get("REF_DATE") or "").strip()
+                if len(ref_raw) < 4:
+                    continue
+                year = int(ref_raw[:4])
+                dollars = to_rent_dollars(val_str)
+
+                rents_map[(geo_id, struct_id, unit_id, year)] = dollars
+                if geo_id not in csv_geo_fallback:
+                    csv_geo_fallback[geo_id] = (row.get("GEO") or f"Centre {geo_id}").strip()
+                lo, hi = year_bounds.get(geo_id, (year, year))
+                year_bounds[geo_id] = (min(lo, year), max(hi, year))
+
+    centres: list[dict] = []
+    used_keys: set[str] = set()
+    for geo_id in sorted(year_bounds.keys()):
+        fallback_name = csv_geo_fallback.get(geo_id, f"Centre {geo_id}")
+        name_en, name_fr = member_labels.get(geo_id, (fallback_name, fallback_name))
+        geo_key, search_norm, prov_code, is_qc = _normalize_cmhc_centre(
+            geo_id, name_en, name_fr, used_keys
+        )
+        first_y, last_y = year_bounds[geo_id]
+        centres.append(
+            {
+                "geo_member_id": geo_id,
+                "geo_key": geo_key,
+                "name_en": name_en,
+                "name_fr": name_fr,
+                "search_norm": search_norm,
+                "province_code": prov_code,
+                "is_quebec": is_qc,
+                "uom": "Dollars",
+                "first_year": first_y,
+                "last_year": last_y,
+            }
+        )
+
+    rent_rows = [
+        (g_id, s_id, u_id, yr, val)
+        for (g_id, s_id, u_id, yr), val in sorted(rents_map.items())
+    ]
+    return centres, rent_rows, (release_date or dt.date.today().isoformat())
+
+
+def _fetch_cmhc_payloads(
+    work_dir: Path | None = None,
+    force_download: bool = False,
+) -> tuple[dict, bytes]:
+    meta_path = (work_dir / "34100133_meta.json") if work_dir else None
+    if meta_path and meta_path.exists() and not force_download:
+        cmhc_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    else:
+        meta_resp = _http_post_json(f"{STATCAN_WDS_BASE}/getCubeMetadata", [{"productId": 34100133}])
+        cmhc_meta = {}
+        for item in meta_resp if isinstance(meta_resp, list) else []:
+            if item.get("status") == "SUCCESS" and isinstance(item.get("object"), dict):
+                cmhc_meta = item["object"]
+                break
+        if not cmhc_meta:
+            raise RuntimeError("Métadonnées StatCan 34-10-0133-01 introuvables.")
+        if meta_path:
+            meta_path.parent.mkdir(parents=True, exist_ok=True)
+            meta_path.write_text(json.dumps(cmhc_meta), encoding="utf-8", newline="\n")
+
+    if work_dir:
+        zip_path = _download_cached(
+            STATCAN_CMHC_ZIP_URL,
+            work_dir / "34100133-eng.zip",
+            force=force_download,
+        )
+        zip_bytes = zip_path.read_bytes()
+    else:
+        zip_bytes = _http_get_bytes(STATCAN_CMHC_ZIP_URL, accept="*/*")
+    return cmhc_meta, zip_bytes
+
+
 def build_local_sqlite(
     sample_only: bool = False,
     work_dir: Path = WORK_DIR,
@@ -492,6 +1165,9 @@ def build_local_sqlite(
 
     if sample_only:
         fx_daily, legacy_noon, statcan_zip_bytes, boc_payloads = _sample_payloads()
+        codesets, cube_metas, series_infos, vector_datas, cmhc_meta, cmhc_zip_bytes = (
+            _sample_statcan_payloads()
+        )
     else:
         fx_daily_path = _download_cached(
             f"{BOC_VALET_BASE}/group/FX_RATES_DAILY/json?start_date=2017-01-01",
@@ -523,6 +1199,17 @@ def build_local_sqlite(
             )
             boc_payloads[sid] = json.loads(p.read_text(encoding="utf-8"))
 
+        codesets, cube_metas, series_infos, vector_datas = _fetch_cpi_wds_payloads(
+            months_n=2000,
+            years_n=200,
+            work_dir=work_dir,
+            force_download=force_download,
+        )
+        cmhc_meta, cmhc_zip_bytes = _fetch_cmhc_payloads(
+            work_dir=work_dir,
+            force_download=force_download,
+        )
+
     currencies: dict[str, dict] = {}
     rates_map: dict[tuple[str, int, int], int] = {}
 
@@ -530,6 +1217,13 @@ def build_local_sqlite(
     legacy_count, legacy_max = _parse_legacy_noon(legacy_noon, currencies, rates_map)
     daily_count, daily_max = _parse_fx_daily(fx_daily, currencies, rates_map)
     boc_rows, boc_max_dates = _parse_boc_rates(boc_payloads)
+
+    cpi_series_rows, cpi_obs_rows, cpi_meta = _parse_cpi_wds(
+        codesets, cube_metas, series_infos, vector_datas
+    )
+    cmhc_centres_rows, cmhc_rent_rows, cmhc_release_date = _parse_statcan_cmhc(
+        cmhc_zip_bytes, cmhc_meta
+    )
 
     sorted_ccys = sorted(currencies.keys())
     ccy_to_id = {code: idx for idx, code in enumerate(sorted_ccys, 1)}
@@ -568,6 +1262,63 @@ def build_local_sqlite(
         sorted(boc_rows),
     )
 
+    conn.executemany(
+        "INSERT INTO cpi_series "
+        "(id, product_id, frequency, geo_code, geo_en, geo_fr, product_code, product_en, product_fr, "
+        "coordinate, vector_id, uom, first_period, last_period) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            (
+                s["id"],
+                s["product_id"],
+                s["frequency"],
+                s["geo_code"],
+                s["geo_en"],
+                s["geo_fr"],
+                s["product_code"],
+                s["product_en"],
+                s["product_fr"],
+                s["coordinate"],
+                s["vector_id"],
+                s["uom"],
+                s["first_period"],
+                s["last_period"],
+            )
+            for s in cpi_series_rows
+        ],
+    )
+
+    conn.executemany(
+        "INSERT INTO cpi_observations (series_id, period, value_milli) VALUES (?,?,?)",
+        cpi_obs_rows,
+    )
+
+    conn.executemany(
+        "INSERT INTO cmhc_centres "
+        "(geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+            (
+                c["geo_member_id"],
+                c["geo_key"],
+                c["name_en"],
+                c["name_fr"],
+                c["search_norm"],
+                c["province_code"],
+                c["is_quebec"],
+                c["uom"],
+                c["first_year"],
+                c["last_year"],
+            )
+            for c in cmhc_centres_rows
+        ],
+    )
+
+    conn.executemany(
+        "INSERT INTO cmhc_rents (geo_member_id, structure_id, unit_id, year, rent_dollars) VALUES (?,?,?,?,?)",
+        cmhc_rent_rows,
+    )
+
     boc_latest = max((v for v in boc_max_dates.values() if v), default=dt.date.today().isoformat())
     conn.executemany(
         "INSERT INTO meta_sources (source_key, source_label, licence, version_date, row_count) VALUES (?,?,?,?,?)",
@@ -600,6 +1351,27 @@ def build_local_sqlite(
                 boc_latest,
                 len(boc_rows),
             ),
+            (
+                "statcan_cpi_monthly",
+                "Statistique Canada — Tableau 18-10-0004-01 (IPC mensuel)",
+                "OGL-Canada",
+                cpi_meta["M"]["version_date"] or dt.date.today().isoformat(),
+                cpi_meta["M"]["row_count"],
+            ),
+            (
+                "statcan_cpi_annual",
+                "Statistique Canada — Tableau 18-10-0005-01 (IPC annuel)",
+                "OGL-Canada",
+                cpi_meta["A"]["version_date"] or dt.date.today().isoformat(),
+                cpi_meta["A"]["row_count"],
+            ),
+            (
+                "statcan_cmhc_rents",
+                "Statistique Canada / SCHL — Tableau 34-10-0133-01 (loyers moyens du marché)",
+                "OGL-Canada",
+                cmhc_release_date,
+                len(cmhc_rent_rows),
+            ),
         ],
     )
 
@@ -616,7 +1388,9 @@ def build_local_sqlite(
         )
     print(
         f"[OK] {db_path} créée ({size_mb:.2f} Mo) : {len(sorted_ccys)} devises, "
-        f"{len(rates_map)} taux FX, {len(boc_rows)} taux BoC",
+        f"{len(rates_map)} taux FX, {len(boc_rows)} taux BoC, "
+        f"{len(cpi_series_rows)} séries IPC ({len(cpi_obs_rows)} obs.), "
+        f"{len(cmhc_centres_rows)} centres SCHL ({len(cmhc_rent_rows)} loyers)",
         flush=True,
     )
     return db_path
@@ -682,6 +1456,56 @@ def export_local_batches(
             "04_boc_rates",
             "series_id, obs_date",
         ),
+        (
+            "cpi_series",
+            [
+                "id",
+                "product_id",
+                "frequency",
+                "geo_code",
+                "geo_en",
+                "geo_fr",
+                "product_code",
+                "product_en",
+                "product_fr",
+                "coordinate",
+                "vector_id",
+                "uom",
+                "first_period",
+                "last_period",
+            ],
+            "05_cpi_series",
+            "id",
+        ),
+        (
+            "cpi_observations",
+            ["series_id", "period", "value_milli"],
+            "06_cpi_obs",
+            "series_id, period",
+        ),
+        (
+            "cmhc_centres",
+            [
+                "geo_member_id",
+                "geo_key",
+                "name_en",
+                "name_fr",
+                "search_norm",
+                "province_code",
+                "is_quebec",
+                "uom",
+                "first_year",
+                "last_year",
+            ],
+            "07_cmhc_centres",
+            "geo_member_id",
+        ),
+        (
+            "cmhc_rents",
+            ["geo_member_id", "structure_id", "unit_id", "year", "rent_dollars"],
+            "08_cmhc_rents",
+            "geo_member_id, structure_id, unit_id, year",
+        ),
     ]:
         files, count = export_table_batches(
             conn,
@@ -699,6 +1523,10 @@ def export_local_batches(
         "fx_currencies": conn.execute("SELECT COUNT(*) FROM fx_currencies").fetchone()[0],
         "fx_rates": conn.execute("SELECT COUNT(*) FROM fx_rates").fetchone()[0],
         "boc_rates": conn.execute("SELECT COUNT(*) FROM boc_rates").fetchone()[0],
+        "cpi_series": conn.execute("SELECT COUNT(*) FROM cpi_series").fetchone()[0],
+        "cpi_observations": conn.execute("SELECT COUNT(*) FROM cpi_observations").fetchone()[0],
+        "cmhc_centres": conn.execute("SELECT COUNT(*) FROM cmhc_centres").fetchone()[0],
+        "cmhc_rents": conn.execute("SELECT COUNT(*) FROM cmhc_rents").fetchone()[0],
     }
     conn.close()
 
@@ -728,20 +1556,25 @@ def push_to_remote_d1(
     batch_files, expected_counts = export_local_batches(db_path, batch_dir)
     execute_sql_files_remote(db_name, batch_files)
 
-    rem_ccy = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM fx_currencies")[0]["c"]
-    rem_fx = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM fx_rates")[0]["c"]
-    rem_boc = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM boc_rates")[0]["c"]
-    if (
-        rem_ccy != expected_counts["fx_currencies"]
-        or rem_fx != expected_counts["fx_rates"]
-        or rem_boc != expected_counts["boc_rates"]
+    rem_counts: dict[str, int] = {}
+    for tbl in (
+        "fx_currencies",
+        "fx_rates",
+        "boc_rates",
+        "cpi_series",
+        "cpi_observations",
+        "cmhc_centres",
+        "cmhc_rents",
     ):
-        raise RuntimeError(
-            "Comptes distants incohérents : "
-            f"fx_currencies={rem_ccy}/{expected_counts['fx_currencies']}, "
-            f"fx_rates={rem_fx}/{expected_counts['fx_rates']}, "
-            f"boc_rates={rem_boc}/{expected_counts['boc_rates']}"
-        )
+        rem_counts[tbl] = int(d1_query_remote(db_id, f"SELECT COUNT(*) AS c FROM {tbl}")[0]["c"])
+
+    mismatches = [
+        f"{tbl}={rem_counts[tbl]}/{expected_counts[tbl]}"
+        for tbl in expected_counts
+        if rem_counts[tbl] != expected_counts[tbl]
+    ]
+    if mismatches:
+        raise RuntimeError(f"Comptes distants incohérents : {', '.join(mismatches)}")
 
     verif = verify_remote_candidate(
         db_id,
@@ -749,7 +1582,10 @@ def push_to_remote_d1(
         min_rows=1,
     )
     print(
-        f"[OK] {db_name} ({db_id}) validée : {rem_ccy} devises, {rem_fx} FX, {rem_boc} BoC, info={verif}",
+        f"[OK] {db_name} ({db_id}) validée : {rem_counts['fx_currencies']} devises, "
+        f"{rem_counts['fx_rates']} FX, {rem_counts['boc_rates']} BoC, "
+        f"{rem_counts['cpi_series']} séries IPC ({rem_counts['cpi_observations']} obs.), "
+        f"{rem_counts['cmhc_centres']} centres SCHL ({rem_counts['cmhc_rents']} loyers), info={verif}",
         flush=True,
     )
     return db_id
@@ -944,13 +1780,227 @@ def incremental_fx_sync(
     return out_file
 
 
+def sync_statcan_data(
+    cpi_months: int = 24,
+    cpi_years: int = 5,
+    sample_only: bool = False,
+    push_remote: bool = False,
+    db_name: str | None = None,
+    db_path: Path = LOCAL_DB_PATH,
+    batch_dir: Path = BATCH_DIR,
+    wrangler_path: Path = WRANGLER_JSONC,
+) -> Path | None:
+    """Génère un lot SQL idempotent (zéro commit Git) pour l'IPC StatCan et les loyers SCHL."""
+    batch_dir.mkdir(parents=True, exist_ok=True)
+    target_name, configured_id = _resolve_economie_binding_from_wrangler(
+        db_name, wrangler_path=wrangler_path
+    )
+
+    existing_series_rows: list[dict] = []
+    remote_db_id = configured_id
+    if push_remote:
+        if not remote_db_id:
+            db_info = provision_or_get_d1(target_name, location="enam")
+            remote_db_id = str(db_info["uuid"])
+        existing_series_rows = d1_query_remote(
+            remote_db_id,
+            "SELECT id, product_id, coordinate, uom FROM cpi_series",
+        )
+    elif db_path.exists():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        existing_series_rows = [
+            dict(r)
+            for r in conn.execute("SELECT id, product_id, coordinate, uom FROM cpi_series").fetchall()
+        ]
+        conn.close()
+    elif not sample_only:
+        raise FileNotFoundError(
+            f"Base locale {db_path} introuvable pour --sync-statcan hors ligne."
+        )
+
+    existing_id_map: dict[tuple[int, str, str], int] = {
+        (int(r["product_id"]), str(r["coordinate"]), str(r["uom"])): int(r["id"])
+        for r in existing_series_rows
+    }
+    next_series_id = (max(existing_id_map.values()) + 1) if existing_id_map else 1
+
+    if sample_only:
+        codesets, cube_metas, series_infos, vector_datas, cmhc_meta, cmhc_zip_bytes = (
+            _sample_statcan_payloads()
+        )
+        require_all = True
+    else:
+        codesets, cube_metas, series_infos, vector_datas = _fetch_cpi_wds_payloads(
+            months_n=cpi_months,
+            years_n=cpi_years,
+            work_dir=None,
+            force_download=True,
+        )
+        cmhc_meta, cmhc_zip_bytes = _fetch_cmhc_payloads(work_dir=None, force_download=True)
+        require_all = False
+
+    cpi_series_rows, raw_cpi_obs, cpi_meta = _parse_cpi_wds(
+        codesets,
+        cube_metas,
+        series_infos,
+        vector_datas,
+        require_all_mandatory=require_all,
+    )
+    cmhc_centres_rows, cmhc_rent_rows, cmhc_release_date = _parse_statcan_cmhc(
+        cmhc_zip_bytes, cmhc_meta
+    )
+
+    # Réconcilier les IDs avec ceux déjà en base D1/locale
+    temp_to_final_id: dict[int, int] = {}
+    for s in cpi_series_rows:
+        key = (int(s["product_id"]), str(s["coordinate"]), str(s["uom"]))
+        if key in existing_id_map:
+            final_id = existing_id_map[key]
+        else:
+            final_id = next_series_id
+            next_series_id += 1
+            existing_id_map[key] = final_id
+        temp_to_final_id[int(s["id"])] = final_id
+        s["id"] = final_id
+
+    cpi_obs_rows = [
+        (temp_to_final_id[sid], period_int, val_m) for sid, period_int, val_m in raw_cpi_obs
+    ]
+
+    stmts: list[str] = []
+    if cpi_series_rows:
+        series_tuples = [
+            f"({s['id']},{s['product_id']},{sql_literal(s['frequency'])},{sql_literal(s['geo_code'])},"
+            f"{sql_literal(s['geo_en'])},{sql_literal(s['geo_fr'])},{sql_literal(s['product_code'])},"
+            f"{sql_literal(s['product_en'])},{sql_literal(s['product_fr'])},{sql_literal(s['coordinate'])},"
+            f"{s['vector_id']},{sql_literal(s['uom'])},{s['first_period']},{s['last_period']})"
+            for s in cpi_series_rows
+        ]
+        for i in range(0, len(series_tuples), 100):
+            chunk = series_tuples[i : i + 100]
+            stmts.append(
+                "INSERT INTO cpi_series "
+                "(id, product_id, frequency, geo_code, geo_en, geo_fr, product_code, product_en, "
+                "product_fr, coordinate, vector_id, uom, first_period, last_period) VALUES\n"
+                + ",\n".join(chunk)
+                + "\nON CONFLICT(frequency, geo_code, product_code, uom) DO UPDATE SET "
+                "first_period=MIN(cpi_series.first_period, excluded.first_period), "
+                "last_period=MAX(cpi_series.last_period, excluded.last_period), "
+                "geo_en=excluded.geo_en, geo_fr=excluded.geo_fr, "
+                "product_en=excluded.product_en, product_fr=excluded.product_fr;"
+            )
+
+    obs_tuples = [f"({sid},{p_int},{val_m})" for sid, p_int, val_m in cpi_obs_rows]
+    for i in range(0, len(obs_tuples), 500):
+        chunk = obs_tuples[i : i + 500]
+        stmts.append(
+            "INSERT INTO cpi_observations (series_id, period, value_milli) VALUES\n"
+            + ",\n".join(chunk)
+            + "\nON CONFLICT(series_id, period) DO UPDATE SET value_milli=excluded.value_milli;"
+        )
+
+    if cmhc_centres_rows:
+        centre_tuples = [
+            f"({c['geo_member_id']},{sql_literal(c['geo_key'])},{sql_literal(c['name_en'])},"
+            f"{sql_literal(c['name_fr'])},{sql_literal(c['search_norm'])},{sql_literal(c['province_code'])},"
+            f"{c['is_quebec']},{sql_literal(c['uom'])},{c['first_year']},{c['last_year']})"
+            for c in cmhc_centres_rows
+        ]
+        for i in range(0, len(centre_tuples), 150):
+            chunk = centre_tuples[i : i + 150]
+            stmts.append(
+                "INSERT INTO cmhc_centres "
+                "(geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, "
+                "is_quebec, uom, first_year, last_year) VALUES\n"
+                + ",\n".join(chunk)
+                + "\nON CONFLICT(geo_member_id) DO UPDATE SET "
+                "geo_key=excluded.geo_key, name_en=excluded.name_en, name_fr=excluded.name_fr, "
+                "search_norm=excluded.search_norm, province_code=excluded.province_code, "
+                "is_quebec=excluded.is_quebec, "
+                "first_year=MIN(cmhc_centres.first_year, excluded.first_year), "
+                "last_year=MAX(cmhc_centres.last_year, excluded.last_year);"
+            )
+
+    rent_tuples = [
+        f"({g_id},{s_id},{u_id},{yr},{val})"
+        for g_id, s_id, u_id, yr, val in cmhc_rent_rows
+    ]
+    for i in range(0, len(rent_tuples), 500):
+        chunk = rent_tuples[i : i + 500]
+        stmts.append(
+            "INSERT INTO cmhc_rents (geo_member_id, structure_id, unit_id, year, rent_dollars) VALUES\n"
+            + ",\n".join(chunk)
+            + "\nON CONFLICT(geo_member_id, structure_id, unit_id, year) DO UPDATE SET "
+            "rent_dollars=excluded.rent_dollars;"
+        )
+
+    if cpi_obs_rows:
+        if cpi_meta["M"]["version_date"]:
+            stmts.append(
+                f"INSERT INTO meta_sources (source_key, source_label, licence, version_date, row_count) VALUES "
+                f"('statcan_cpi_monthly', 'Statistique Canada — Tableau 18-10-0004-01 (IPC mensuel)', 'OGL-Canada', "
+                f"{sql_literal(cpi_meta['M']['version_date'])}, {cpi_meta['M']['row_count']}) "
+                f"ON CONFLICT(source_key) DO UPDATE SET version_date=excluded.version_date, "
+                f"row_count=MAX(meta_sources.row_count, excluded.row_count);"
+            )
+        if cpi_meta["A"]["version_date"]:
+            stmts.append(
+                f"INSERT INTO meta_sources (source_key, source_label, licence, version_date, row_count) VALUES "
+                f"('statcan_cpi_annual', 'Statistique Canada — Tableau 18-10-0005-01 (IPC annuel)', 'OGL-Canada', "
+                f"{sql_literal(cpi_meta['A']['version_date'])}, {cpi_meta['A']['row_count']}) "
+                f"ON CONFLICT(source_key) DO UPDATE SET version_date=excluded.version_date, "
+                f"row_count=MAX(meta_sources.row_count, excluded.row_count);"
+            )
+    if cmhc_rent_rows:
+        stmts.append(
+            f"INSERT INTO meta_sources (source_key, source_label, licence, version_date, row_count) VALUES "
+            f"('statcan_cmhc_rents', 'Statistique Canada / SCHL — Tableau 34-10-0133-01 (loyers moyens du marché)', 'OGL-Canada', "
+            f"{sql_literal(cmhc_release_date)}, {len(cmhc_rent_rows)}) "
+            f"ON CONFLICT(source_key) DO UPDATE SET version_date=excluded.version_date, row_count=excluded.row_count;"
+        )
+
+    if not stmts:
+        print("[STATCAN] Aucune nouvelle observation StatCan à pousser", flush=True)
+        return None
+
+    tag = dt.date.today().strftime("%Y%m%d")
+    out_file = batch_dir / f"incr_statcan_{tag}.sql"
+    out_file.write_text("\n".join(stmts) + "\n", encoding="utf-8", newline="\n")
+    print(
+        f"[STATCAN] {out_file} généré ({len(cpi_obs_rows)} obs. IPC, {len(cmhc_rent_rows)} loyers SCHL)",
+        flush=True,
+    )
+
+    if push_remote:
+        execute_sql_files_remote(target_name, [out_file])
+        if remote_db_id:
+            res_cpi = d1_query_remote(
+                remote_db_id, "SELECT MAX(period) AS max_cpi FROM cpi_observations"
+            )
+            res_cmhc = d1_query_remote(
+                remote_db_id, "SELECT MAX(year) AS max_cmhc_year FROM cmhc_rents"
+            )
+            print(
+                f"[STATCAN] Vérification distante IPC={res_cpi}, SCHL={res_cmhc}",
+                flush=True,
+            )
+
+    return out_file
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingestion DB_ECONOMIE (taux BoC et devises)")
+    parser = argparse.ArgumentParser(
+        description="Ingestion DB_ECONOMIE (taux BoC, change, IPC StatCan et loyers SCHL)"
+    )
     parser.add_argument("--build-local", action="store_true")
     parser.add_argument("--sample", action="store_true")
     parser.add_argument("--export-batches", action="store_true")
     parser.add_argument("--incremental-fx", action="store_true")
+    parser.add_argument("--sync-statcan", action="store_true")
     parser.add_argument("--lookback-days", type=int, default=10)
+    parser.add_argument("--cpi-months", type=int, default=24)
+    parser.add_argument("--cpi-years", type=int, default=5)
     parser.add_argument("--push-remote", action="store_true")
     parser.add_argument("--db-name", default=None)
     parser.add_argument("--blue-green", action="store_true")
@@ -968,7 +2018,12 @@ def main() -> None:
             work_dir=args.work_dir,
             force_download=args.force_download,
         )
-    if args.export_batches and not args.push_remote and not args.incremental_fx:
+    if (
+        args.export_batches
+        and not args.push_remote
+        and not args.incremental_fx
+        and not args.sync_statcan
+    ):
         export_local_batches(db_path=db_path, batch_dir=args.batch_dir)
     if args.incremental_fx:
         incremental_fx_sync(
@@ -979,7 +2034,17 @@ def main() -> None:
             db_path=db_path,
             batch_dir=args.batch_dir,
         )
-    elif args.push_remote:
+    if args.sync_statcan:
+        sync_statcan_data(
+            cpi_months=args.cpi_months,
+            cpi_years=args.cpi_years,
+            sample_only=args.sample,
+            push_remote=args.push_remote,
+            db_name=args.db_name,
+            db_path=db_path,
+            batch_dir=args.batch_dir,
+        )
+    if not args.incremental_fx and not args.sync_statcan and args.push_remote:
         target_name = (
             dated_db_name("DB_ECONOMIE")
             if args.blue_green

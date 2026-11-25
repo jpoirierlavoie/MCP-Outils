@@ -144,7 +144,7 @@ describe("page publique GET / et fichiers de découverte", () => {
   it("couvre 1:1 les outils du serveur, les traductions anglaises, la navigation de suite, les id uniques et le JSON-LD", () => {
     const html = pagePubliqueHtml();
     const descripteurs = listToolDescriptors();
-    expect(descripteurs).toHaveLength(13);
+    expect(descripteurs).toHaveLength(15);
     expect(new Set(descripteurs.map((d) => d.family))).toEqual(
       new Set(["calcul", "greffe", "registre", "adresse", "terminologie", "economie"]),
     );
@@ -200,6 +200,9 @@ describe("page publique GET / et fichiers de découverte", () => {
     expect(html).toContain("<code>spread_bps</code>");
     expect(html).toContain("<code>lei</code>");
     expect(html).toContain('<h3 id="sc-taux_boc_rates">');
+    expect(html).toContain('<h3 id="sc-indice_ipc">');
+    expect(html).toContain('<h3 id="sc-loyer_tal">');
+    expect(html).toContain("capital_works[].gross_amount_cents");
     expect(html).toContain("openWorldHint: false");
   });
 

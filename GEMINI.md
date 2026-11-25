@@ -6,13 +6,13 @@ Directives de développement, architecture et règles anti-dérive pour le serve
 
 ## 1. Rôle architectural et intégration dans le cadre global
 
-`MCP-Outils` est un serveur MCP public, sans état applicatif, sans écriture au fil de l'eau, sans appel HTTP sortant, sans journalisation et sans secret, déployé comme Cloudflare Worker (`outils`) sur `https://outils.poirierlavoie.ca/mcp` avec trois bases D1 strictement en lecture seule à la requête (`ENAM`).
+`MCP-Outils` est un serveur MCP public, sans état applicatif, sans écriture au fil de l'eau, sans appel HTTP sortant, sans journalisation et sans secret, déployé comme Cloudflare Worker (`outils`) sur `https://outils.poirierlavoie.ca/mcp` avec quatre bases D1 strictement en lecture seule à la requête (`ENAM`).
 
-Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`droit-civil-quebecois` `v2.1.0`, 32 outils MCP au total), aux côtés du portail d'accès et serveur OAuth 2.1 `MCP-Acces` (`acces.poirierlavoie.ca`) qui gouverne les deux serveurs authentifiés :
+Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`droit-civil-quebecois`, 35 outils MCP au total), aux côtés du portail d'accès et serveur OAuth 2.1 `MCP-Acces` (`acces.poirierlavoie.ca`) qui gouverne les deux serveurs authentifiés :
 
 ```
              ┌────────────────────────────────────────────────────────┐
-             │      droit-civil-quebecois (Plugin Cadre v2.1.0)       │
+             │           droit-civil-quebecois (Plugin Cadre)         │
              │ 5 compétences : recherche-juridique, analyse-juridique,│
              │ redaction-juridique, administration-litige, déontologie│
              └──────┬───────────────────────┬──────────────────┬──────┘
@@ -21,7 +21,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
          ┌─────────────────────┐ ┌─────────────────────┐ ┌──────────────────────────┐
          │   MCP-Legislation   │ │  MCP-Jurisprudence  │ │        MCP-Outils        │
          │  D1 + Vectorize +   │ │  D1 cache CanLII    │ │   Public, zéro secret,   │
-         │  Workers AI +       │ │  BYOK CanLII strict │ │   3 D1 lecture seule, Zod│
+         │  Workers AI +       │ │  BYOK CanLII strict │ │   4 D1 lecture seule, Zod│
          │  hybride_permis     │ │  sans fetched_at    │ │   zéro journalisation    │
          └──────────┬──────────┘ └──────────┬──────────┘ └──────────────────────────┘
                     │                       │
@@ -36,19 +36,19 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 ```
 
 ### Intégration avec les compétences du plugin (`droit-civil-quebecois`)
-- **`skills/administration-litige`** : Consomme `calendrier_deadlines` et `calendrier_holidays` (avec repli local `scripts/calcul_delai.py`) pour calculer de 1 à 25 échéances de procédure civile (art. 83 C.p.c., report de fin de semaine, notification technologique après 17h00 selon l'art. 111 al. 2 C.p.c., délais à rebours, périodes de non-séance de l'art. 82 al. 2 C.p.c.), `interets_1619` et `greffe_parse_number`.
-- **`skills/redaction-juridique`** : Consomme `interets_1619` et `calendrier_deadlines` (chiffrage et délais), `registre_search`, `registre_get_entity` et `adresse_verify` (désignation des parties morales et vérification d'adresse civique en en-tête d'acte ou mise en demeure, sous réserve des gardes LPLE / RQA / Registre foncier), ainsi que `terminologie_lookup`, `termino_attestations` et `terminologie_scan` (contrôle de pureté terminologique civiliste FR/EN et prévention des calques de common law ou de droit français).
-- **`skills/recherche-juridique`** : Consomme `greffe_parse_number`, `palais_list`, `palais_get`, `registre_search`, `registre_get_entity`, `adresse_verify`, `terminologie_lookup` et `termino_attestations` en appui aux connecteurs `lois` et `juris`.
+- **`skills/administration-litige`** : Consomme `calendrier_deadlines` et `calendrier_holidays` (avec repli local `scripts/calcul_delai.py`) pour calculer de 1 à 25 échéances de procédure civile (art. 83 C.p.c., report de fin de semaine, notification technologique après 17h00 selon l'art. 111 al. 2 C.p.c., délais à rebours, périodes de non-séance de l'art. 82 al. 2 C.p.c.), `interets_1619` (y compris `prime_plus_margin`), `greffe_parse_number`, `taux_boc_rates`, `indice_ipc` et `loyer_tal`.
+- **`skills/redaction-juridique`** : Consomme `interets_1619`, `calendrier_deadlines`, `taux_boc_rates`, `indice_ipc` et `loyer_tal` (chiffrage, indexation et fixation de loyer), `registre_search`, `registre_get_entity` et `adresse_verify` (désignation des parties morales et vérification d'adresse civique / lots RQA en en-tête d'acte ou mise en demeure, sous réserve des gardes LPLE / RQA / Registre foncier), ainsi que `terminologie_lookup`, `termino_attestations` et `terminologie_scan`.
+- **`skills/recherche-juridique`** : Consomme `greffe_parse_number`, `palais_list`, `palais_get`, `registre_search`, `registre_get_entity`, `adresse_verify`, `terminologie_lookup`, `termino_attestations`, `taux_boc_rates`, `indice_ipc` et `loyer_tal` en appui aux connecteurs `lois` et `juris`.
 - **`skills/analyse-juridique`** & **`skills/deontologie-et-pratique`** : Consomment au besoin les connecteurs selon le noyau `SAFETY-KERNEL`, sans dérogation de confidentialité.
 
 ### Relations inter-dépôts et séparation des responsabilités
 - **Découplage de `MCP-Jurisprudence`** : Depuis `v0.2.0`, les outils `greffe_*` et `palais_*` ainsi que `src/qc/` résident ici afin de séparer l'interrogation distante de CanLII (avec secret Bearer) des outils locaux déterministes.
 - **Découplage de `MCP-Socle`** : Ce serveur étant public et sans authentification, il utilise directement `@modelcontextprotocol/server` avec `zod`.
-- **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `MCP-Outils` exécute les calculs arithmétiques et fournit les attestations terminologiques précalculées en lecture seule.
+- **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `MCP-Outils` exécute les calculs arithmétiques et fournit les attestations terminologiques et données économiques précalculées en lecture seule.
 
 ---
 
-## 2. Inventaire des 12 outils MCP (5 familles)
+## 2. Inventaire des 15 outils MCP (6 familles)
 
 Tous les outils déclarent les annotations MCP :
 - `openWorldHint: false` (aucun appel réseau sortant à la requête)
@@ -59,7 +59,7 @@ Tous les outils déclarent les annotations MCP :
 ### A. Famille `calcul` (arithmétique déterministe pure)
 1. `calendrier_holidays` : Jours fériés et non juridiques d'une année civile (`qc_cpc`, `qc_prescription`, `qc_li`, `ca_li` avec `province` optionnel pour `QC` le 24 juin).
 2. `calendrier_deadlines` : Chaîne de 1 à 25 délais procéduraux ou légaux (`qc_cpc`, `qc_prescription` art. 2879 al. 2 C.c.Q., `qc_li` `rollover_saturday=false` par défaut, `ca_li` avec `province`, report art. 83 C.p.c., art. 111 al. 2 C.p.c. après 17h00, délais à rebours, hors séance art. 82 al. 2 C.p.c.).
-3. `interets_1619` : Calcul rationnel exact en `BigInt` des intérêts légaux (5 %) et de l'indemnité additionnelle (art. 1619 C.c.Q. / art. 28 L.A.F., convention Exact/Exact, 1 à 50 tranches).
+3. `interets_1619` : Calcul rationnel exact en `BigInt` des intérêts légaux (5 %), de l'indemnité additionnelle (art. 1619 C.c.Q. / art. 28 L.A.F., `src/data/laf_art28_rates.json`), d'un taux contractuel ou du taux préférentiel BDC `V80691311` + marge (`prime_plus_margin`, `src/data/boc_prime_rates.json`), convention Exact/Exact, 1 à 50 tranches.
 
 ### B. Famille `greffe` (tables statiques MJQ compilées)
 4. `greffe_parse_number` : Analyse de nomenclature d'un numéro de dossier (`NNN-NN-NNNNNN-NNN` ou préfixe `TAL-`, `C.F.-`, etc.) sans accès au plumitif ni validation des positions 7+.
@@ -67,22 +67,27 @@ Tous les outils déclarent les annotations MCP :
 6. `palais_get` : Fiche détaillée d'un palais ou point de service par numéro de greffe ou nom (adresse, télécopieur, heures d'ouverture, téléphones et courriels par chambre ou service).
 
 ### C. Famille `registre` (`DB_REGISTRES` — `outils-registres`)
-7. `registre_search` : Recherche hors ligne dans les instantanés ouverts du REQ (enrichi RBQ, OPC, RENA) et de Corporations Canada (dénomination, autres noms, sociétés à numéro `9123-4567`, NEQ, numéro fédéral).
-8. `registre_get_entity` : Fiche complète par `neq` (10 chiffres), `corporation_number` ou `bn_ne` (9 chiffres). Respecte les dispenses d'adresse REQ et exclut toute personne physique dirigeante/actionnaire (`REGISTRE_ABSENCE_PERSONNES_PHYSIQUES`).
+7. `registre_search` : Recherche hors ligne dans les instantanés ouverts du REQ (enrichi RBQ, OPC, RENA), de Corporations Canada et de la GLEIF (entités canadiennes titulaires d'un LEI, indicateur `has_lei`).
+8. `registre_get_entity` : Fiche complète par `neq` (10 chiffres), `corporation_number`, `bn_ne` (9 chiffres) ou `lei` (20 car. ISO 17442), avec hiérarchie comptable GLEIF Level 2 et liens directs vers les portails officiels (REQ, Corporations Canada, PCI/ISC, GLEIF), sans aucune personne physique (`REGISTRE_ABSENCE_PERSONNES_PHYSIQUES`).
 
 ### D. Famille `adresse` (`DB_ADRESSES` — `outils-adresses`)
-9. `adresse_verify` : Vérification municipale et normalisation au Référentiel québécois des adresses (RQA, ~5M d'adresses) et Odonymes et renvois (MRNF). Tolérance aux fautes de frappe (squelette consonantique + trigrammes FTS5 sur odonymes), distinction des unités confirmées vs non subdivisées, plage civique de rue, lots cadastraux / matricules indicatifs et district judiciaire probable via `lieux.ts`.
+9. `adresse_verify` : Vérification municipale et normalisation au RQA (~5M d'adresses) et Odonymes et renvois (MRNF), ou recherche inversée par `lot_number` / `matricule` (`lots_cadastraux_index`). Indique `lot_source` (`rqa_unite` vs `rqa_immeuble_parent` vs `absent`), les ambiguïtés multi-lots/copropriété et le district judiciaire probable.
 
 ### E. Famille `terminologie` (`DB_TERMINOLOGIE` — `outils-terminologie`)
 10. `terminologie_lookup` : Recherche bilingue FR/EN hiérarchisée (rang 1 : glossaire curé `src/data/glossaire_bijuridique_qc.json` ; rang 2 : concordancier législatif et doublets bijuridiques ; rang 3 : TERMIUM Plus® ; rang 4 : OQLF domaines juridiques).
 11. `termino_attestations` : Comptage exact par loi et extraits bilingues FR/EN côte à côte dans le concordancier législatif aligné (97 lois QC/CA).
 12. `terminologie_scan` : Détection en lecture seule des francismes de France, anglicismes / faux amis de common law et archaïsmes d'avant 2016 sur un extrait de projet d'acte (≤ 32 000 car.), sans réécriture.
 
+### F. Famille `economie` (`DB_ECONOMIE` — `outils-economie` & tables embarquées)
+13. `taux_boc_rates` : Consultation hors ligne des taux de change face au CAD (2001–2026+, régime midi HE pré-`2017-05-01` vs moyenne 16 h 30 HE) et taux `V39079`/`V122530`/`V80691311`, avec conversion exacte `BigInt` (*Loi sur la monnaie*, art. 12).
+14. `indice_ipc` : Indices IPC StatCan (`18-10-0004-01` mensuel, `18-10-0005-01` annuel ; Québec, Montréal RMR, Québec RMR, Canada ; `2002=100` et `1992=100`), variation annuelle (%) et indexation contractuelle `BigInt` avec plancher/plafond et blocage de divergence d'année de base.
+15. `loyer_tal` : Barèmes officiels du TAL (2015–2027, `src/data/tal_criteres.json`), calculateur déterministe post-1er janv. 2026 en `BigInt` (*Règlement sur les critères de fixation de loyer*, `RLRQ, c. T-15.01, r. 2`, Décret 1455-2025) avec gardes transitoires (`< 2026-01-01`) et `art. 1955 C.c.Q.`, et loyers moyens SCHL (`34-10-0133-01` dans `DB_ECONOMIE`).
+
 ---
 
 ## 3. Contrat de données et format de sortie
 
-`MCP-Outils` adopte une **double sortie standardisée** obligatoire sur les 12 outils :
+`MCP-Outils` adopte une **double sortie standardisée** obligatoire sur les 15 outils :
 
 ```typescript
 {
@@ -111,7 +116,7 @@ Tous les outils déclarent les annotations MCP :
 
 ### Règles de sortie :
 1. **`structuredContent` et `content[0].text` obligatoires** (textes, titres, descriptions et messages d'erreur exclusivement en français ; seul `src/site.i18n.ts` contient l'anglais de `GET /`).
-2. **Tableau `gardes` obligatoire** (`src/core/gardes.ts`), incluant les nouvelles gardes v0.3.0 (`REGISTRE_ABSENCE_PERSONNES_PHYSIQUES`, `REGISTRE_FRAICHEUR_ET_OPPOSABILITE_LPLE`, `REGISTRE_ABSENCE_NON_PROBANTE_ANCILLAIRES`, `ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE`, `ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE`, `ADRESSE_CORRESPONDANCE_APPROXIMATIVE`, `TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE`, `LICENCE_DONNEES_OUVERTES_NC_SA`).
+2. **Tableau `gardes` obligatoire** (`src/core/gardes.ts`), couvrant notamment les gardes registres/GLEIF, adresses/lots (`ADRESSE_LOT_*`), terminologie, BoC (`TAUX_BOC_*`), IPC (`IPC_*`), TAL (`TAL_*`) et SCHL (`SCHL_LOYER_MOYEN_INDICATIF`).
 3. **Constantes textuelles figées (`src/qc/format.ts`)** : `SANS_PLUMITIF`, `GARDE_PALAIS`, `GARDE_SANS_ADRESSE`, `GARDE_DOSSIER` — protégées par tests unitaires, ne jamais les modifier.
 4. **Gestion applicative des erreurs** : Toute erreur de validation Zod (`z.strictObject`), paramètre invalide ou absence de binding D1 dans `env` renvoie `{ content: [{ type: "text", text: "..." }], isError: true }` — jamais HTTP 500 ni `-32602` fatal.
 
@@ -121,12 +126,12 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` : Page HTML bilingue dérivée de `listToolDescriptors()` (CSP stricte, zéro JSON à la racine, `405` sur autres méthodes).
-   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.2.0"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses }`, `laf_table_last_quarter`, liste des 12 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
+   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.2.0"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
    - `GET` / `HEAD` / `OPTIONS /mcp/server-card` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
    - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, plafond `MAX_MCP_BODY_BYTES = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), désencapsulation SSE → JSON, limiteur `RATE_LIMITER` (240 req/min/IP → `429`).
-2. **Topologie D1 à 3 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
-   - `DB_TERMINOLOGIE` (`outils-terminologie`), `DB_REGISTRES` (`outils-registres`), `DB_ADRESSES` (`outils-adresses`).
-   - Les pipelines Python (`pipeline/terminologie/`, `pipeline/registres/`, `pipeline/adresses/`) assemblent d'abord une base SQLite locale validée, exportent des lots SQL sans `BEGIN`/`COMMIT` explicites, construisent les index et `FTS5` par tranches en fin de chargement, et supportent `--blue-green --swap` pour basculer sans coupure.
+2. **Topologie D1 à 4 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
+   - `DB_TERMINOLOGIE` (`outils-terminologie`), `DB_REGISTRES` (`outils-registres`), `DB_ADRESSES` (`outils-adresses`), `DB_ECONOMIE` (`outils-economie`, `< 15 Mio`).
+   - Les pipelines Python (`pipeline/terminologie/`, `pipeline/registres/`, `pipeline/adresses/`, `pipeline/economie/`) assemblent d'abord une base SQLite locale validée, exportent des lots SQL sans `BEGIN`/`COMMIT` explicites, construisent les index et `FTS5` par tranches en fin de chargement, et supportent `--blue-green --swap` pour basculer sans coupure.
    - Pour `DB_ADRESSES`, `FTS5` est créé uniquement sur `odonymes` (~85k lignes), jamais sur `adresses_civiques` (~5M lignes).
    - Pour le REQ, aucune tentative de contournement du défi Cloudflare du portail : `ingest_req.py` lit `pipeline/sources/req.zip` téléchargé manuellement.
 
@@ -138,23 +143,23 @@ Tous les outils déclarent les annotations MCP :
 |---|---|---|---|
 | 1 | **Outils MCP, calculs, D1 et schémas** | `src/core/`, `src/mcp/`, `src/qc/`, `src/data/`, `pipeline/`, `src/index.ts` | Double sortie obligatoire + `gardes`, `openWorldHint: false`, `readOnlyHint: true`, arithmétique `BigInt`, constantes `src/qc/format.ts`, zéro source sous droit d'auteur fermée |
 | 2 | **`README.md`, manifestes autonomes et gouvernance** | `README.md`, `SECURITY.md`, `LICENSE` (`Apache-2.0`), `NOTICE` (attributions et non-revendication des données ouvertes), `package.json`, `plugin.json`, `mcp_config.json`, `gemini-extension.json`, `assets/logo.svg`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md`, `test/doc.test.ts` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de licence, de version ou de déploiement |
-| 3 | **Page publique HTML (`GET /`), `/mcp/server-card` et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts`, `test/mcp.integration.test.ts` | Parité bilingue `OUTILS_EN` (12 outils, 5 familles), fiche SEP-2127, variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
-| 4 | **Impacts inter-dépôts (`Cross-repository`)** | **`droit-civil-quebecois`** (`verifier.py`, `verifier_tout.py`, `scripts/regenerer_cache_mcp.py --apply`, `skills/redaction-juridique`, `skills/recherche-juridique`, `skills/administration-litige`, `README.md`, `CLAUDE.md`, `GEMINI.md`, manifestes) ; **`MCP-Legislation` & `MCP-Jurisprudence`** (lecture seule stricte, cohérence visuelle HTML/CSS) | Maintenir les fins de ligne LF (`\n`), le plafond `<= 64` car. des identifiants MCP composés et les feuilles terminales sans liens relatifs |
+| 3 | **Page publique HTML (`GET /`), `/mcp/server-card` et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts`, `test/mcp.integration.test.ts` | Parité bilingue `OUTILS_EN` (15 outils, 6 familles), fiche SEP-2127, variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
+| 4 | **Impacts inter-dépôts (`Cross-repository`)** | **`droit-civil-quebecois`** (`verifier.py`, `verifier_tout.py`, `scripts/regenerer_cache_mcp.py --apply`, `skills/*`, `README.md`, `CLAUDE.md`, `GEMINI.md`, manifestes) ; **`MCP-Legislation` & `MCP-Jurisprudence`** (lecture seule stricte, cohérence visuelle HTML/CSS) | Maintenir les fins de ligne LF (`\n`), le plafond `<= 64` car. des identifiants MCP composés et les feuilles terminales sans liens relatifs |
 
 ---
 
 ## 6. Invariants critiques et règles anti-dérive
 
 1. **Invariant 1 : Bases D1 strictement en lecture seule à la requête, zéro appel HTTP sortant et journalisation zéro**
-   - Bases D1 (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`) interrogées uniquement par `SELECT` (`PRAGMA query_only = ON` dans le harnais de tests), zéro écriture au fil de l'eau, zéro KV/R2, zéro appel HTTP sortant.
+   - Bases D1 (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, `DB_ECONOMIE`) interrogées uniquement par `SELECT` (`PRAGMA query_only = ON` dans le harnais de tests), zéro écriture au fil de l'eau, zéro KV/R2, zéro appel HTTP sortant.
    - Dans `wrangler.jsonc` : `observability.enabled = false`, `logs.enabled = false`, `logs.invocation_logs = false`, `logpush = false`.
-   - Ne jamais journaliser les adresses IP, corps de requêtes, noms de parties, adresses civiques ou extraits d'actes.
-2. **Invariant 2 : Aucune extrapolation des taux de l'art. 28 L.A.F.** (`src/data/laf_art28_rates.json`, sauf `rate_overrides` explicite).
-3. **Invariant 3 : Arithmétique rationnelle exacte en `BigInt`** (`EXACT_EXACT_COMMON_DENOMINATOR = 1_335_900_000n`).
+   - Ne jamais journaliser les adresses IP, corps de requêtes, noms de parties, adresses civiques, montants ou extraits d'actes.
+2. **Invariant 2 : Aucune extrapolation des taux publiés** (`laf_art28_rates.json` sauf `rate_overrides`, `boc_prime_rates.json`, `tal_criteres.json`, et séries `DB_ECONOMIE` BdC / StatCan).
+3. **Invariant 3 : Arithmétique rationnelle exacte en `BigInt`** (`EXACT_EXACT_COMMON_DENOMINATOR = 1_335_900_000n` pour les intérêts ; exact `BigInt` pour conversions monétaires, indexation IPC et calculs TAL).
 4. **Invariant 4 : Intégrité verbatim des gardes MJQ** (`src/qc/format.ts`) et **exclusion des sources terminologiques protégées** (jamais Crépeau/McGill, Juriterm ni Juridictionnaire).
-5. **Invariant 5 : Nomenclature pure sans plumitif** (`greffe_parse_number`, positions 1 à 6 uniquement), **instantanés corporatifs sans dirigeants personnes physiques** (`registre_*`) et **existence civique municipale distincte du domicile et du Registre foncier** (`adresse_verify`).
+5. **Invariant 5 : Séparation stricte entre données indicatives et registres officiels** — nomenclature pure sans plumitif (`greffe_parse_number`), instantanés corporatifs sans dirigeants personnes physiques (`registre_*`), existence civique municipale distincte du domicile et du Registre foncier (`adresse_verify`), IPC/SCHL indicatifs et blocage de divergence de base (`indice_ipc`, `loyer_tal`).
 6. **Invariant 6 : La page publique `/` dérive du code** (`listToolDescriptors()`, identité visuelle partagée avec `MCP-Legislation` et `MCP-Jurisprudence`).
-7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.0`, raccourcissement `v2.0.0` de 7 noms d'outils).
+7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.0`, 15 outils sur 6 familles, plafonds `<= 64` car.).
 8. **Invariant 8 : Limitation de débit d'arête (240 req/min/IP) et taille maximale (64 KiB)**.
 9. **Invariant 9 : Gouvernance Git (`main-pr-and-ci`)** — Le contournement administrateur du ruleset `main-pr-and-ci` est restreint à `pull_request` : **ne jamais pousser directement sur `main`** ; travailler sur une branche dédiée, ouvrir une Pull Request, attendre le passage des contrôles requis (`verify`, `CodeQL`, `OSV-Scanner`, `Trivy`), puis fusionner par *squash* (`gh pr merge --squash --delete-branch`).
 

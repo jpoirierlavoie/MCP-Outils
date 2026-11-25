@@ -1,0 +1,143 @@
+name: Vérification annuelle des critères de fixation de loyer (TAL)
+
+on:
+  schedule:
+    - cron: "15 14 20 1,2 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: check-tal-criteres
+  cancel-in-progress: true
+
+jobs:
+  check-tal-criteres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Durcir l'environnement du runner (egress audit)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Vérifier la couverture annuelle TAL (tal_criteres.json) et StatCan (v41694081 / v41713500)
+        id: check
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            async function main() {
+              const data = JSON.parse(fs.readFileSync("src/data/tal_criteres.json", "utf8"));
+              const now = new Date();
+              const targetRenewalYear = now.getUTCFullYear();
+              const expectedRefYear = targetRenewalYear - 1;
+              const covered = (data.post_2026 ?? []).some((e) => e.reference_year === expectedRefYear);
+
+              let statcanSummary = "StatCan non interrogé";
+              try {
+                const res = await fetch(
+                  "https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify([
+                      { vectorId: 41694081, latestN: 5 },
+                      { vectorId: 41713500, latestN: 5 },
+                    ]),
+                  },
+                );
+                if (res.ok) {
+                  const payload = await res.json();
+                  const latestYears = (payload ?? []).map((item) => {
+                    const obj = item?.object ?? {};
+                    const pts = (obj.vectorDataPoint ?? []).filter((p) => p.value != null);
+                    const last = pts.at(-1);
+                    return `v${obj.vectorId}:${last?.refPer ?? "n/a"}=${last?.value ?? "n/a"}`;
+                  });
+                  statcanSummary = latestYears.join(" ; ");
+                }
+              } catch (e) {
+                statcanSummary = `Erreur StatCan: ${e.message}`;
+              }
+
+              const needsUpdate = !covered;
+              const reason = needsUpdate
+                ? `Année de référence ${expectedRefYear} (baux avril ${targetRenewalYear} – mars ${targetRenewalYear + 1}) absente de tal_criteres.json`
+                : `À jour jusqu au ${data.metadata.last_lease_renewal_end_date}`;
+
+              const out = process.env.GITHUB_OUTPUT;
+              fs.appendFileSync(out, `needs_update=${needsUpdate}\n`);
+              fs.appendFileSync(out, `target_renewal_year=${targetRenewalYear}\n`);
+              fs.appendFileSync(out, `expected_ref_year=${expectedRefYear}\n`);
+              fs.appendFileSync(out, `reason=${reason}\n`);
+              fs.appendFileSync(out, `statcan_summary=${statcanSummary}\n`);
+              fs.appendFileSync(out, `last_end_date=${data.metadata.last_lease_renewal_end_date}\n`);
+              console.log({ needsUpdate, targetRenewalYear, expectedRefYear, reason, statcanSummary });
+            }
+            main().catch((err) => { console.error(err); process.exit(1); });
+          '
+      - name: Ouvrir ou mettre à jour un billet de rappel [Critères TAL]
+        if: steps.check.outputs.needs_update == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REASON: ${{ steps.check.outputs.reason }}
+          TARGET_YEAR: ${{ steps.check.outputs.target_renewal_year }}
+          EXPECTED_REF_YEAR: ${{ steps.check.outputs.expected_ref_year }}
+          STATCAN_SUMMARY: ${{ steps.check.outputs.statcan_summary }}
+          LAST_END_DATE: ${{ steps.check.outputs.last_end_date }}
+        with:
+          script: |
+            const reason = process.env.REASON ?? "";
+            const targetYear = process.env.TARGET_YEAR ?? "";
+            const expectedRefYear = process.env.EXPECTED_REF_YEAR ?? "";
+            const statcanSummary = process.env.STATCAN_SUMMARY ?? "";
+            const lastEndDate = process.env.LAST_END_DATE ?? "";
+            const title = `[Critères TAL] Mettre à jour tal_criteres.json pour ${targetYear}-${Number(targetYear) + 1}`;
+            const body = [
+              `La table embarquée [\`src/data/tal_criteres.json\`](src/data/tal_criteres.json) couvre actuellement jusqu'au **${lastEndDate}**.`,
+              "",
+              `- **Motif** : ${reason}`,
+              `- **Année de référence IPC attendue (art. 3.1 / 4.1 T-15.01, r. 2)** : \`${expectedRefYear}\``,
+              `- **Aperçu StatCan WDS** : \`${statcanSummary}\``,
+              "- **Source officielle TAL** : https://www.tal.gouv.qc.ca/fr/reconduction-du-bail-et-fixation-de-loyer/pourcentages-applicables-aux-criteres-de-fixation-de-loyer",
+              "",
+              "Mettre à jour `src/data/tal_criteres.json` après publication à la Gazette officielle du Québec / sur le site du TAL, puis exécuter :",
+              "```bash",
+              "npm run typecheck && npm run lint && npm test && npm run build",
+              "```",
+            ].join("\n");
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 50,
+            });
+            const openTal = existing.data.find((issue) => issue.title.startsWith("[Critères TAL]"));
+            if (openTal) {
+              if (openTal.title === title) {
+                core.info(`Issue already open with identical title: #${openTal.number}`);
+                return;
+              }
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: openTal.number,
+                title,
+                body,
+              });
+              core.info(`Updated existing issue #${openTal.number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });

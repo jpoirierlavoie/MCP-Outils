@@ -32,6 +32,7 @@ import {
   ComputeInterest1619OutputSchema,
   computeInterest1619,
 } from "../core/interest1619.js";
+import { IndiceIpcInputSchema, IndiceIpcOutputSchema, indiceIpc } from "../core/ipc.js";
 import {
   PalaisGetInputSchema,
   PalaisGetOutputSchema,
@@ -51,6 +52,7 @@ import {
   registreGetEntity,
   registreSearchEntities,
 } from "../core/registres.js";
+import { LoyerTalInputSchema, LoyerTalOutputSchema, loyerTal } from "../core/tal.js";
 import {
   TerminologieAttestationsInputSchema,
   TerminologieAttestationsOutputSchema,
@@ -67,7 +69,7 @@ export const SERVER_NAME = "mcp-outils";
 export const SERVER_TITLE = "MCP Outils";
 export const SERVER_VERSION = "2.2.0";
 export const SERVER_DESCRIPTION =
-  "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
+  "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F., taux préférentiel BDC), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses civiques et lots RQA, terminologie bijuridique, taux Banque du Canada, IPC StatCan et calculateur TAL (RLRQ, c. T-15.01, r. 2).";
 
 export const INSTRUCTIONS =
   "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de quatre bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
@@ -76,7 +78,7 @@ export const INSTRUCTIONS =
   "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada et GLEIF Golden Copy CC0 1.0 pour les LEI et hiérarchies corporatives Level 2). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus des jeux ouverts (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1 ; L.C.S.A.) : consulter les portails officiels (REQ, Corporations Canada, PCI/ISC et GLEIF) retournés dans portails_officiels avant toute signification ou désignation finale d'une partie. " +
   "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
   "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « lois » ; pour la jurisprudence, employer « juris »). " +
-  "6) Économie et taux (Banque du Canada) — taux_boc_rates consulte hors ligne les taux de change historiques et quotidiens (taux au comptant de midi HE avant le 2017-05-01 et moyenne quotidienne 16 h 30 HE à compter du 2017-05-01), les séries V39079/V122530/V80691311 et convertit exactement en BigInt selon l'art. 12 de la Loi sur la monnaie sans jamais extrapoler au-delà de l'instantané.";
+  "6) Économie, IPC et logement — taux_boc_rates consulte hors ligne les taux de change BdC/StatCan (midi HE avant le 2017-05-01, moyenne 16 h 30 HE depuis 2017-05-01) et les taux V39079/V122530/V80691311 avec conversion BigInt (art. 12 Loi sur la monnaie) ; indice_ipc fournit les indices IPC StatCan (18-10-0004-01 / 18-10-0005-01) et l'indexation contractuelle en BigInt avec contrôle strict d'année de base (2002=100 vs 1992=100) ; loyer_tal expose les barèmes TAL (2015–2027), le calculateur post-1er janvier 2026 (RLRQ, c. T-15.01, r. 2 ; Décret 1455-2025) avec gardes transitoires et art. 1955 C.c.Q., ainsi que les loyers moyens SCHL (34-10-0133-01).";
 
 const READ_ONLY_LOCAL_ANNOTATIONS = {
   readOnlyHint: true,
@@ -213,6 +215,22 @@ const TOOL_SPECS: ReadonlyArray<{
       "Consulte hors ligne dans DB_ECONOMIE les taux de change historiques et quotidiens face au dollar canadien (Banque du Canada FX_RATES_DAILY depuis le 2017-05-01 en moyenne quotidienne 16 h 30 HE, LEGACY_NOON_RATES 2007–2017 et Statistique Canada 10-10-0008-01 2001–2007 en taux au comptant de midi HE), ainsi que le taux directeur (V39079), le taux d'escompte (V122530) et le taux préférentiel (V80691311). Effectue la conversion exacte en BigInt devise étrangère <-> CAD selon l'art. 12 de la Loi sur la monnaie en signalant tout report au jour ouvrable précédent et le régime méthodologique.",
     family: "economie",
     inputSchema: TauxBocRatesInputSchema,
+  },
+  {
+    name: "indice_ipc",
+    title: "Indice des prix à la consommation (Statistique Canada — hors ligne)",
+    description:
+      "Consulte hors ligne dans DB_ECONOMIE l'indice des prix à la consommation (Statistique Canada 18-10-0004-01 mensuel et 18-10-0005-01 annuel : Ensemble, Logement, Logement locatif, Loyer et Services de soins de santé pour le Québec, les RMR de Montréal et Québec et le Canada, base 2002=100 et série historique 1992=100), calcule la variation annuelle (%) et effectue une indexation contractuelle exacte en BigInt avec options de plancher (floor_bps), plafond (cap_bps), arrondi et garde-fou strict contre les divergences d'année de base.",
+    family: "economie",
+    inputSchema: IndiceIpcInputSchema,
+  },
+  {
+    name: "loyer_tal",
+    title: "Fixation de loyer TAL (RLRQ, c. T-15.01, r. 2) et loyers SCHL",
+    description:
+      "Outil complet de fixation de loyer au Québec : 1) mode 'bareme' : pourcentages officiels publiés par le TAL (pré-2026 de 2015 à 2026 incluant le mazout -10,0 % en 2024, et post-2026 Décret 1455-2025 : 4,5 % / 6,0 % pour janv.–1er avril 2026 et 3,1 % / 6,7 % + 5,0 % immobilisations pour 2 avril 2026–1er avril 2027) ; 2) mode 'calcul_2026' : calculateur déterministe exact en BigInt reproduisant la grille officielle TAL 2026 (base IPC, part RPA, taxes municipales/scolaires et assurances asymétriques, travaux 5 % avec subvention/prêt réduit, nouvelles dépenses, aides et arrondi art. 15.1) avec gardes transitoires (< 2026-01-01) et art. 1955 C.c.Q. ; 3) mode 'schl' : loyers moyens du marché (StatCan 34-10-0133-01) dans DB_ECONOMIE.",
+    family: "economie",
+    inputSchema: LoyerTalInputSchema,
   },
 ];
 
@@ -749,6 +767,73 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
         return {
           isError: true,
           content: [{ type: "text", text: `Erreur de consultation des taux BoC : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "indice_ipc",
+    {
+      ...toolConfig("indice_ipc", IndiceIpcOutputSchema),
+      inputSchema: IndiceIpcInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_ECONOMIE) {
+        return missingDatabaseError(
+          "DB_ECONOMIE",
+          "indice des prix à la consommation (Statistique Canada)",
+        );
+      }
+      try {
+        const result = await indiceIpc(env.DB_ECONOMIE, args);
+        if (!result.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: result.text }],
+          };
+        }
+        return {
+          structuredContent: result.structured,
+          content: [{ type: "text", text: result.text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de consultation IPC : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "loyer_tal",
+    {
+      ...toolConfig("loyer_tal", LoyerTalOutputSchema),
+      inputSchema: LoyerTalInputSchema,
+    },
+    async (args) => {
+      if (args.mode === "schl" && !env.DB_ECONOMIE) {
+        return missingDatabaseError("DB_ECONOMIE", "loyers moyens du marché SCHL");
+      }
+      try {
+        const result = await loyerTal(env.DB_ECONOMIE ?? null, args);
+        if (!result.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: result.text }],
+          };
+        }
+        return {
+          structuredContent: result.structured,
+          content: [{ type: "text", text: result.text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de calcul ou de consultation TAL : ${msg}` }],
         };
       }
     },

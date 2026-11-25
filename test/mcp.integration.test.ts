@@ -6,6 +6,7 @@ import { ComputeDeadlinesOutputSchema } from "../src/core/deadlines.js";
 import { TauxBocRatesOutputSchema } from "../src/core/economie.js";
 import { ListHolidaysOutputSchema } from "../src/core/holidays.js";
 import { ComputeInterest1619OutputSchema } from "../src/core/interest1619.js";
+import { IndiceIpcOutputSchema } from "../src/core/ipc.js";
 import {
   PalaisGetOutputSchema,
   PalaisListOutputSchema,
@@ -15,6 +16,7 @@ import {
   RegistreGetEntityOutputSchema,
   RegistreSearchEntitiesOutputSchema,
 } from "../src/core/registres.js";
+import { LoyerTalOutputSchema } from "../src/core/tal.js";
 import {
   TerminologieAttestationsOutputSchema,
   TerminologieLookupOutputSchema,
@@ -101,6 +103,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(healthCommitJson.commit).toBe("abc1234");
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
     expect(typeof healthJson.prime_table_last_verified_date).toBe("string");
+    expect(healthJson.tal_table_last_lease_renewal_end_date).toBe("2027-04-01");
     expect(healthJson.databases).toEqual({
       terminologie: false,
       registres: false,
@@ -121,6 +124,8 @@ describe("Worker HTTP & intégration MCP", () => {
       "termino_attestations",
       "terminologie_scan",
       "taux_boc_rates",
+      "indice_ipc",
+      "loyer_tal",
     ]);
 
     const landing = await worker.fetch(
@@ -310,7 +315,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(seenKeys).toEqual(["198.51.100.42"]);
   });
 
-  it("expose les 13 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
+  it("expose les 15 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
     const listRes = await mcpPost("tools/list", {});
     expect(listRes.status).toBe(200);
     const tools =
@@ -323,7 +328,9 @@ describe("Worker HTTP & intégration MCP", () => {
       "calendrier_deadlines",
       "calendrier_holidays",
       "greffe_parse_number",
+      "indice_ipc",
       "interets_1619",
+      "loyer_tal",
       "palais_get",
       "palais_list",
       "registre_get_entity",
@@ -479,6 +486,8 @@ describe("Worker HTTP & intégration MCP", () => {
       ["termino_attestations", { term: "hypothec", lang: "en" }],
       ["terminologie_scan", { text: "A mortgage on land.", lang: "en" }],
       ["taux_boc_rates", { category: "fx", currency: "USD", date: "2026-11-20" }],
+      ["indice_ipc", { period: "2026-10" }],
+      ["loyer_tal", { mode: "schl", cmhc_geo: "Montréal" }],
     ] as const) {
       const missingRes = await mcpPost("tools/call", { name: toolName, arguments: args });
       expect(missingRes.status).toBe(200);
@@ -1036,7 +1045,9 @@ describe("Worker HTTP & intégration MCP", () => {
           INSERT INTO meta_sources VALUES
             ('boc_fx_daily', 'BdC FX Daily', 'BoC Terms', '2026-11-23', 2),
             ('boc_legacy_noon', 'BdC Noon', 'BoC Terms', '2017-04-28', 1),
-            ('boc_interest_rates', 'BdC Rates', 'BoC Terms', '2026-11-23', 3);
+            ('boc_interest_rates', 'BdC Rates', 'BoC Terms', '2026-11-23', 3),
+            ('statcan_cpi_monthly', 'StatCan 18-10-0004-01', 'OGL-Canada', '2026-10-01', 2),
+            ('statcan_cmhc_rents', 'StatCan 34-10-0133-01', 'OGL-Canada', '2025-12-17', 2);
           INSERT INTO fx_currencies VALUES
             (1, 'USD', 'US dollar', 'Dollar américain', 1, 20010102, 20261123);
           INSERT INTO fx_rates VALUES
@@ -1047,6 +1058,16 @@ describe("Worker HTTP & intégration MCP", () => {
             ('V39079', 20261123, 250),
             ('V122530', 20261001, 275),
             ('V80691311', 20261118, 470);
+          INSERT INTO cpi_series VALUES
+            (1, 18100004, 'M', 'quebec', 'Quebec', 'Québec', 'all_items', 'All-items', 'Ensemble', '11.2.0.0.0.0.0.0.0.0', 41691783, '2002=100', 202510, 202610);
+          INSERT INTO cpi_observations VALUES
+            (1, 202510, 168400),
+            (1, 202610, 171200);
+          INSERT INTO cmhc_centres VALUES
+            (46, 'montreal-qc', 'Montréal, Quebec', 'Montréal, Québec', 'montreal', 'QC', 1, 'Dollars', 1987, 2025);
+          INSERT INTO cmhc_rents VALUES
+            (46, 3, 2, 2025, 1131),
+            (46, 3, 3, 2025, 1346);
         `,
       ],
       enforceQueryOnly: true,
@@ -1104,6 +1125,68 @@ describe("Worker HTTP & intégration MCP", () => {
         ((primeCall.body.result?.content as Array<{ text?: string }>) ?? [])[0]?.text ?? "";
       expect(pText).toContain("TAUX PRÉFÉRENTIEL BDC NON VÉRIFIÉ AU-DELÀ");
       expect(pText).toContain("préf. 4,70 % + 1,50 %");
+
+      const ipcCall = await mcpPost(
+        "tools/call",
+        {
+          name: "indice_ipc",
+          arguments: {
+            geo: "quebec",
+            product: "all_items",
+            start_period: "2025-10",
+            end_period: "2026-10",
+            amount: "1000.00",
+          },
+        },
+        303,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(ipcCall.body.result?.isError).not.toBe(true);
+      const ipcParsed = IndiceIpcOutputSchema.parse(ipcCall.body.result?.structuredContent);
+      expect(ipcParsed.escalation?.escalated_cents).toBe(101_663);
+
+      const talCalcCall = await mcpPost(
+        "tools/call",
+        {
+          name: "loyer_tal",
+          arguments: {
+            mode: "calcul_2026",
+            lease_renewal_date: "2026-07-01",
+            current_rent_cents: 100_000,
+          },
+        },
+        304,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(talCalcCall.body.result?.isError).not.toBe(true);
+      const talCalcParsed = LoyerTalOutputSchema.parse(talCalcCall.body.result?.structuredContent);
+      expect(talCalcParsed.calculation?.new_rent_dollars).toBe(1_031);
+
+      const talSchlCall = await mcpPost(
+        "tools/call",
+        {
+          name: "loyer_tal",
+          arguments: {
+            mode: "schl",
+            cmhc_geo: "Montréal",
+            year: 2025,
+          },
+        },
+        305,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(talSchlCall.body.result?.isError).not.toBe(true);
+      const talSchlParsed = LoyerTalOutputSchema.parse(talSchlCall.body.result?.structuredContent);
+      expect(
+        talSchlParsed.cmhc_results[0]?.cells.find((c) => c.unit_type === "two_bedroom")
+          ?.rent_dollars,
+      ).toBe(1346);
+      expect(
+        talSchlParsed.cmhc_results[0]?.cells.find((c) => c.unit_type === "bachelor")?.suppressed,
+      ).toBe(true);
     } finally {
       ecoHarness.close();
     }

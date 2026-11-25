@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "source": "Tribunal administratif du logement (TAL) — Règlement sur les critères de fixation de loyer (RLRQ, c. T-15.01, r. 2 ; Décret 1455-2025)",
+    "source_url": "https://www.tal.gouv.qc.ca/fr/reconduction-du-bail-et-fixation-de-loyer/pourcentages-applicables-aux-criteres-de-fixation-de-loyer",
+    "verified_at": "2026-11-25",
+    "table_version": "2026-2027",
+    "unit": "basis_points",
+    "last_reference_year": 2025,
+    "last_lease_renewal_end_date": "2027-04-01"
+  },
+  "post_2026": [
+    {
+      "reference_year": 2024,
+      "lease_renewal_start": "2026-01-01",
+      "lease_renewal_end": "2026-04-01",
+      "base_rent_bps": 450,
+      "rpa_personal_services_bps": 600,
+      "capital_expenditures_bps": 500,
+      "official_ref": "TAL Simulateurdecalcul-2025-n.asp / 2026_calcul_7.JPG (avis >= 2026-01-01, baux se terminant du 1er janv. au 31 mars 2026)"
+    },
+    {
+      "reference_year": 2025,
+      "lease_renewal_start": "2026-04-02",
+      "lease_renewal_end": "2027-04-01",
+      "base_rent_bps": 310,
+      "rpa_personal_services_bps": 670,
+      "capital_expenditures_bps": 500,
+      "official_ref": "(2026) 158 G.O. 1, 146 ; TAL Simulateurdecalcul.asp / 2026_calcul_6.JPG"
+    }
+  ],
+  "pre_2026": {
+    "2026": { "electricity_bps": 290, "gas_bps": 1370, "oil_other_bps": 490, "maintenance_bps": 570, "services_bps": 340, "rpa_personal_services_bps": 630, "management_bps": 720, "net_income_bps": 570, "capital_expenditures_bps": 400 },
+    "2025": { "electricity_bps": 290, "gas_bps": -580, "oil_other_bps": -290, "maintenance_bps": 690, "services_bps": 450, "rpa_personal_services_bps": 590, "management_bps": 820, "net_income_bps": 690, "capital_expenditures_bps": 470 },
+    "2024": { "electricity_bps": 280, "gas_bps": -730, "oil_other_bps": -1000, "maintenance_bps": 750, "services_bps": 530, "rpa_personal_services_bps": 660, "management_bps": 560, "net_income_bps": 390, "capital_expenditures_bps": 480 },
+    "2023": { "electricity_bps": 230, "gas_bps": 2620, "oil_other_bps": 4010, "maintenance_bps": 570, "services_bps": 460, "rpa_personal_services_bps": null, "management_bps": 350, "net_income_bps": 180, "capital_expenditures_bps": 380 },
+    "2022": { "electricity_bps": 90, "gas_bps": 760, "oil_other_bps": 1750, "maintenance_bps": 160, "services_bps": 310, "rpa_personal_services_bps": null, "management_bps": 270, "net_income_bps": 140, "capital_expenditures_bps": 200 },
+    "2021": { "electricity_bps": -30, "gas_bps": -1130, "oil_other_bps": -2160, "maintenance_bps": 140, "services_bps": 190, "rpa_personal_services_bps": null, "management_bps": 120, "net_income_bps": 60, "capital_expenditures_bps": 230 },
+    "2020": { "electricity_bps": -130, "gas_bps": 250, "oil_other_bps": -280, "maintenance_bps": 210, "services_bps": 290, "rpa_personal_services_bps": null, "management_bps": 190, "net_income_bps": 100, "capital_expenditures_bps": 310 },
+    "2019": { "electricity_bps": -150, "gas_bps": -140, "oil_other_bps": 1790, "maintenance_bps": 130, "services_bps": 190, "rpa_personal_services_bps": null, "management_bps": 80, "net_income_bps": 40, "capital_expenditures_bps": 270 },
+    "2018": { "electricity_bps": -90, "gas_bps": 130, "oil_other_bps": 1230, "maintenance_bps": 150, "services_bps": 130, "rpa_personal_services_bps": null, "management_bps": 70, "net_income_bps": 40, "capital_expenditures_bps": 240 },
+    "2017": { "electricity_bps": 100, "gas_bps": -460, "oil_other_bps": -1710, "maintenance_bps": 240, "services_bps": 90, "rpa_personal_services_bps": null, "management_bps": 80, "net_income_bps": 40, "capital_expenditures_bps": 240 },
+    "2016": { "electricity_bps": 240, "gas_bps": -320, "oil_other_bps": -2430, "maintenance_bps": 250, "services_bps": 190, "rpa_personal_services_bps": null, "management_bps": 100, "net_income_bps": 50, "capital_expenditures_bps": 250 },
+    "2015": { "electricity_bps": 290, "gas_bps": 1210, "oil_other_bps": 340, "maintenance_bps": 70, "services_bps": 200, "rpa_personal_services_bps": null, "management_bps": 110, "net_income_bps": 60, "capital_expenditures_bps": 290 }
+  }
+}
