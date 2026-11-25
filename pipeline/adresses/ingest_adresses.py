@@ -163,6 +163,36 @@ def encode_etat(raw: str) -> str:
     return (raw.strip()[:1].upper() if raw and raw.strip() else "V")
 
 
+def _extract_lot_numbers(raw: str | None) -> tuple[list[int], int]:
+    """Extrait les numéros de lot entiers positifs du Cadastre du Québec et compte les jetons ignorés."""
+    if not raw:
+        return [], 0
+    lots: list[int] = []
+    seen: set[int] = set()
+    skipped = 0
+    for part in re.split(r"[,;]+", raw):
+        token = re.sub(r"\s+", "", part)
+        if not token:
+            continue
+        if token.isdigit():
+            val = int(token)
+            if 1 <= val <= 999_999_999:
+                if val not in seen:
+                    seen.add(val)
+                    lots.append(val)
+            else:
+                skipped += 1
+        else:
+            skipped += 1
+    return lots, skipped
+
+
+def parse_lot_numbers(raw: str | None) -> list[int]:
+    """Découpe et valide les numéros de lot numériques d'une ligne RQA."""
+    lots, _ = _extract_lot_numbers(raw)
+    return lots
+
+
 def _http_get_json(url: str) -> dict:
     req = urllib.request.Request(
         url,
@@ -336,27 +366,42 @@ def load_odonymes_renvois(
     return renvois_map, total_rows, version_date
 
 
-def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
-    WORK_DIR.mkdir(parents=True, exist_ok=True)
+def build_local_sqlite(
+    sample_only: bool = False,
+    rqa_zip_path: Path | None = None,
+    renvois_csv_path: Path | None = None,
+    db_path: Path = LOCAL_DB_PATH,
+) -> dict[str, int]:
+    work_dir = db_path.parent
+    work_dir.mkdir(parents=True, exist_ok=True)
+    scratch_db_path = work_dir / "_scratch_civiques.db"
     today_iso = dt.date.today().isoformat()
 
-    print("[CKAN] Résolution dynamique des URL du RQA et d'Odonymes et renvois...", flush=True)
-    urls = resolve_rqa_urls()
-
-    renvois_csv = _download_stream(
-        urls["renvois"], WORK_DIR / "Odonymes_renvois.csv", "ODONYMES-RENVOIS"
-    )
-    if sample_only:
-        rqa_zip = _download_stream(
-            urls["sample_zip"], WORK_DIR / "RQA_echantillon.zip", "RQA-ECHANTILLON"
-        )
+    if rqa_zip_path is not None and renvois_csv_path is not None:
+        rqa_zip = rqa_zip_path
+        renvois_csv = renvois_csv_path
     else:
-        manual_full = SOURCES_DIR / "RQA_CSV.zip"
-        if manual_full.exists() and zipfile.is_zipfile(manual_full):
-            rqa_zip = manual_full
-            print(f"[RQA] Utilisation de {manual_full}", flush=True)
+        print("[CKAN] Résolution dynamique des URL du RQA et d'Odonymes et renvois...", flush=True)
+        urls = resolve_rqa_urls()
+
+        renvois_csv = (
+            renvois_csv_path
+            if renvois_csv_path is not None
+            else _download_stream(urls["renvois"], work_dir / "Odonymes_renvois.csv", "ODONYMES-RENVOIS")
+        )
+        if rqa_zip_path is not None:
+            rqa_zip = rqa_zip_path
+        elif sample_only:
+            rqa_zip = _download_stream(
+                urls["sample_zip"], work_dir / "RQA_echantillon.zip", "RQA-ECHANTILLON"
+            )
         else:
-            rqa_zip = _download_stream(urls["full_zip"], WORK_DIR / "RQA_CSV.zip", "RQA-COMPLET")
+            manual_full = SOURCES_DIR / "RQA_CSV.zip"
+            if manual_full.exists() and zipfile.is_zipfile(manual_full):
+                rqa_zip = manual_full
+                print(f"[RQA] Utilisation de {manual_full}", flush=True)
+            else:
+                rqa_zip = _download_stream(urls["full_zip"], work_dir / "RQA_CSV.zip", "RQA-COMPLET")
 
     print("[ODONYMES] Analyse des renvois d'odonymes...", flush=True)
     renvois_map, renvois_rows, renvois_date = load_odonymes_renvois(renvois_csv, today_iso)
@@ -365,12 +410,12 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
         flush=True,
     )
 
-    if LOCAL_DB_PATH.exists():
-        LOCAL_DB_PATH.unlink()
-    if SCRATCH_DB_PATH.exists():
-        SCRATCH_DB_PATH.unlink()
+    if db_path.exists():
+        db_path.unlink()
+    if scratch_db_path.exists():
+        scratch_db_path.unlink()
 
-    scratch = sqlite3.connect(SCRATCH_DB_PATH)
+    scratch = sqlite3.connect(scratch_db_path)
     scratch.execute("PRAGMA journal_mode = OFF;")
     scratch.execute("PRAGMA synchronous = OFF;")
     scratch.execute("PRAGMA temp_store = MEMORY;")
@@ -546,10 +591,10 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     scratch.close()
 
     print(
-        f"[SQLITE] Assemblage final de {LOCAL_DB_PATH.name} ({len(mun_info)} municipalités, {len(odo_rows)} odonymes, {total_civ} adresses)...",
+        f"[SQLITE] Assemblage final de {db_path.name} ({len(mun_info)} municipalités, {len(odo_rows)} odonymes, {total_civ} adresses)...",
         flush=True,
     )
-    conn = sqlite3.connect(LOCAL_DB_PATH)
+    conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode = OFF;")
     conn.execute("PRAGMA synchronous = OFF;")
     conn.execute("PRAGMA temp_store = MEMORY;")
@@ -567,7 +612,7 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     )
 
     # Copier `s_civ` trié par `(odo_id, numero_municipal, suffixe, numero_unite)` pour localité optimale
-    conn.execute(f"ATTACH DATABASE '{SCRATCH_DB_PATH.as_posix()}' AS scratch;")
+    conn.execute(f"ATTACH DATABASE '{scratch_db_path.as_posix()}' AS scratch;")
     conn.execute(
         """
         INSERT INTO adresses_civiques (
@@ -582,8 +627,38 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     )
     conn.commit()
     conn.execute("DETACH DATABASE scratch;")
-    if SCRATCH_DB_PATH.exists():
-        SCRATCH_DB_PATH.unlink()
+    if scratch_db_path.exists():
+        scratch_db_path.unlink()
+
+    print("[LOTS] Construction de lots_cadastraux_index...", flush=True)
+    lot_batch: list[tuple[int, int]] = []
+    skipped_lot_tokens = 0
+    lot_cur = conn.cursor()
+    lot_cur.execute(
+        "SELECT id, numero_lot FROM adresses_civiques WHERE numero_lot IS NOT NULL AND numero_lot != ''"
+    )
+    while True:
+        lot_rows = lot_cur.fetchmany(60_000)
+        if not lot_rows:
+            break
+        for civ_id, raw_lot in lot_rows:
+            lot_nums, skipped = _extract_lot_numbers(raw_lot)
+            skipped_lot_tokens += skipped
+            for lot_num in lot_nums:
+                lot_batch.append((lot_num, civ_id))
+            if len(lot_batch) >= 60_000:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO lots_cadastraux_index (lot_num, civ_id) VALUES (?, ?)",
+                    lot_batch,
+                )
+                lot_batch.clear()
+    if lot_batch:
+        conn.executemany(
+            "INSERT OR IGNORE INTO lots_cadastraux_index (lot_num, civ_id) VALUES (?, ?)",
+            lot_batch,
+        )
+        lot_batch.clear()
+    conn.commit()
 
     conn.executemany(
         "INSERT INTO meta_sources VALUES (?, ?, ?, ?, ?)",
@@ -631,9 +706,11 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
         "municipalites": conn.execute("SELECT COUNT(*) FROM municipalites").fetchone()[0],
         "odonymes": conn.execute("SELECT COUNT(*) FROM odonymes").fetchone()[0],
         "adresses_civiques": conn.execute("SELECT COUNT(*) FROM adresses_civiques").fetchone()[0],
+        "lots_cadastraux_index": conn.execute("SELECT COUNT(*) FROM lots_cadastraux_index").fetchone()[0],
+        "skipped_lot_tokens": skipped_lot_tokens,
     }
     conn.close()
-    mb = LOCAL_DB_PATH.stat().st_size / (1024 * 1024)
+    mb = db_path.stat().st_size / (1024 * 1024)
     print(f"[OK] Base locale générée ({mb:.1f} Mo) : {stats}", flush=True)
     return stats
 
@@ -654,32 +731,31 @@ def _split_sql_statements(sql_text: str) -> list[str]:
     return stmts
 
 
-def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
-    if not LOCAL_DB_PATH.exists():
-        raise FileNotFoundError(f"Base locale introuvable : {LOCAL_DB_PATH}")
+def export_local_batches(
+    db_path: Path = LOCAL_DB_PATH, batch_dir: Path = BATCH_DIR
+) -> tuple[list[Path], dict[str, int]]:
+    if not db_path.exists():
+        raise FileNotFoundError(f"Base locale introuvable : {db_path}")
 
-    db_info = provision_or_get_d1(db_name, location=location)
-    db_id = str(db_info["uuid"])
-    print(f"[D1] Cible distante : {db_name} (uuid={db_id}, compte={ACCOUNT_ID})", flush=True)
-
-    if BATCH_DIR.exists():
-        for old in BATCH_DIR.glob("*.sql"):
+    if batch_dir.exists():
+        for old in batch_dir.glob("*.sql"):
             old.unlink()
-    BATCH_DIR.mkdir(parents=True, exist_ok=True)
+    batch_dir.mkdir(parents=True, exist_ok=True)
 
-    schema_file = BATCH_DIR / "0000_schema.sql"
+    schema_file = batch_dir / "0000_schema.sql"
     schema_file.write_text(
         (HERE / "schema.sql").read_text(encoding="utf-8"), encoding="utf-8", newline="\n"
     )
     batch_files: list[Path] = [schema_file]
 
-    conn = sqlite3.connect(LOCAL_DB_PATH)
-    for table, cols, prefix, order in [
+    conn = sqlite3.connect(db_path)
+    for table, cols, prefix, order, max_bytes in [
         (
             "meta_sources",
             ["source_key", "source_label", "licence", "version_date", "row_count"],
             "01_meta",
             "source_key",
+            BATCH_MAX_FILE_BYTES,
         ),
         (
             "municipalites",
@@ -693,6 +769,7 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
             ],
             "02_mun",
             "code_municipalite",
+            BATCH_MAX_FILE_BYTES,
         ),
         (
             "odonymes",
@@ -712,6 +789,7 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
             ],
             "03_odo",
             "id",
+            BATCH_MAX_FILE_BYTES,
         ),
         (
             "adresses_civiques",
@@ -732,21 +810,34 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
             ],
             "04_civ",
             "id",
+            BATCH_MAX_FILE_BYTES,
+        ),
+        (
+            "lots_cadastraux_index",
+            ["lot_num", "civ_id"],
+            "05_lots",
+            "lot_num, civ_id",
+            6_000_000,
         ),
     ]:
         files, count = export_table_batches(
-            conn, table, cols, BATCH_DIR, prefix, order, max_file_bytes=BATCH_MAX_FILE_BYTES
+            conn, table, cols, batch_dir, prefix, order, max_file_bytes=max_bytes
         )
         print(f"  Export {table} : {count} lignes -> {len(files)} lot(s)", flush=True)
         batch_files.extend(files)
 
-    expected_civ = conn.execute("SELECT COUNT(*) FROM adresses_civiques").fetchone()[0]
-    expected_odo = conn.execute("SELECT COUNT(*) FROM odonymes").fetchone()[0]
+    expected_counts = {
+        "adresses_civiques": conn.execute("SELECT COUNT(*) FROM adresses_civiques").fetchone()[0],
+        "odonymes": conn.execute("SELECT COUNT(*) FROM odonymes").fetchone()[0],
+        "lots_cadastraux_index": conn.execute(
+            "SELECT COUNT(*) FROM lots_cadastraux_index"
+        ).fetchone()[0],
+    }
 
     # Isoler chaque CREATE INDEX / CREATE VIRTUAL TABLE dans son propre lot pour respecter le budget CPU D1
     idx_stmts = _split_sql_statements((HERE / "indexes.sql").read_text(encoding="utf-8"))
     for i, stmt in enumerate(idx_stmts, 1):
-        p = BATCH_DIR / f"9000_idx_{i:02d}.sql"
+        p = batch_dir / f"9000_idx_{i:02d}.sql"
         p.write_text(stmt, encoding="utf-8", newline="\n")
         batch_files.append(p)
 
@@ -769,18 +860,36 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
     conn.close()
 
     for i, stmt in enumerate([*fts_stmts, *tri_stmts], 1):
-        p = BATCH_DIR / f"9100_fts_{i:02d}.sql"
+        p = batch_dir / f"9100_fts_{i:02d}.sql"
         p.write_text(stmt + "\n", encoding="utf-8", newline="\n")
         batch_files.append(p)
+
+    print(f"[BATCH] {len(batch_files)} fichiers SQL générés dans {batch_dir}", flush=True)
+    return batch_files, expected_counts
+
+
+def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
+    if not LOCAL_DB_PATH.exists():
+        raise FileNotFoundError(f"Base locale introuvable : {LOCAL_DB_PATH}")
+
+    db_info = provision_or_get_d1(db_name, location=location)
+    db_id = str(db_info["uuid"])
+    print(f"[D1] Cible distante : {db_name} (uuid={db_id}, compte={ACCOUNT_ID})", flush=True)
+
+    batch_files, expected_counts = export_local_batches(LOCAL_DB_PATH, BATCH_DIR)
+    expected_civ = expected_counts["adresses_civiques"]
+    expected_odo = expected_counts["odonymes"]
+    expected_lots = expected_counts["lots_cadastraux_index"]
 
     print(f"[D1] Envoi de {len(batch_files)} lots SQL vers {db_name}...", flush=True)
     execute_sql_files_remote(db_name, batch_files)
 
     rem_civ = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM adresses_civiques")[0]["c"]
     rem_odo = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM odonymes")[0]["c"]
-    if rem_civ != expected_civ or rem_odo != expected_odo:
+    rem_lots = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM lots_cadastraux_index")[0]["c"]
+    if rem_civ != expected_civ or rem_odo != expected_odo or rem_lots != expected_lots:
         raise RuntimeError(
-            f"Comptes distants incohérents : civ={rem_civ}/{expected_civ}, odo={rem_odo}/{expected_odo}"
+            f"Comptes distants incohérents : civ={rem_civ}/{expected_civ}, odo={rem_odo}/{expected_odo}, lots={rem_lots}/{expected_lots}"
         )
 
     verif = verify_remote_candidate(
@@ -789,7 +898,7 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
         min_rows=1,
     )
     print(
-        f"[OK] {db_name} ({db_id}) validée : {rem_civ} adresses, {rem_odo} odonymes, info={verif}",
+        f"[OK] {db_name} ({db_id}) validée : {rem_civ} adresses, {rem_odo} odonymes, {rem_lots} lots, info={verif}",
         flush=True,
     )
     return db_id
@@ -799,6 +908,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Ingestion DB_ADRESSES (RQA + Odonymes)")
     parser.add_argument("--build-local", action="store_true")
     parser.add_argument("--sample", action="store_true")
+    parser.add_argument("--export-batches", action="store_true")
     parser.add_argument("--push-remote", action="store_true")
     parser.add_argument("--db-name", default="outils-adresses")
     parser.add_argument("--blue-green", action="store_true")
@@ -808,6 +918,8 @@ def main() -> None:
 
     if args.build_local:
         build_local_sqlite(sample_only=args.sample)
+    if args.export_batches and not args.push_remote:
+        export_local_batches(LOCAL_DB_PATH, BATCH_DIR)
     if args.push_remote:
         target_name = dated_db_name("DB_ADRESSES") if args.blue_green else args.db_name
         db_id = push_to_remote_d1(target_name, location=args.location)

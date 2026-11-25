@@ -310,6 +310,19 @@ export interface ParsedQuebecAddress {
   corrections: string[];
 }
 
+function normalizeMunicipalityInput(rawMun: string, corrections: string[]): string {
+  const munFolded = foldAddressToken(rawMun);
+  const aliasTarget = MUNICIPALITY_ALIASES[munFolded];
+  if (aliasTarget) {
+    if (foldAddressToken(aliasTarget) !== munFolded) {
+      corrections.push(`Municipalité ou arrondissement '${rawMun}' rattaché à '${aliasTarget}'`);
+    }
+    return foldAddressToken(aliasTarget);
+  }
+  const expanded = expandSaintAbbreviations(rawMun, corrections);
+  return foldAddressToken(expanded);
+}
+
 function expandSaintAbbreviations(text: string, corrections: string[]): string {
   let out = text;
   if (/\bste[-\s]+(?=[a-zà-ÿ])/i.test(out)) {
@@ -471,20 +484,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
   }
 
   // Normalisation de la municipalité
-  let municipalityNorm: string | null = null;
-  if (rawMun) {
-    const munFolded = foldAddressToken(rawMun);
-    const aliasTarget = MUNICIPALITY_ALIASES[munFolded];
-    if (aliasTarget) {
-      if (foldAddressToken(aliasTarget) !== munFolded) {
-        corrections.push(`Municipalité ou arrondissement '${rawMun}' rattaché à '${aliasTarget}'`);
-      }
-      municipalityNorm = foldAddressToken(aliasTarget);
-    } else {
-      const expanded = expandSaintAbbreviations(rawMun, corrections);
-      municipalityNorm = foldAddressToken(expanded);
-    }
-  }
+  const municipalityNorm = rawMun ? normalizeMunicipalityInput(rawMun, corrections) : null;
 
   // 4) Numéro civique + suffixe
   let civicNumber: number | null = null;
@@ -697,6 +697,24 @@ export const AdresseVerifyInputSchema = z.strictObject({
     .max(10)
     .optional()
     .describe("Code postal canadien optionnel (p. ex. 'H2Y 1B6')."),
+  lot_number: z
+    .string()
+    .trim()
+    .min(1)
+    .max(30)
+    .optional()
+    .describe(
+      "Numéro de lot cadastral du Québec pour recherche inversée (p. ex. '1 181 642' ou '1181642'). Incompatible avec les paramètres d'adresse directe et `matricule`.",
+    ),
+  matricule: z
+    .string()
+    .trim()
+    .min(4)
+    .max(30)
+    .optional()
+    .describe(
+      "Matricule d'évaluation foncière municipal pour recherche inversée (p. ex. '9891-44-1234' ou '9891441234'). Incompatible avec les paramètres d'adresse directe et `lot_number`.",
+    ),
   max_candidates: z
     .number()
     .int()
@@ -864,6 +882,25 @@ export const MatchStatusSchema = z.enum([
 ]);
 export type MatchStatus = z.infer<typeof MatchStatusSchema>;
 
+export const LotSourceSchema = z
+  .enum(["rqa_unite", "rqa_immeuble_parent", "absent"])
+  .describe(
+    "Provenance RQA des lots cadastraux : fiche de l'unité ('rqa_unite'), fiche du bâtiment principal / immeuble parent ('rqa_immeuble_parent') ou absent ('absent').",
+  );
+export type LotSource = z.infer<typeof LotSourceSchema>;
+
+export const AmbiguiteCadastraleSchema = z
+  .enum([
+    "lots_multiples",
+    "copropriete_divise_ou_multi_unites",
+    "lot_partage_avec_immeuble_parent",
+    "repli_lot_immeuble_parent",
+    "repli_matricule_immeuble_parent",
+    "lot_associe_a_plusieurs_adresses",
+  ])
+  .describe("Type d'ambiguïté cadastrale ou de copropriété relevé au RQA.");
+export type AmbiguiteCadastrale = z.infer<typeof AmbiguiteCadastraleSchema>;
+
 export const CandidatAdresseSchema = z.object({
   id_adresse: z.number().int().nullable(),
   seqodo: z.string().nullable(),
@@ -902,6 +939,15 @@ export const CandidatAdresseSchema = z.object({
     .nullable(),
   lots_cadastraux: z.array(z.string()),
   matricule_evaluation: z.string().nullable(),
+  lot_source: LotSourceSchema,
+  repli_immeuble_parent: z
+    .boolean()
+    .describe(
+      "Vrai lorsque les lots cadastraux ou le matricule d'évaluation d'une unité demandée proviennent par repli de l'immeuble parent (numero_unite = '').",
+    ),
+  ambiguites_cadastrales: z
+    .array(AmbiguiteCadastraleSchema)
+    .describe("Drapeaux d'ambiguïté cadastrale ou de copropriété relevés au RQA."),
   coordonnees: z
     .object({
       latitude: z.number(),
@@ -988,17 +1034,352 @@ function formatNormalizedQuebecAddress(opts: {
   return `${streetPart}${unitPart}, ${tail}`;
 }
 
+function splitLots(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function lotsIntersect(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length === 0 || b.length === 0) return false;
+  const setB = new Set(b.map((x) => x.replace(/\s+/g, "")));
+  return a.some((x) => setB.has(x.replace(/\s+/g, "")));
+}
+
+function normalizeLotNumber(
+  raw: string,
+): { ok: true; lotNum: number; display: string } | { ok: false; text: string } {
+  const compact = raw.replace(/[\s\u00a0\u202f]+/g, "");
+  if (!/^\d{5,9}$/.test(compact)) {
+    return {
+      ok: false,
+      text: "Format de numéro de lot invalide : fournir un numéro de lot du Cadastre du Québec de 5 à 9 chiffres (p. ex. '1 181 642' ou '1181642'), sans tirets ni lettres (les anciens lots alphanumériques non rénovés ne sont pas indexés pour la recherche inversée).",
+    };
+  }
+  const lotNum = Number.parseInt(compact, 10);
+  if (!Number.isSafeInteger(lotNum) || lotNum <= 0) {
+    return {
+      ok: false,
+      text: "Numéro de lot invalide : le numéro de lot cadastral doit être un entier positif.",
+    };
+  }
+  const display =
+    compact.length === 7 ? `${compact[0]} ${compact.slice(1, 4)} ${compact.slice(4)}` : compact;
+  return { ok: true, lotNum, display };
+}
+
+function normalizeMatricule(
+  raw: string,
+): { ok: true; display: string; variants: string[] } | { ok: false; text: string } {
+  const trimmed = raw.trim();
+  const compact = trimmed.replace(/[\s-]+/g, "");
+  if (!/^\d{10,18}$/.test(compact)) {
+    return {
+      ok: false,
+      text: "Format de matricule invalide : fournir un matricule d'évaluation foncière numérique de 10 à 18 chiffres (p. ex. '9891-44-1234' ou '9891441234').",
+    };
+  }
+  const variants = new Set<string>([trimmed, compact]);
+  let display = trimmed;
+  if (compact.length === 10) {
+    const dashed = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 10)}`;
+    variants.add(dashed);
+    display = dashed;
+  } else if (compact.length === 14) {
+    const dashed = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 10)}-${compact.slice(10, 14)}`;
+    variants.add(dashed);
+    display = dashed;
+  } else if (compact.length === 18) {
+    const dashed = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 10)}-${compact.slice(10, 11)}-${compact.slice(11, 14)}-${compact.slice(14, 18)}`;
+    variants.add(dashed);
+    display = dashed;
+  }
+  return { ok: true, display, variants: Array.from(variants) };
+}
+
+interface RawReverseRow extends RawCivicRow {
+  code_municipalite: string;
+  seqodo: string;
+  generique: string | null;
+  particule: string | null;
+  specifique: string;
+  cardinal: string | null;
+  odonyme_normal: string;
+  odonyme_long: string;
+  nom_municipalite: string;
+  nom_normalise: string;
+  mrc: string | null;
+  region_administrative: string | null;
+}
+
+async function adresseVerifyReverse(
+  db: D1Database,
+  input: AdresseVerifyInput,
+): Promise<
+  { ok: true; structured: AdresseVerifyOutput; text: string } | { ok: false; text: string }
+> {
+  const maxCandidates = input.max_candidates ?? 5;
+  const corrections: string[] = [];
+
+  const lotNorm = input.lot_number ? normalizeLotNumber(input.lot_number) : null;
+  if (lotNorm && !lotNorm.ok) return lotNorm;
+
+  const matNorm = input.matricule ? normalizeMatricule(input.matricule) : null;
+  if (matNorm && !matNorm.ok) return matNorm;
+
+  const rawQuerySummary = lotNorm
+    ? `lot ${lotNorm.display}`
+    : `matricule ${matNorm ? matNorm.display : ""}`;
+
+  const metaRow = await db
+    .prepare("SELECT version_date FROM meta_sources WHERE source_key = 'rqa'")
+    .first<{ version_date: string }>();
+  const verifiedAt = metaRow?.version_date ?? "2026-11-01";
+
+  const munCodes: string[] = [];
+  if (input.municipality) {
+    const outsideProvince = detectOutsideQuebecIndicator({ municipality: input.municipality });
+    if (outsideProvince) {
+      return buildFinalAdresseResult({
+        status: "outside_quebec",
+        candidates: [],
+        corrections: [
+          `Indicateur territorial hors Québec détecté (« ${outsideProvince} ») : recherche hors du champ de couverture du RQA (Québec uniquement).`,
+        ],
+        verifiedAt,
+        rawQuerySummary,
+        outsideProvinceLabel: outsideProvince,
+      });
+    }
+    const munNorm = normalizeMunicipalityInput(input.municipality, corrections);
+    const munRes = await db
+      .prepare(
+        `SELECT code_municipalite, nom_municipalite, nom_normalise, mrc, region_administrative
+           FROM municipalites
+          WHERE nom_normalise = ?
+             OR (' ' || aliases_recherche || ' ') LIKE ?
+          LIMIT 25`,
+      )
+      .bind(munNorm, `% ${munNorm} %`)
+      .all<RawMunRow>();
+    for (const m of munRes.results) {
+      munCodes.push(m.code_municipalite);
+    }
+    if (munCodes.length === 0) {
+      if (OUTSIDE_QC_MAJOR_CITIES.has(munNorm)) {
+        return buildFinalAdresseResult({
+          status: "outside_quebec",
+          candidates: [],
+          corrections: [
+            `Indicateur hors Québec détecté (${input.municipality}) : recherche hors du champ de couverture du RQA (Québec uniquement).`,
+          ],
+          verifiedAt,
+          rawQuerySummary,
+          outsideProvinceLabel: input.municipality,
+        });
+      }
+      corrections.push(
+        `Municipalité '${input.municipality}' introuvable au RQA : filtre municipal strict appliqué, aucun résultat retenu.`,
+      );
+      return buildFinalAdresseResult({
+        status: "not_found",
+        candidates: [],
+        corrections,
+        verifiedAt,
+        rawQuerySummary,
+      });
+    }
+  }
+
+  const munFilterClause =
+    munCodes.length > 0 ? ` AND o.code_municipalite IN (${munCodes.map(() => "?").join(",")})` : "";
+
+  const orderClause = `ORDER BY o.code_municipalite ASC, o.id ASC, c.numero_municipal ASC, c.suffixe ASC,
+             CASE WHEN c.numero_unite = '' THEN 0 ELSE 1 END, c.numero_unite ASC`;
+
+  const reverseRes = lotNorm
+    ? await db
+        .prepare(
+          `SELECT c.id, c.odo_id, c.numero_municipal, c.suffixe, c.numero_unite, c.type_unite,
+                  c.code_postal, c.etat, c.categorie, c.numero_lot, c.matricule, c.latitude, c.longitude,
+                  o.code_municipalite, o.seqodo, o.generique, o.particule, o.specifique, o.cardinal,
+                  o.odonyme_normal, o.odonyme_long,
+                  m.nom_municipalite, m.nom_normalise, m.mrc, m.region_administrative
+             FROM lots_cadastraux_index l
+             JOIN adresses_civiques c ON c.id = l.civ_id
+             JOIN odonymes o ON o.id = c.odo_id
+             JOIN municipalites m ON m.code_municipalite = o.code_municipalite
+            WHERE l.lot_num = ?${munFilterClause}
+            ${orderClause}
+            LIMIT ?`,
+        )
+        .bind(lotNorm.lotNum, ...munCodes, maxCandidates + 1)
+        .all<RawReverseRow>()
+    : await db
+        .prepare(
+          `SELECT c.id, c.odo_id, c.numero_municipal, c.suffixe, c.numero_unite, c.type_unite,
+                  c.code_postal, c.etat, c.categorie, c.numero_lot, c.matricule, c.latitude, c.longitude,
+                  o.code_municipalite, o.seqodo, o.generique, o.particule, o.specifique, o.cardinal,
+                  o.odonyme_normal, o.odonyme_long,
+                  m.nom_municipalite, m.nom_normalise, m.mrc, m.region_administrative
+             FROM adresses_civiques c
+             JOIN odonymes o ON o.id = c.odo_id
+             JOIN municipalites m ON m.code_municipalite = o.code_municipalite
+            WHERE c.matricule IN (${matNorm!.variants.map(() => "?").join(",")})
+              AND c.matricule IS NOT NULL${munFilterClause}
+            ${orderClause}
+            LIMIT ?`,
+        )
+        .bind(...matNorm!.variants, ...munCodes, maxCandidates + 1)
+        .all<RawReverseRow>();
+
+  const rows = reverseRes.results;
+  if (rows.length === 0) {
+    return buildFinalAdresseResult({
+      status: "not_found",
+      candidates: [],
+      corrections,
+      verifiedAt,
+      rawQuerySummary,
+    });
+  }
+
+  const multipleAddresses = rows.length > 1;
+  const truncated = rows.length > maxCandidates;
+  if (truncated) {
+    corrections.push(
+      `Plus de ${maxCandidates} adresses civiques correspondent à ce ${lotNorm ? "numéro de lot" : "matricule"} au RQA : affichage limité aux ${maxCandidates} premiers résultats.`,
+    );
+  }
+
+  const sliced = rows.slice(0, maxCandidates);
+  const unitBuildingsInResult = new Set<string>();
+  for (const r of rows) {
+    if (r.numero_unite !== "") {
+      unitBuildingsInResult.add(`${r.odo_id}:${r.numero_municipal}:${r.suffixe.toUpperCase()}`);
+    }
+  }
+
+  const candidates: z.infer<typeof CandidatAdresseSchema>[] = sliced.map((r) => {
+    const lots = splitLots(r.numero_lot);
+    const hasUnit = r.numero_unite !== "";
+    const lotSource: LotSource =
+      lots.length === 0 ? "absent" : hasUnit ? "rqa_unite" : "rqa_immeuble_parent";
+    const buildingKey = `${r.odo_id}:${r.numero_municipal}:${r.suffixe.toUpperCase()}`;
+    const ambiguites: AmbiguiteCadastrale[] = [];
+    if (lots.length > 1) {
+      ambiguites.push("lots_multiples");
+    }
+    if (hasUnit || unitBuildingsInResult.has(buildingKey)) {
+      ambiguites.push("copropriete_divise_ou_multi_unites");
+    }
+    if (multipleAddresses) {
+      ambiguites.push("lot_associe_a_plusieurs_adresses");
+    }
+
+    const rqaPostalType = isGisStackingUnitType(r.type_unite)
+      ? null
+      : normalizeUnitLabel(r.type_unite!);
+    const effectiveUnitLabel = hasUnit ? (rqaPostalType ?? "unité") : null;
+    const effectiveComponentUnitType = hasUnit
+      ? isGisStackingUnitType(r.type_unite)
+        ? "unité"
+        : (r.type_unite ?? null)
+      : null;
+
+    return {
+      id_adresse: Number(r.id),
+      seqodo: r.seqodo,
+      adresse_normalisee: formatNormalizedQuebecAddress({
+        civic: r.numero_municipal,
+        suffix: r.suffixe,
+        odonymeLong: r.odonyme_long,
+        unitNumber: r.numero_unite,
+        unitLabel: effectiveUnitLabel,
+        municipalite: r.nom_municipalite,
+        postalCode: r.code_postal,
+      }),
+      composantes: {
+        numero_municipal: r.numero_municipal,
+        suffixe: r.suffixe || null,
+        unite: r.numero_unite || null,
+        type_unite: effectiveComponentUnitType,
+        generique_odonyme: r.generique ?? null,
+        particule_odonyme: r.particule ?? null,
+        specifique_odonyme: r.specifique,
+        point_cardinal: r.cardinal ?? null,
+        odonyme_complet: r.odonyme_normal,
+        code_municipalite: r.code_municipalite,
+        municipalite: r.nom_municipalite,
+        mrc: r.mrc ?? null,
+        region_administrative: r.region_administrative ?? null,
+        province: "Québec",
+        code_postal: formatPostalCode(r.code_postal),
+      },
+      etat_rqa: expandEtatRqa(r.etat),
+      categorie_rqa: r.categorie ?? null,
+      plage_civique_rue: null,
+      district_judiciaire_probable: resolveProbableDistrict(r.nom_municipalite),
+      lots_cadastraux: lots,
+      matricule_evaluation: r.matricule ?? null,
+      lot_source: lotSource,
+      repli_immeuble_parent: false,
+      ambiguites_cadastrales: ambiguites,
+      coordonnees:
+        r.latitude !== null && r.longitude !== null
+          ? { latitude: Number(r.latitude), longitude: Number(r.longitude) }
+          : null,
+    };
+  });
+
+  return buildFinalAdresseResult({
+    status: "exact_civic",
+    candidates,
+    corrections,
+    verifiedAt,
+    rawQuerySummary,
+  });
+}
+
 export async function adresseVerify(
   db: D1Database,
   input: AdresseVerifyInput,
 ): Promise<
   { ok: true; structured: AdresseVerifyOutput; text: string } | { ok: false; text: string }
 > {
-  if (!input.address && !input.street && !(input.postal_code && input.civic_number)) {
+  const hasForward = Boolean(
+    input.address || input.street || (input.postal_code && input.civic_number),
+  );
+  const hasAnyForwardField = Boolean(
+    input.address || input.street || input.civic_number || input.unit || input.postal_code,
+  );
+  const hasLot = Boolean(input.lot_number);
+  const hasMatricule = Boolean(input.matricule);
+  const hasReverse = hasLot || hasMatricule;
+
+  if (hasLot && hasMatricule) {
     return {
       ok: false,
-      text: "Paramètres insuffisants : fournir soit `address` (adresse sur une ligne), soit `street` (odonyme), soit la paire `postal_code` + `civic_number`.",
+      text: "Paramètres incompatibles : fournir soit `lot_number`, soit `matricule`, jamais les deux simultanément.",
     };
+  }
+  if (hasReverse && hasAnyForwardField) {
+    return {
+      ok: false,
+      text: "Paramètres incompatibles : la recherche inversée par `lot_number` ou `matricule` ne peut pas être combinée avec `address`, `street`, `civic_number`, `unit` ou `postal_code` (seuls `municipality` et `max_candidates` sont admis).",
+    };
+  }
+  if (!hasForward && !hasReverse) {
+    return {
+      ok: false,
+      text: "Paramètres insuffisants : fournir soit `address` (adresse sur une ligne), soit `street` (odonyme), soit la paire `postal_code` + `civic_number`, soit `lot_number` ou `matricule` pour une recherche inversée.",
+    };
+  }
+
+  if (hasReverse) {
+    return adresseVerifyReverse(db, input);
   }
 
   const maxCandidates = input.max_candidates ?? 5;
@@ -1346,6 +1727,9 @@ export async function adresseVerify(
         district_judiciaire_probable: resolveProbableDistrict(munName),
         lots_cadastraux: [],
         matricule_evaluation: null,
+        lot_source: "absent",
+        repli_immeuble_parent: false,
+        ambiguites_cadastrales: [],
         coordonnees: null,
       });
     }
@@ -1451,10 +1835,19 @@ export async function adresseVerify(
     // Dédupliquer si plusieurs unités non demandées coexistent sur le même immeuble
     const deduped: ScoredCivic[] = [];
     const seenKeys = new Set<string>();
+    const confirmedBuildings = new Set<string>();
     for (const item of scoredCivics) {
+      const buildingKey = `${item.odo.id}:${item.civ.suffixe}`;
+      if (parsed.unitNumber) {
+        if (item.unitConfirmed) {
+          confirmedBuildings.add(buildingKey);
+        } else if (confirmedBuildings.has(buildingKey)) {
+          continue;
+        }
+      }
       const key = parsed.unitNumber
         ? `${item.odo.id}:${item.civ.suffixe}:${item.unitConfirmed ? item.civ.numero_unite || item.civ.suffixe : "UNCONF"}`
-        : `${item.odo.id}:${item.civ.suffixe}`;
+        : buildingKey;
       if (seenKeys.has(key)) continue;
       seenKeys.add(key);
       deduped.push(item);
@@ -1523,7 +1916,43 @@ export async function adresseVerify(
       );
     }
 
-    const formattedCandidates: z.infer<typeof CandidatAdresseSchema>[] = deduped.map((item) => {
+    const parentByBuildingKey = new Map<string, RawCivicRow>();
+    for (const c of civRes.results) {
+      if (c.numero_unite === "") {
+        const bKey = `${c.odo_id}:${c.numero_municipal}:${c.suffixe.toUpperCase()}`;
+        if (!parentByBuildingKey.has(bKey)) {
+          parentByBuildingKey.set(bKey, c);
+        }
+      }
+    }
+
+    const unitStatsByBuildingKey = new Map<
+      string,
+      { unitCount: number; anyUnitDistinctFromParent: boolean }
+    >();
+    for (const c of civRes.results) {
+      if (c.numero_unite !== "") {
+        const bKey = `${c.odo_id}:${c.numero_municipal}:${c.suffixe.toUpperCase()}`;
+        const stats = unitStatsByBuildingKey.get(bKey) ?? {
+          unitCount: 0,
+          anyUnitDistinctFromParent: false,
+        };
+        stats.unitCount += 1;
+        const parent = parentByBuildingKey.get(bKey);
+        const cLots = splitLots(c.numero_lot);
+        const pLots = parent ? splitLots(parent.numero_lot) : [];
+        if (
+          cLots.length > 0 &&
+          (pLots.length === 0 || !lotsIntersect(cLots, pLots) || cLots.length !== pLots.length)
+        ) {
+          stats.anyUnitDistinctFromParent = true;
+        }
+        unitStatsByBuildingKey.set(bKey, stats);
+      }
+    }
+
+    const formattedCandidates: z.infer<typeof CandidatAdresseSchema>[] = [];
+    for (const item of deduped) {
       const mun = munMap.get(item.odo.code_municipalite);
       const munName = mun?.nom_municipalite ?? item.odo.code_municipalite;
       const suffixMatchesUnit =
@@ -1555,14 +1984,102 @@ export async function adresseVerify(
             ? (parsed.unitTypeLabel ?? "unité")
             : (item.civ.type_unite ?? null)
           : null;
-      const lots = item.civ.numero_lot
-        ? item.civ.numero_lot
-            .split(/[,;]+/)
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
 
-      return {
+      const buildingKey = `${item.civ.odo_id}:${item.civ.numero_municipal}:${item.civ.suffixe.toUpperCase()}`;
+      const isUnitRow = item.civ.numero_unite !== "" || suffixMatchesUnit;
+      const ownLots = splitLots(item.civ.numero_lot);
+      const ownMatricule = item.civ.matricule?.trim() || null;
+
+      let parentRow =
+        item.civ.numero_unite !== "" ? parentByBuildingKey.get(buildingKey) : undefined;
+      if (
+        item.civ.numero_unite !== "" &&
+        !parentRow &&
+        (ownLots.length === 0 || !ownMatricule) &&
+        civRes.results.length === 80
+      ) {
+        const fetchedParent = await db
+          .prepare(
+            `SELECT id, odo_id, numero_municipal, suffixe, numero_unite, type_unite,
+                    code_postal, etat, categorie, numero_lot, matricule, latitude, longitude
+               FROM adresses_civiques
+              WHERE odo_id = ? AND numero_municipal = ? AND UPPER(suffixe) = ? AND numero_unite = ''
+              LIMIT 1`,
+          )
+          .bind(item.civ.odo_id, item.civ.numero_municipal, item.civ.suffixe.toUpperCase())
+          .first<RawCivicRow>();
+        if (fetchedParent) {
+          parentByBuildingKey.set(buildingKey, fetchedParent);
+          parentRow = fetchedParent;
+        }
+      }
+
+      const parentLots = parentRow ? splitLots(parentRow.numero_lot) : [];
+      const parentMatricule = parentRow?.matricule?.trim() || null;
+
+      let lots: string[];
+      let lotSource: LotSource;
+      let matriculeEval: string | null;
+      let repliImmeubleParent = false;
+      const ambiguites: AmbiguiteCadastrale[] = [];
+
+      if (isUnitRow) {
+        if (ownLots.length > 0) {
+          lots = ownLots;
+          lotSource = "rqa_unite";
+          if (parentLots.length > 0 && lotsIntersect(ownLots, parentLots)) {
+            ambiguites.push("lot_partage_avec_immeuble_parent");
+          }
+        } else if (parentLots.length > 0) {
+          lots = parentLots;
+          lotSource = "rqa_immeuble_parent";
+          repliImmeubleParent = true;
+          ambiguites.push("repli_lot_immeuble_parent");
+          corrections.push(
+            `Unité '${effectiveUnit}' sans numéro de lot propre au RQA : lot(s) de l'immeuble parent (${parentLots.join(", ")}) affiché(s) à titre indicatif (ne constitue pas le lot privatif).`,
+          );
+        } else {
+          lots = [];
+          lotSource = "absent";
+        }
+
+        if (ownMatricule) {
+          matriculeEval = ownMatricule;
+        } else if (parentMatricule) {
+          matriculeEval = parentMatricule;
+          repliImmeubleParent = true;
+          ambiguites.push("repli_matricule_immeuble_parent");
+          corrections.push(
+            `Unité '${effectiveUnit}' sans matricule propre au RQA : matricule de l'immeuble parent (${parentMatricule}) affiché à titre indicatif.`,
+          );
+        } else {
+          matriculeEval = null;
+        }
+      } else {
+        lots = ownLots;
+        lotSource = ownLots.length > 0 ? "rqa_immeuble_parent" : "absent";
+        matriculeEval = ownMatricule;
+
+        if (
+          parsed.unitNumber &&
+          !item.unitConfirmed &&
+          (lots.length > 0 || matriculeEval !== null)
+        ) {
+          repliImmeubleParent = true;
+          if (lots.length > 0) ambiguites.push("repli_lot_immeuble_parent");
+          if (matriculeEval !== null) ambiguites.push("repli_matricule_immeuble_parent");
+        }
+        const unitStats = unitStatsByBuildingKey.get(buildingKey);
+        if ((unitStats?.unitCount ?? 0) > 0) {
+          ambiguites.push("copropriete_divise_ou_multi_unites");
+        }
+      }
+
+      if (lots.length > 1) {
+        ambiguites.push("lots_multiples");
+      }
+
+      formattedCandidates.push({
         id_adresse: Number(item.civ.id),
         seqodo: item.odo.seqodo,
         adresse_normalisee: formatNormalizedQuebecAddress({
@@ -1596,13 +2113,16 @@ export async function adresseVerify(
         plage_civique_rue: null,
         district_judiciaire_probable: resolveProbableDistrict(munName),
         lots_cadastraux: lots,
-        matricule_evaluation: item.civ.matricule ?? null,
+        matricule_evaluation: matriculeEval,
+        lot_source: lotSource,
+        repli_immeuble_parent: repliImmeubleParent,
+        ambiguites_cadastrales: ambiguites,
         coordonnees:
           item.civ.latitude !== null && item.civ.longitude !== null
             ? { latitude: Number(item.civ.latitude), longitude: Number(item.civ.longitude) }
             : null,
-      };
-    });
+      });
+    }
 
     return buildFinalAdresseResult({
       status,
@@ -1673,6 +2193,9 @@ export async function adresseVerify(
       district_judiciaire_probable: resolveProbableDistrict(munName),
       lots_cadastraux: [],
       matricule_evaluation: null,
+      lot_source: "absent",
+      repli_immeuble_parent: false,
+      ambiguites_cadastrales: [],
       coordonnees: null,
     });
   }
@@ -1705,6 +2228,21 @@ function buildFinalAdresseResult(opts: {
   ) {
     gardes.push(makeGarde("ADRESSE_CORRESPONDANCE_APPROXIMATIVE"));
   }
+  const hasMultiOrCoownership = opts.candidates.some((c) =>
+    c.ambiguites_cadastrales.some(
+      (a) =>
+        a === "lots_multiples" ||
+        a === "copropriete_divise_ou_multi_unites" ||
+        a === "lot_partage_avec_immeuble_parent" ||
+        a === "lot_associe_a_plusieurs_adresses",
+    ),
+  );
+  if (hasMultiOrCoownership) {
+    gardes.push(makeGarde("ADRESSE_LOT_MULTI_OU_COPROPRIETE"));
+  }
+  if (opts.candidates.some((c) => c.repli_immeuble_parent)) {
+    gardes.push(makeGarde("ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT"));
+  }
 
   const bestAddr =
     opts.status === "exact_civic" ||
@@ -1735,7 +2273,11 @@ function buildFinalAdresseResult(opts: {
     const duplicateLabel = (labelCounts.get(c.adresse_normalisee) ?? 0) > 1;
     const lotsStr =
       c.lots_cadastraux.length > 0
-        ? ` | Lots RQA (indicatifs) : ${c.lots_cadastraux.join(", ")}`
+        ? ` | Lots RQA (indicatifs, source=${c.lot_source}) : ${c.lots_cadastraux.join(", ")}`
+        : ` | Lots RQA : aucun (source=${c.lot_source})`;
+    const ambStr =
+      c.ambiguites_cadastrales.length > 0
+        ? ` | Ambiguïtés cadastrales : ${c.ambiguites_cadastrales.join(", ")}`
         : "";
     const matStr = c.matricule_evaluation ? ` | Matricule : ${c.matricule_evaluation}` : "";
     const plageStr = c.plage_civique_rue
@@ -1762,7 +2304,7 @@ function buildFinalAdresseResult(opts: {
     const distStr = c.district_judiciaire_probable
       ? `\n  District judiciaire probable : ${c.district_judiciaire_probable.district} (greffes ${c.district_judiciaire_probable.greffes.join(", ")}) — sous réserve`
       : "";
-    return `${idx + 1}. ${c.adresse_normalisee} [état=${c.etat_rqa ?? "rue seule"}, cat=${c.categorie_rqa ?? "n/d"}${plageStr}${lotsStr}${matStr}${diffStr}]${distStr}`;
+    return `${idx + 1}. ${c.adresse_normalisee} [état=${c.etat_rqa ?? "rue seule"}, cat=${c.categorie_rqa ?? "n/d"}${plageStr}${lotsStr}${ambStr}${matStr}${diffStr}]${distStr}`;
   });
 
   const corrLines =

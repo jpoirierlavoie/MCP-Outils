@@ -22,6 +22,10 @@ CREATE INDEX IF NOT EXISTS idx_civ_cp_num
   ON adresses_civiques(code_postal, numero_municipal)
   WHERE code_postal IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS idx_civ_matricule
+  ON adresses_civiques(matricule)
+  WHERE matricule IS NOT NULL;
+
 CREATE VIRTUAL TABLE IF NOT EXISTS odonymes_fts USING fts5(
   specifique,
   odonyme_normal,
