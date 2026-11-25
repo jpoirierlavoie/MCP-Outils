@@ -1,4 +1,5 @@
 import { z } from "zod";
+import bocPrimeRatesJson from "../data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "../data/laf_art28_rates.json" with { type: "json" };
 import {
   addDays,
@@ -21,7 +22,12 @@ const QUARTER_RE = /^\d{4}-Q[1-4]$/;
 export const EXACT_EXACT_COMMON_DENOMINATOR = 1_335_900_000n;
 export const LEGAL_INTEREST_RATE_BPS = lafRatesJson.metadata.legal_rate_bps;
 
-export const InterestModeSchema = z.enum(["legal_plus_1619", "legal_only", "contractual"]);
+export const InterestModeSchema = z.enum([
+  "legal_plus_1619",
+  "legal_only",
+  "contractual",
+  "prime_plus_margin",
+]);
 export type InterestMode = z.infer<typeof InterestModeSchema>;
 
 export const RateOverrideSchema = z.strictObject({
@@ -75,12 +81,21 @@ export const CapitalTrancheInputSchema = z.strictObject({
     .max(50000)
     .optional()
     .describe("Taux contractuel en points de base propre à cette tranche (mode 'contractual')."),
+  spread_bps: z
+    .number()
+    .int()
+    .min(-5000)
+    .max(50000)
+    .optional()
+    .describe(
+      "Marge en points de base ajoutée au taux préférentiel BDC V80691311 propre à cette tranche (mode 'prime_plus_margin', p. ex. 200 pour +2,00 %, -50 pour -0,50 %).",
+    ),
 });
 export type CapitalTrancheInput = z.infer<typeof CapitalTrancheInputSchema>;
 
 export const ComputeInterest1619InputSchema = z.strictObject({
   mode: InterestModeSchema.optional().describe(
-    "Mode de calcul : 'legal_plus_1619' (défaut : taux légal 5 % + indemnité additionnelle art. 1619 C.c.Q.), 'legal_only' (5 % seul), ou 'contractual' (taux fixe spécifié par rate_bps).",
+    "Mode de calcul : 'legal_plus_1619' (défaut : taux légal 5 % + indemnité additionnelle art. 1619 C.c.Q.), 'legal_only' (5 % seul), 'contractual' (taux fixe spécifié par rate_bps) ou 'prime_plus_margin' (taux préférentiel BDC V80691311 + marge spread_bps).",
   ),
   end_date: z
     .string()
@@ -94,6 +109,15 @@ export const ComputeInterest1619InputSchema = z.strictObject({
     .optional()
     .describe(
       "Taux annuel contractuel par défaut en points de base (requis en mode 'contractual' si non précisé par tranche; 100 bps = 1,00 %).",
+    ),
+  spread_bps: z
+    .number()
+    .int()
+    .min(-5000)
+    .max(50000)
+    .optional()
+    .describe(
+      "Marge par défaut en points de base ajoutée au taux préférentiel BDC V80691311 (mode 'prime_plus_margin'; 0 par défaut; 100 bps = 1,00 %).",
     ),
   rate_overrides: z
     .array(RateOverrideSchema)
@@ -117,6 +141,8 @@ export const InterestPeriodSliceSchema = z.object({
   days: z.number().int(),
   year_days: z.union([z.literal(365), z.literal(366)]),
   laf_rate_bps: z.number().int().nullable(),
+  prime_rate_bps: z.number().int().nullable(),
+  spread_bps: z.number().int().nullable(),
   overridden: z.boolean(),
   legal_rate_bps: z.number().int(),
   additional_rate_bps: z.number().int(),
@@ -158,6 +184,7 @@ export const ComputeInterest1619OutputSchema = z.object({
   mode: InterestModeSchema,
   convention: z.literal("Exact/Exact (365/366), start_excluded_end_included, simple"),
   laf_table_last_quarter: z.string(),
+  prime_table_last_verified_date: z.string(),
   truncated_any: z.boolean(),
   total_principal_cents: z.number().int(),
   total_principal_cad: z.string(),
@@ -251,14 +278,30 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
       `rate_bps global ne doit être fourni qu'en mode 'contractual' (reçu avec mode='${mode}').`,
     );
   }
+  if (mode !== "prime_plus_margin" && input.spread_bps !== undefined) {
+    throw new RangeError(
+      `spread_bps global ne doit être fourni qu'en mode 'prime_plus_margin' (reçu avec mode='${mode}').`,
+    );
+  }
+  if (mode === "prime_plus_margin" && input.rate_overrides && input.rate_overrides.length > 0) {
+    throw new RangeError(
+      "rate_overrides ne s'applique qu'aux trimestres art. 28 L.A.F. (mode 'legal_plus_1619') et est interdit en mode 'prime_plus_margin'.",
+    );
+  }
 
   const lafData = buildLafRateMap(input.rate_overrides);
   const lafRateMap = mode === "legal_plus_1619" ? lafData.map : null;
   const overrideQuarters = lafData.overrideQuarters;
   const usedOverrideQuarters = new Set<string>();
+  const primeChanges = bocPrimeRatesJson.series.V80691311.changes;
+  const primeFirstDate = bocPrimeRatesJson.metadata.first_date;
+  const primeLastDate = bocPrimeRatesJson.metadata.last_verified_date;
 
   const guardReasons = new Map<GardeCode, string | undefined>();
   guardReasons.set("INTERET_SIMPLE_ART_1620_CCQ", undefined);
+  if (mode === "prime_plus_margin") {
+    guardReasons.set("TAUX_BOC_PRIME_INDICATIF_BANCAIRE", undefined);
+  }
 
   const trancheResults: TrancheResult[] = [];
   let truncatedAny = false;
@@ -286,6 +329,11 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
         `Tranche #${idx + 1} (${label}) : rate_bps ne s'applique qu'en mode 'contractual'.`,
       );
     }
+    if (mode !== "prime_plus_margin" && tranche.spread_bps !== undefined) {
+      throw new RangeError(
+        `Tranche #${idx + 1} (${label}) : spread_bps ne s'applique qu'en mode 'prime_plus_margin'.`,
+      );
+    }
 
     let trancheContractualRateBps = 0;
     if (mode === "contractual") {
@@ -297,6 +345,8 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
       }
       trancheContractualRateBps = resolvedRate;
     }
+    const trancheSpreadBps =
+      mode === "prime_plus_margin" ? (tranche.spread_bps ?? input.spread_bps ?? 0) : 0;
 
     const principalBig = BigInt(tranche.principal_cents);
     const periods: InterestPeriodSlice[] = [];
@@ -319,6 +369,8 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
         let sliceEndLimit: string;
         let periodLabel: string;
         let lafBps: number | null = null;
+        let primeBps: number | null = null;
+        let spreadBps: number | null = null;
         let isOverridden = false;
         let legalBps = 0;
         let additionalBps = 0;
@@ -356,6 +408,40 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
           }
           legalBps = LEGAL_INTEREST_RATE_BPS;
           additionalBps = Math.max(0, lafBps - LEGAL_INTEREST_RATE_BPS);
+        } else if (mode === "prime_plus_margin") {
+          if (compareIsoDates(cur, primeFirstDate) < 0) {
+            throw new RangeError(
+              `Tranche #${idx + 1} (${label}) : aucun taux préférentiel BDC V80691311 n'est disponible avant ${primeFirstDate} (table embarquée : ${primeFirstDate} à ${primeLastDate}).`,
+            );
+          }
+          if (compareIsoDates(cur, primeLastDate) > 0) {
+            truncated = true;
+            truncatedAny = true;
+            effectiveEndDate = accruedDays === 0 ? tranche.start_date : addDays(cur, -1);
+            guardReasons.set(
+              "TAUX_BOC_PRIME_DATE_MANQUANTE",
+              `Dernière date vérifiée : ${primeLastDate} (calcul arrêté au ${effectiveEndDate}).`,
+            );
+            break;
+          }
+
+          let activeIdx = 0;
+          for (let i = 0; i < primeChanges.length; i++) {
+            if (compareIsoDates(primeChanges[i]!.effective_from, cur) <= 0) {
+              activeIdx = i;
+            } else {
+              break;
+            }
+          }
+          const activeChange = primeChanges[activeIdx]!;
+          const nextChange = primeChanges[activeIdx + 1];
+          const regimeEnd = nextChange ? addDays(nextChange.effective_from, -1) : primeLastDate;
+          const yearEnd = formatIsoDate(year, 12, 31);
+          sliceEndLimit = minIsoDate(regimeEnd, minIsoDate(yearEnd, primeLastDate));
+          periodLabel = `${year} (${activeChange.effective_from})`;
+          primeBps = activeChange.rate_bps;
+          spreadBps = trancheSpreadBps;
+          contractualBps = Math.max(0, primeBps + spreadBps);
         } else {
           sliceEndLimit = formatIsoDate(year, 12, 31);
           periodLabel = String(year);
@@ -387,6 +473,8 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
           days: sliceDays,
           year_days: yDays,
           laf_rate_bps: lafBps,
+          prime_rate_bps: primeBps,
+          spread_bps: spreadBps,
           overridden: isOverridden,
           legal_rate_bps: legalBps,
           additional_rate_bps: additionalBps,
@@ -463,12 +551,24 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
   const baseSource =
     mode === "contractual"
       ? "Calcul arithmétique conventionnel en intérêt simple (Exact/Exact, 365/366)"
-      : `${lafRatesJson.metadata.source}; art. 3 Loi sur l'intérêt (L.R.C. 1985, c. I-15); art. 1618-1620 C.c.Q.`;
+      : mode === "prime_plus_margin"
+        ? `${bocPrimeRatesJson.metadata.source}; art. 1618-1620 C.c.Q.`
+        : `${lafRatesJson.metadata.source}; art. 3 Loi sur l'intérêt (L.R.C. 1985, c. I-15); art. 1618-1620 C.c.Q.`;
+
+  const verifiedAt =
+    mode === "prime_plus_margin"
+      ? bocPrimeRatesJson.metadata.verified_at
+      : lafRatesJson.metadata.verified_at;
+  const tableVersion =
+    mode === "prime_plus_margin"
+      ? bocPrimeRatesJson.metadata.table_version
+      : lafRatesJson.metadata.table_version;
 
   return {
     mode,
     convention: "Exact/Exact (365/366), start_excluded_end_included, simple",
     laf_table_last_quarter: lafRatesJson.metadata.last_quarter,
+    prime_table_last_verified_date: bocPrimeRatesJson.metadata.last_verified_date,
     truncated_any: truncatedAny,
     total_principal_cents: assertSafeIntCents(sumPrincipalCents, "total_principal"),
     total_principal_cad: formatCentsToCad(sumPrincipalCents),
@@ -494,8 +594,8 @@ export function computeInterest1619(input: ComputeInterest1619Input): ComputeInt
         usedOverridesList.length > 0
           ? `${baseSource} [avertissement : taux fournis par l'appelant (rate_overrides) pour ${usedOverridesList.join(", ")}, non vérifiés dans la table embarquée]`
           : baseSource,
-      verified_at: lafRatesJson.metadata.verified_at,
-      table_version: lafRatesJson.metadata.table_version,
+      verified_at: verifiedAt,
+      table_version: tableVersion,
     },
     gardes,
   };

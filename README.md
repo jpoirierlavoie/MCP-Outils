@@ -7,13 +7,13 @@ Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`),
 Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
 Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
 
-## Outils exposés (v2.2.0 — 12 outils sur 5 familles)
+## Outils exposés (v2.2.0 — 13 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
 | `calcul` | `calendrier_holidays` | Liste les jours fériés et non juridiques d'une année civile (`qc_cpc`, `qc_prescription`, `qc_li`, `ca_li` avec `province` optionnel). | Art. 82 al. 1 C.p.c., art. 2879 al. 2 C.c.Q., art. 61 par. 23° & art. 52 L.I. (RLRQ, c. I-16), art. 35(1) L.I. (L.R.C. 1985, c. I-21). |
 | `calcul` | `calendrier_deadlines` | Calculateur exact de 1 à 25 délais procéduraux ou légaux (prospectifs ou à rebours, chaînés au besoin via `depends_on_index`) sous `qc_cpc`, `qc_prescription`, `qc_li` et `ca_li`. | Art. 82, 83, 107 et 111 al. 2 C.p.c., art. 2879 al. 2 C.c.Q., art. 52 L.I. (`rollover_saturday=false` par défaut sous `qc_li`), `province='QC'` sous `ca_li`. |
-| `calcul` | `interets_1619` | Calcul au cent près des intérêts simples et de l'indemnité additionnelle (1 à 50 tranches, arithmétique exacte `BigInt` en convention Exact/Exact 365/366, date de départ exclue / fin incluse). | Art. 1618–1620 C.c.Q., art. 28 L.A.F. (Revenu Québec `2001-Q1` à `2026-Q4`), art. 3 *Loi sur l'intérêt*. Aucune extrapolation au-delà du dernier trimestre publié. |
+| `calcul` | `interets_1619` | Calcul au cent près des intérêts simples et de l'indemnité additionnelle (1 à 50 tranches, arithmétique exacte `BigInt` en convention Exact/Exact 365/366, modes `legal_plus_1619`, `legal_only`, `contractual` et `prime_plus_margin`). | Art. 1618–1620 C.c.Q., art. 28 L.A.F. (Revenu Québec `2001-Q1` à `2026-Q4`), Banque du Canada `V80691311` (`boc_prime_rates.json`), art. 3 *Loi sur l'intérêt*. Aucune extrapolation au-delà de la dernière période vérifiée. |
 | `greffe` | `greffe_parse_number` | Décompose un numéro de dossier de cour du Québec (`NNN-NN-NNNNNN-NNN` ou préfixe `TAL-`, `C.F.-`, etc.) : greffe, district, juridiction et adresse connue. | Tables locales compilées du ministère de la Justice du Québec (`2026-11-17` / `2026-07-22`). Aucun appel sortant, aucun accès au plumitif. |
 | `greffe` | `palais_list` | Répertorie les 44 palais de justice et 9 points de service du Québec, filtrables par district, type ou texte libre. | Relevé du ministère de la Justice du Québec (`2026-11-17`). Employer `palais_get` pour les coordonnées ; vérifier à la source avant signification ou dépôt. |
 | `greffe` | `palais_get` | Fiche complète d'un lieu de justice (adresse municipale, postale s'il y a lieu, heures d'ouverture, télécopieur, téléphones et courriels par chambre/service, greffes et localités itinérantes), par `greffe_number` ou `palais`. | Relevé du ministère de la Justice du Québec (`2026-11-17` / `2026-07-22`). Une adresse absente signifie inconnue, jamais inexistante. |
@@ -23,6 +23,7 @@ Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `
 | `terminologie` | `terminologie_lookup` | Recherche bilingue FR/EN dans 4 sources hiérarchisées avec repérage des calques et faux amis de common law ou de droit français (`mortgage` vs `hypothec`, `solidary` vs `joint and several`). | `DB_TERMINOLOGIE` en lecture seule : glossaire curé QC (rang 1), concordancier législatif (rang 2), TERMIUM Plus® (`OGL-Canada`, rang 3), OQLF (`CC BY-NC-SA 4.0`, rang 4). |
 | `terminologie` | `termino_attestations` | Comptage exact et extraits bilingues alignés FR/EN dans le corpus législatif consolidé du Québec et du Canada (art. 8.1–8.2 L.I.). | Concordancier bilingue dérivé de LégisQuébec et Justice Canada (97 lois alignées). Ne remplace pas la lecture intégrale via `MCP-Legislation`. |
 | `terminologie` | `terminologie_scan` | Contrôle en lecture seule d'un extrait de projet d'acte (jusqu'à 32 000 car., FR/EN) pour signaler francismes de France, anglicismes / faux amis de common law et archaïsmes d'avant 2016. | Signale positions, motifs, remplacements civilistes suggérés et fondements légaux sans jamais réécrire le texte. |
+| `economie` | `taux_boc_rates` | Consultation hors ligne des taux de change face au CAD (2001–2026+) et des taux directeur (`V39079`), d'escompte (`V122530`) et préférentiel (`V80691311`), avec conversion exacte `BigInt` (*Loi sur la monnaie*, art. 12). | `DB_ECONOMIE` en lecture seule : Banque du Canada (`FX_RATES_DAILY` 2017+ à 16 h 30 HE ; `LEGACY_NOON_RATES` 2007–2017 à midi HE) et Statistique Canada `10-10-0008-01` (2001–2007, `OGL-Canada`). |
 
 Chaque réponse réussie retourne un résumé lisible en français (`content[0].text`), des données structurées validées (`structuredContent`), la provenance des sources et des mises en garde (`gardes`) rappelant les limites documentaires à vérifier (tous les outils sont hors ligne et en lecture seule : `openWorldHint: false`, `readOnlyHint: true`).
 
@@ -30,7 +31,7 @@ Chaque réponse réussie retourne un résumé lisible en français (`content[0].
 
 Ce serveur est public (sans secret ni compte requis) tout en protégeant la confidentialité des dossiers :
 
-- **Traitement local en lecture seule et zéro appel externe :** toutes les bases de données (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`) ne contiennent que des jeux de données ouvertes préchargés en lecture seule. Aucune écriture, aucun témoin de connexion et aucun appel réseau sortant n'a lieu lors d'une requête. Les données soumises (nom d'entreprise, adresse civique, extrait de projet d'acte) ne sont ni conservées ni transmises à un tiers.
+- **Traitement local en lecture seule et zéro appel externe :** toutes les bases de données (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, `DB_ECONOMIE`) ne contiennent que des jeux de données ouvertes préchargés en lecture seule. Aucune écriture, aucun témoin de connexion et aucun appel réseau sortant n'a lieu lors d'une requête. Les données soumises (nom d'entreprise, adresse civique, extrait de projet d'acte) ne sont ni conservées ni transmises à un tiers.
 - **Aucune journalisation des requêtes :** les journaux d'invocation Cloudflare (`observability`, `logs`, `logpush` dans [`wrangler.jsonc`](wrangler.jsonc)) sont désactivés et le serveur n'enregistre ni les requêtes, ni les paramètres, ni les adresses IP.
 - **Limitation de débit :** un plafond technique de 240 requêtes par minute et par adresse IP (`RATE_LIMITER`) protège la disponibilité du service sans stocker le contenu des appels.
 
@@ -95,8 +96,8 @@ plugin.json          Manifeste autonome Google Antigravity
 mcp_config.json      Configuration Streamable HTTP Antigravity (`outils`)
 gemini-extension.json Manifeste autonome Gemini CLI (`outils`, `contextFileName: []`)
 src/
-  core/              Logique pure TypeScript + Zod (`holidays`, `deadlines`, `interest1619`, `qcTools`, `registres`, `adresses`, `terminologie`, `gardes`)
-  data/              Tables statiques versionnées (`laf_art28_rates.json`, `glossaire_bijuridique_qc.json`)
+  core/              Logique pure TypeScript + Zod (`holidays`, `deadlines`, `interest1619`, `qcTools`, `registres`, `adresses`, `terminologie`, `economie`, `gardes`)
+  data/              Tables statiques versionnées (`laf_art28_rates.json`, `boc_prime_rates.json`, `glossaire_bijuridique_qc.json`)
   qc/                Tables et parseur de nomenclature judiciaire QC (dossiers, greffes, palais, lieux MJQ)
   mcp/               Serveur McpServer agnostique du transport (`createOutilsMcpServer`, `listToolDescriptors`)
   site.ts            Page HTML publique (`GET /`) et traductions (`site.i18n.ts`)
@@ -106,6 +107,7 @@ pipeline/
   terminologie/      Schéma, index FTS5 et ingestion (`build_glossaire.py`, `ingest_terminologie.py`)
   registres/         Schéma, index FTS5 et ingestion REQ + RBQ + OPC + RENA + Corporations Canada + GLEIF (`ingest_req.py`)
   adresses/          Schéma normalisé 3 tables, index FTS5 odonymes et ingestion RQA (`ingest_adresses.py`)
+  economie/          Schéma compact `WITHOUT ROWID` et ingestion Valet BdC + StatCan `10-10-0008-01` (`ingest_economie.py`)
 sources-officielles/ Instantanés officiels du ministère de la Justice (greffes/lieux et fiches des palais `mjq-palais-2026-11-17.json`)
 scripts/             Générateurs des tables MJQ (`extraire-lieux-mjq.mjs`, `extraire-palais-mjq.mjs`)
 test/                Suite de tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`, parité des manifestes)
@@ -130,15 +132,16 @@ $env:PYTHONUTF8 = "1"
 pipeline\.venv\Scripts\python.exe -m pipeline.terminologie.ingest_terminologie --build-local --push-remote --blue-green --swap
 pipeline\.venv\Scripts\python.exe -m pipeline.registres.ingest_req --build-local --push-remote --blue-green --swap
 pipeline\.venv\Scripts\python.exe -m pipeline.adresses.ingest_adresses --build-local --push-remote --blue-green --swap
+pipeline\.venv\Scripts\python.exe -m pipeline.economie.ingest_economie --build-local --push-remote --blue-green --swap
 ```
 
-### Mise à jour trimestrielle des taux (art. 28 L.A.F.)
+### Mise à jour des taux (art. 28 L.A.F. & Banque du Canada)
 
 1. Consultez les taux publiés par Revenu Québec (`metadata.source_url` dans [`src/data/laf_art28_rates.json`](src/data/laf_art28_rates.json)). Le workflow [`.github/workflows/check-laf-rates.yml`](.github/workflows/check-laf-rates.yml) ouvre automatiquement un billet de rappel trimestriel lorsque le trimestre suivant manque.
-2. Ajoutez le nouveau trimestre dans `src/data/laf_art28_rates.json` et mettez à jour `metadata.last_quarter`, `metadata.table_version` et `metadata.verified_at`.
-3. Exécutez `npm.cmd run typecheck`, `npm.cmd test` et `npm.cmd run build`.
+2. Pour le taux préférentiel et les taux directeurs de la Banque du Canada ([`src/data/boc_prime_rates.json`](src/data/boc_prime_rates.json)), le workflow [`.github/workflows/check-boc-rates.yml`](.github/workflows/check-boc-rates.yml) ouvre un billet de rappel `[Taux BdC]` en cas de variation ou de décalage `>= 28` jours, et [`.github/workflows/sync-economie.yml`](.github/workflows/sync-economie.yml) synchronise incrémentalement `DB_ECONOMIE` les jours ouvrables sans commit Git.
+3. Après mise à jour des tables statiques, exécutez `npm.cmd run typecheck`, `npm.cmd test` et `npm.cmd run build`.
 
 ## Sécurité, confidentialité et licences
 
 - **Sécurité, vie privée et secret professionnel :** Consulter [`SECURITY.md`](SECURITY.md) pour signaler de manière privée et coordonnée toute vulnérabilité ou question de confidentialité / secret professionnel à Jason Poirier Lavoie (`jason@poirierlavoie.ca`).
-- **Licence logicielle et attributions de données ouvertes :** Le logiciel, les schémas, le glossaire curé, les tests et la documentation originale (élaborés en grande partie avec l'assistance de l'IA pour l'intérêt public) sont publiés gratuitement sous licence **`Apache-2.0`** ([`LICENSE`](LICENSE)). Aucun droit d'auteur n'est revendiqué sur les jeux de données publics tiers — voir [`NOTICE`](NOTICE). Attributions des jeux de données publics : Revenu Québec (art. 28 L.A.F.) ; ministère de la Justice du Québec (greffes et palais) ; Registraire des entreprises du Québec et Office québécois de la langue française (`CC BY-NC-SA 4.0`) ; Régie du bâtiment du Québec, Office de la protection du consommateur, Autorité des marchés publics (RENA) et ministère des Ressources naturelles et des Forêts — RQA (`CC BY 4.0`) ; Corporations Canada et TERMIUM Plus®, Bureau de la traduction (`OGL-Canada`) ; Global Legal Entity Identifier Foundation — GLEIF Golden Copy L1/L2/REPEX (`CC0 1.0`).
+- **Licence logicielle et attributions de données ouvertes :** Le logiciel, les schémas, le glossaire curé, les tests et la documentation originale (élaborés en grande partie avec l'assistance de l'IA pour l'intérêt public) sont publiés gratuitement sous licence **`Apache-2.0`** ([`LICENSE`](LICENSE)). Aucun droit d'auteur n'est revendiqué sur les jeux de données publics tiers — voir [`NOTICE`](NOTICE). Attributions des jeux de données publics : Revenu Québec (art. 28 L.A.F.) ; Banque du Canada (API Valet : taux de change quotidiens et historiques au comptant de midi, `V39079`, `V122530`, `V80691311`) ; ministère de la Justice du Québec (greffes et palais) ; Registraire des entreprises du Québec et Office québécois de la langue française (`CC BY-NC-SA 4.0`) ; Régie du bâtiment du Québec, Office de la protection du consommateur, Autorité des marchés publics (RENA) et ministère des Ressources naturelles et des Forêts — RQA (`CC BY 4.0`) ; Corporations Canada, Statistique Canada (Tableau `10-10-0008-01`) et TERMIUM Plus®, Bureau de la traduction (`OGL-Canada`) ; Global Legal Entity Identifier Foundation — GLEIF Golden Copy L1/L2/REPEX (`CC0 1.0`).

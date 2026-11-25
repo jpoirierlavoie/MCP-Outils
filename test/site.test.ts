@@ -144,9 +144,9 @@ describe("page publique GET / et fichiers de découverte", () => {
   it("couvre 1:1 les outils du serveur, les traductions anglaises, la navigation de suite, les id uniques et le JSON-LD", () => {
     const html = pagePubliqueHtml();
     const descripteurs = listToolDescriptors();
-    expect(descripteurs).toHaveLength(12);
+    expect(descripteurs).toHaveLength(13);
     expect(new Set(descripteurs.map((d) => d.family))).toEqual(
-      new Set(["calcul", "greffe", "registre", "adresse", "terminologie"]),
+      new Set(["calcul", "greffe", "registre", "adresse", "terminologie", "economie"]),
     );
 
     expect(Object.keys(OUTILS_EN).sort()).toEqual(descripteurs.map((d) => d.name).sort());
@@ -197,7 +197,9 @@ describe("page publique GET / et fichiers de découverte", () => {
     expect(html).toContain("deadlines[].amount");
     expect(html).toContain("tranches[].principal_cents");
     expect(html).toContain("rate_overrides[].quarter");
+    expect(html).toContain("<code>spread_bps</code>");
     expect(html).toContain("<code>lei</code>");
+    expect(html).toContain('<h3 id="sc-taux_boc_rates">');
     expect(html).toContain("openWorldHint: false");
   });
 

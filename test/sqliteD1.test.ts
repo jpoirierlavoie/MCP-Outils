@@ -78,7 +78,7 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
     }
   });
 
-  it("expose l'état booléen des 3 bindings D1 sur GET /healthz et couvre les nouvelles gardes", async () => {
+  it("expose l'état booléen des 4 bindings D1 sur GET /healthz et couvre les nouvelles gardes", async () => {
     const hEmpty = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/healthz"),
       {},
@@ -89,6 +89,7 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
       terminologie: false,
       registres: false,
       adresses: false,
+      economie: false,
     });
 
     const harness = createSqliteD1Harness();
@@ -103,6 +104,7 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
         terminologie: true,
         registres: false,
         adresses: false,
+        economie: false,
       });
     } finally {
       harness.close();
@@ -111,6 +113,8 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
     expect(GARDE_CODES).toContain("REGISTRE_ABSENCE_PERSONNES_PHYSIQUES");
     expect(GARDE_CODES).toContain("ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE");
     expect(GARDE_CODES).toContain("TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE");
+    expect(GARDE_CODES).toContain("TAUX_BOC_PRIME_DATE_MANQUANTE");
+    expect(GARDE_CODES).toContain("TAUX_BOC_CONVERSION_LOI_MONNAIE");
     const g = makeGarde("LICENCE_DONNEES_OUVERTES_NC_SA");
     expect(g.message).toContain("CC BY-NC-SA 4.0");
   });

@@ -42,9 +42,14 @@ lesquels demeurent régis par leurs licences respectives :
 - Régie du bâtiment du Québec (RBQ), Office de la protection du consommateur
   (OPC), Autorité des marchés publics (RENA) et ministère des Ressources
   naturelles et des Forêts (RQA) : CC BY 4.0.
-- Corporations Canada, Bureau de la traduction (TERMIUM Plus®) et ministère
-  de la Justice du Canada (concordancier législatif fédéral) : Licence du
-  gouvernement ouvert – Canada (OGL-Canada).
+- Corporations Canada, Bureau de la traduction (TERMIUM Plus®), ministère
+  de la Justice du Canada (concordancier législatif fédéral) et Statistique
+  Canada (Tableau 10-10-0008-01 — taux de change au comptant de midi 2001–2007) :
+  Licence du gouvernement ouvert – Canada (OGL-Canada).
+- Banque du Canada (API Valet — FX_RATES_DAILY, LEGACY_NOON_RATES, taux
+  directeur V39079, taux officiel d'escompte V122530 et taux préférentiel
+  V80691311) : données statistiques publiques soumises aux conditions
+  d'utilisation de la Banque du Canada (https://www.bankofcanada.ca/terms/).
 - Revenu Québec (taux trimestriels art. 28 L.A.F.) et ministère de la Justice
   du Québec (palais de justice et greffes, avec les mentions officielles
   reproduites verbatim).
@@ -62,8 +67,13 @@ remain governed by their respective upstream licenses:
 - Registraire des entreprises du Québec (REQ) & Office québécois de la langue
   française (OQLF): CC BY-NC-SA 4.0 (NonCommercial ShareAlike).
 - RBQ, OPC, AMP (RENA), and MRNF (RQA): CC BY 4.0.
-- Corporations Canada, Translation Bureau (TERMIUM Plus®), and Department of
-  Justice Canada: Open Government Licence – Canada (OGL-Canada).
+- Corporations Canada, Translation Bureau (TERMIUM Plus®), Department of
+  Justice Canada, and Statistics Canada (Table 10-10-0008-01 — noon spot FX
+  rates 2001–2007): Open Government Licence – Canada (OGL-Canada).
+- Bank of Canada (Valet API — FX_RATES_DAILY, LEGACY_NOON_RATES, Target
+  overnight rate V39079, Bank Rate V122530, and Prime rate V80691311): public
+  statistical series governed by Bank of Canada Terms of Use
+  (https://www.bankofcanada.ca/terms/).
 - Revenu Québec (art. 28 T.A.A. rates), ministère de la Justice du Québec,
   and LégisQuébec (Québec Official Publisher).
 - Global Legal Entity Identifier Foundation (GLEIF — Golden Copy Level 1

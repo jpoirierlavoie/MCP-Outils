@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AdresseVerifyOutputSchema, computeConsonantKey } from "../src/core/adresses.js";
 import { ComputeDeadlinesOutputSchema } from "../src/core/deadlines.js";
+import { TauxBocRatesOutputSchema } from "../src/core/economie.js";
 import { ListHolidaysOutputSchema } from "../src/core/holidays.js";
 import { ComputeInterest1619OutputSchema } from "../src/core/interest1619.js";
 import {
@@ -99,10 +100,12 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthCommitJson = (await healthWithCommit.json()) as Record<string, unknown>;
     expect(healthCommitJson.commit).toBe("abc1234");
     expect(healthJson.laf_table_last_quarter).toBe("2026-Q4");
+    expect(typeof healthJson.prime_table_last_verified_date).toBe("string");
     expect(healthJson.databases).toEqual({
       terminologie: false,
       registres: false,
       adresses: false,
+      economie: false,
     });
     expect(healthJson.tools).toEqual([
       "calendrier_holidays",
@@ -117,6 +120,7 @@ describe("Worker HTTP & intégration MCP", () => {
       "terminologie_lookup",
       "termino_attestations",
       "terminologie_scan",
+      "taux_boc_rates",
     ]);
 
     const landing = await worker.fetch(
@@ -306,7 +310,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(seenKeys).toEqual(["198.51.100.42"]);
   });
 
-  it("expose les 12 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
+  it("expose les 13 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
     const listRes = await mcpPost("tools/list", {});
     expect(listRes.status).toBe(200);
     const tools =
@@ -324,6 +328,7 @@ describe("Worker HTTP & intégration MCP", () => {
       "palais_list",
       "registre_get_entity",
       "registre_search",
+      "taux_boc_rates",
       "termino_attestations",
       "terminologie_lookup",
       "terminologie_scan",
@@ -473,6 +478,7 @@ describe("Worker HTTP & intégration MCP", () => {
       ["terminologie_lookup", { query: "hypothèque" }],
       ["termino_attestations", { term: "hypothec", lang: "en" }],
       ["terminologie_scan", { text: "A mortgage on land.", lang: "en" }],
+      ["taux_boc_rates", { category: "fx", currency: "USD", date: "2026-11-20" }],
     ] as const) {
       const missingRes = await mcpPost("tools/call", { name: toolName, arguments: args });
       expect(missingRes.status).toBe(200);
@@ -573,6 +579,7 @@ describe("Worker HTTP & intégration MCP", () => {
         terminologie: true,
         registres: true,
         adresses: true,
+        economie: false,
       });
 
       const rSearch = await mcpPost(
@@ -1017,6 +1024,88 @@ describe("Worker HTTP & intégration MCP", () => {
       );
     } finally {
       gleifHarness.close();
+    }
+  });
+
+  it("PR 3 DB_ECONOMIE & prime_plus_margin : exécute taux_boc_rates et interets_1619 via /mcp (PRAGMA query_only = ON)", async () => {
+    const ecoHarness = createSqliteD1Harness({
+      seedSql: [
+        readFileSync(resolve(process.cwd(), "pipeline/economie/schema.sql"), "utf-8"),
+        readFileSync(resolve(process.cwd(), "pipeline/economie/indexes.sql"), "utf-8"),
+        `
+          INSERT INTO meta_sources VALUES
+            ('boc_fx_daily', 'BdC FX Daily', 'BoC Terms', '2026-11-23', 2),
+            ('boc_legacy_noon', 'BdC Noon', 'BoC Terms', '2017-04-28', 1),
+            ('boc_interest_rates', 'BdC Rates', 'BoC Terms', '2026-11-23', 3);
+          INSERT INTO fx_currencies VALUES
+            (1, 'USD', 'US dollar', 'Dollar américain', 1, 20010102, 20261123);
+          INSERT INTO fx_rates VALUES
+            (1, 20170428, 1, 1365200),
+            (1, 20261120, 2, 1395500),
+            (1, 20261123, 2, 1398200);
+          INSERT INTO boc_rates VALUES
+            ('V39079', 20261123, 250),
+            ('V122530', 20261001, 275),
+            ('V80691311', 20261118, 470);
+        `,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      const boundEnv: Env = { DB_ECONOMIE: ecoHarness.d1 };
+
+      const healthRes = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/healthz"),
+        boundEnv,
+        dummyCtx,
+      );
+      const hJson = (await healthRes.json()) as { databases: Record<string, boolean> };
+      expect(hJson.databases.economie).toBe(true);
+
+      const fxCall = await mcpPost(
+        "tools/call",
+        {
+          name: "taux_boc_rates",
+          arguments: {
+            category: "fx",
+            currency: "USD",
+            date: "2026-11-22",
+            amount: "1000.00",
+          },
+        },
+        301,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(fxCall.body.result?.isError).not.toBe(true);
+      const fxParsed = TauxBocRatesOutputSchema.parse(fxCall.body.result?.structuredContent);
+      expect(fxParsed.fx_observations[0]?.effective_observation_date).toBe("2026-11-20");
+      expect(fxParsed.fx_observations[0]?.rolled_back).toBe(true);
+      expect(fxParsed.conversion?.converted_cents).toBe(139550);
+
+      const primeCall = await mcpPost(
+        "tools/call",
+        {
+          name: "interets_1619",
+          arguments: {
+            mode: "prime_plus_margin",
+            end_date: "2027-02-01",
+            spread_bps: 150,
+            tranches: [{ principal_cents: 1_000_000, start_date: "2026-11-10" }],
+          },
+        },
+        302,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(primeCall.body.result?.isError).not.toBe(true);
+      const pText =
+        ((primeCall.body.result?.content as Array<{ text?: string }>) ?? [])[0]?.text ?? "";
+      expect(pText).toContain("TAUX PRÉFÉRENTIEL BDC NON VÉRIFIÉ AU-DELÀ");
+      expect(pText).toContain("préf. 4,70 % + 1,50 %");
+    } finally {
+      ecoHarness.close();
     }
   });
 });

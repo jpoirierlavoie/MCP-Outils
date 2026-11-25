@@ -6,6 +6,9 @@
  * modèle. Ce fichier ne porte QUE les traductions anglaises de la page publique.
  */
 
+import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
+import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
+
 export interface OutilEn {
   readonly titre: string;
   readonly resume: readonly string[];
@@ -43,15 +46,15 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
   interets_1619: {
     titre: "Legal interest and additional indemnity calculator (art. 1619 C.C.Q.)",
     resume: [
-      "Calculates exact legal interest (5%), the art. 1619 C.C.Q. additional indemnity (using embedded Revenu Québec art. 28 T.A.A. quarterly rates), or a contractual rate across up to 50 tranches.",
-      "Never estimates future quarters beyond Revenu Québec's latest published rate.",
+      "Calculates exact legal interest (5%), the art. 1619 C.C.Q. additional indemnity (embedded Revenu Québec art. 28 T.A.A. quarterly rates), a fixed contractual rate, or Bank of Canada Prime (V80691311) plus margin (spread_bps) across up to 50 tranches.",
+      "Never estimates future periods beyond Revenu Québec's latest published quarter or the latest verified Prime date.",
     ],
     texte:
       "Computes simple interest (art. 1620 C.C.Q.) under Exact/Exact (365/366) convention " +
       "(start date excluded, end date included) using exact BigInt rational accumulation rounded " +
       "once per tranche: legal interest (5%), art. 1619 C.C.Q. additional indemnity per embedded " +
-      "art. 28 T.A.A. rates (Revenu Québec), or fixed contractual rate. Never extrapolates past " +
-      "the latest published quarter.",
+      "art. 28 T.A.A. rates (Revenu Québec), fixed contractual rate, or Bank of Canada Prime " +
+      "(V80691311) + margin (spread_bps). Never extrapolates past the latest verified date.",
   },
   greffe_parse_number: {
     titre: "Québec court file number (offline)",
@@ -167,6 +170,19 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "'easement'), and pre-2016 C.C.P. archaisms. Reports offsets, rationale, suggested civil-law " +
       "replacement, and statutory basis without ever rewriting the text.",
   },
+  taux_boc_rates: {
+    titre: "Exchange rates and policy rates (Bank of Canada — offline)",
+    resume: [
+      "Queries offline Bank of Canada exchange rates against CAD (2001–2026+) and Policy, Bank, and Prime rates (V39079, V122530, V80691311), with exact BigInt conversion under s. 12 of the Currency Act.",
+      "Explicitly flags pre-May 1, 2017 Noon spot rates vs. modern 16:30 ET daily averages and any prior-business-day rollback.",
+    ],
+    texte:
+      "Offline read-only lookup in DB_ECONOMIE for historical and daily CAD exchange rates (Bank of " +
+      "Canada FX_RATES_DAILY from 2017-05-01 as 16:30 ET daily averages, LEGACY_NOON_RATES 2007–2017 " +
+      "and StatCan 10-10-0008-01 2001–2007 as noon spot rates), plus Policy (V39079), Bank (V122530), " +
+      "and Prime (V80691311) series. Computes exact BigInt foreign <-> CAD conversions under s. 12 " +
+      "of the Currency Act while flagging methodology and business-day rollbacks.",
+  },
 } as const;
 
 export const EN = {
@@ -196,8 +212,9 @@ export const EN = {
   familleCalcul: "Exact calculators (holidays, deadlines, art. 1619 C.C.Q. interest)",
   familleCalculTexte: [
     "Three arithmetic calculators based on the Code of Civil Procedure, Québec and federal " +
-      "Interpretation Acts, and the Civil Code of Québec (art. 1618–1620 C.C.Q., embedded art. 28 " +
-      "T.A.A. quarterly table).",
+      "Interpretation Acts, and the Civil Code of Québec (art. 1618–1620 C.C.Q., art. 28 T.A.A. " +
+      `rates through quarter ${lafRatesJson.metadata.last_quarter} and Bank of Canada chartered ` +
+      `bank Prime rate V80691311 verified through ${bocPrimeRatesJson.metadata.last_verified_date}).`,
   ],
   familleGreffe: "Local Québec tables — court file numbers and courthouses",
   familleGreffeTexte: [
@@ -226,6 +243,12 @@ export const EN = {
       "glossary, aligned bilingual statutory concordances, TERMIUM Plus (Law and Justice), and OQLF " +
       "legal entries to flag common-law and continental-French calques.",
   ],
+  familleEconomie: "Economy and rates (Bank of Canada — FX & policy rates)",
+  familleEconomieTexte: [
+    "One tool backed by a read-only local database (DB_ECONOMIE) containing Bank of Canada daily " +
+      "average FX rates (16:30 ET since 2017) and historical noon spot rates (2001–2017, Bank of Canada " +
+      "and StatCan 10-10-0008-01), plus Policy, Bank, and Prime interest series.",
+  ],
 
   // ── Schémas ────────────────────────────────────────────────────────────────
   schemaTexte: [
@@ -234,7 +257,7 @@ export const EN = {
     "The Description column stays in French in both views because those sentences are the exact " +
       "canonical strings sent to the assistant.",
   ],
-  schemaResume: "Show parameter tables for all 12 tools (technical reference)",
+  schemaResume: "Show parameter tables for all 13 tools (technical reference)",
   colParam: "Parameter",
   colType: "Type",
   colContrainte: "Constraints",
@@ -310,6 +333,7 @@ export const EN = {
 
   pied: [
     "Jason Poirier Lavoie, lawyer (Québec). Open-data sources: Revenu Québec (art. 28 T.A.A.), " +
+      "Bank of Canada (FX and policy/prime rates), Statistics Canada (Table 10-10-0008-01, OGL-Canada), " +
       "ministère de la Justice du Québec, Registraire des entreprises (CC BY-NC-SA 4.0), RBQ / OPC / " +
       "AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada & TERMIUM Plus® (OGL-Canada), " +
       "GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), and Office québécois de la langue française (CC BY-NC-SA 4.0).",

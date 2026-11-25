@@ -10,6 +10,7 @@
  * Aucune dépendance ni requête tierce. Sans JavaScript, le français reste affiché.
  */
 
+import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
   listToolDescriptors,
@@ -52,7 +53,7 @@ export function biP(fr: readonly string[], en: readonly string[]): string {
 }
 
 export const SECTIONS = [
-  { id: "outils", fr: "Les 12 outils", en: "The 12 tools" },
+  { id: "outils", fr: "Les 13 outils", en: "The 13 tools" },
   { id: "dossier", fr: "Numéro de dossier", en: "Court file numbers" },
   { id: "greffes", fr: "Greffes et palais", en: "Registries and courthouses" },
   { id: "acces", fr: "Accès et installation", en: "Access & setup" },
@@ -390,8 +391,8 @@ export const RESUME_OUTILS_FR: Readonly<Record<string, readonly string[]>> = {
     "Effectue un calcul purement arithmétique sans déterminer quel délai légal s'applique à votre situation — vérifiez toujours la règle applicable.",
   ],
   interets_1619: [
-    "Calcule au cent près les intérêts légaux (5 %), l'indemnité additionnelle de l'art. 1619 C.c.Q. (à partir des taux trimestriels publiés par Revenu Québec sous l'art. 28 L.A.F.) ou un taux contractuel, jusqu'à 50 tranches.",
-    "N'extrapole jamais au-delà du dernier trimestre officiellement publié par Revenu Québec.",
+    "Calcule au cent près les intérêts légaux (5 %), l'indemnité additionnelle de l'art. 1619 C.c.Q. (taux trimestriels art. 28 L.A.F. de Revenu Québec), un taux contractuel fixe ou le taux préférentiel BDC (série V80691311) majoré d'une marge (spread_bps), jusqu'à 50 tranches.",
+    "N'extrapole jamais au-delà du dernier trimestre L.A.F. publié ni de la dernière date préférentielle vérifiée.",
   ],
   greffe_parse_number: [
     "Décompose un numéro de dossier judiciaire québécois (ou un préfixe comme TAL-, TAQ-, C.F.-) pour indiquer le greffe, le palais de justice, le district judiciaire, le tribunal et sa compétence.",
@@ -421,6 +422,10 @@ export const RESUME_OUTILS_FR: Readonly<Record<string, readonly string[]>> = {
   ],
   terminologie_scan: [
     "Relit un extrait de projet d'acte, contrat ou lettre (en français ou en anglais) pour repérer les calques de common law (« mortgage », « consideration », « joint and several »), les francismes de France et les termes abrogés d'avant 2016 (« bref », « comparution »), sans jamais modifier votre texte.",
+  ],
+  taux_boc_rates: [
+    "Consulte hors ligne les taux de change de la Banque du Canada face au CAD (2001–2026+) et les taux directeur, d'escompte et préférentiel (V39079, V122530, V80691311), avec conversion exacte en BigInt selon l'art. 12 de la Loi sur la monnaie.",
+    "Distingue explicitement le régime au comptant de midi (avant le 1er mai 2017) de la moyenne quotidienne de 16 h 30 HE et signale tout report au jour ouvrable précédent.",
   ],
 };
 
@@ -454,6 +459,7 @@ ${marqueurAppel(d)}
   const registre = tous.filter((d) => d.family === "registre");
   const adresse = tous.filter((d) => d.family === "adresse");
   const terminologie = tous.filter((d) => d.family === "terminologie");
+  const economie = tous.filter((d) => d.family === "economie");
 
   return `<section id="outils">
 ${h2("outils")}
@@ -468,7 +474,7 @@ ${biP(
   [
     "Trois calculateurs arithmétiques fondés sur le Code de procédure civile, les lois d'interprétation " +
       "(Québec et Canada) et le Code civil du Québec (art. 1618–1620 C.c.Q., taux de l'art. 28 L.A.F. " +
-      `jusqu'au trimestre ${lafRatesJson.metadata.last_quarter}).`,
+      `jusqu'au trimestre ${lafRatesJson.metadata.last_quarter} et taux préférentiel BDC V80691311 vérifié jusqu'au ${bocPrimeRatesJson.metadata.last_verified_date}).`,
   ],
   EN.familleCalculTexte,
 )}
@@ -515,6 +521,16 @@ ${biP(
   EN.familleTerminologieTexte,
 )}
 ${terminologie.map(carte).join("\n")}
+<h3>${bi("Économie et taux (Banque du Canada — change et taux directeurs)", EN.familleEconomie)}</h3>
+${biP(
+  [
+    "Un outil adossé à une base locale en lecture seule (DB_ECONOMIE) réunissant les taux de change " +
+      "quotidiens (moyenne 16 h 30 HE depuis 2017) et historiques au comptant de midi (2001–2017, Banque " +
+      "du Canada et Statistique Canada 10-10-0008-01), ainsi que les taux directeur, d'escompte et préférentiel.",
+  ],
+  EN.familleEconomieTexte,
+)}
+${economie.map(carte).join("\n")}
 </section>`;
 }
 
@@ -610,7 +626,7 @@ ${biP(
   EN.schemaTexte,
 )}
 <details>
-<summary>${bi("Afficher les tables de paramètres des 12 outils (référence technique)", EN.schemaResume)}</summary>
+<summary>${bi("Afficher les tables de paramètres des 13 outils (référence technique)", EN.schemaResume)}</summary>
 ${listToolDescriptors().map(bloc).join("\n")}
 </details>
 </section>`;
@@ -836,10 +852,11 @@ function pied(): string {
 ${biP(
   [
     "Jason Poirier Lavoie, avocat (Québec). Sources de données ouvertes : Revenu Québec " +
-      "(art. 28 L.A.F.), ministère de la Justice du Québec, Registraire des entreprises " +
-      "(CC BY-NC-SA 4.0), RBQ / OPC / AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada " +
-      "et TERMIUM Plus® (OGL-Canada), GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), Office québécois " +
-      "de la langue française (CC BY-NC-SA 4.0).",
+      "(art. 28 L.A.F.), Banque du Canada (taux de change et taux directeurs/préférentiels), " +
+      "Statistique Canada (Tableau 10-10-0008-01, OGL-Canada), ministère de la Justice du Québec, " +
+      "Registraire des entreprises (CC BY-NC-SA 4.0), RBQ / OPC / AMP — RENA / MRNF — RQA (CC BY 4.0), " +
+      "Corporations Canada et TERMIUM Plus® (OGL-Canada), GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), " +
+      "Office québécois de la langue française (CC BY-NC-SA 4.0).",
     "Aucun conseil juridique. Cet outil ne remplace ni la vérification à la source, ni le " +
       "jugement professionnel.",
   ],
@@ -883,10 +900,10 @@ function construireJsonLd(): string {
         "@type": "Dataset",
         "@id": `${ORIGINE_SITE}/#open-data`,
         name: [
-          "Tables judiciaires MJQ, taux art. 28 L.A.F., registres d'entreprises, adresses RQA et terminologie bijuridique",
-          "MJQ judicial directories, art. 28 T.A.A. rates, business registries, RQA addresses, and bijural terminology",
+          "Tables judiciaires MJQ, taux art. 28 L.A.F., taux Banque du Canada, registres d'entreprises, adresses RQA et terminologie bijuridique",
+          "MJQ judicial directories, art. 28 T.A.A. rates, Bank of Canada rates, business registries, RQA addresses, and bijural terminology",
         ],
-        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, and bijural terminology snapshots.`,
+        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, Bank of Canada rates through ${bocPrimeRatesJson.metadata.last_verified_date}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, StatCan 10-10-0008-01, and bijural terminology snapshots.`,
         url: `${ORIGINE_SITE}/#greffes`,
         inLanguage: ["fr-CA", "en-CA"],
         dateModified: RELEVE_LE,
@@ -989,7 +1006,7 @@ function construireLlmsTxt(): string {
     `- Streamable HTTP: \`${ORIGINE_SITE}/mcp\``,
     `- MCP Server Card (SEP-2127): ${ORIGINE_SITE}/mcp/server-card`,
     "",
-    "## Tools (12 deterministic read-only MCP tools, derived from live registry)",
+    "## Tools (13 deterministic read-only MCP tools, derived from live registry)",
     "",
     ...outilsLignes,
     "",

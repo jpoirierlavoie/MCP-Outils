@@ -59,6 +59,11 @@
       "binding": "DB_ADRESSES",
       "database_name": "outils-adresses",
       "database_id": "33d23283-82d6-40e8-a37e-cbd6bb41d6e0"
+    },
+    {
+      "binding": "DB_ECONOMIE",
+      "database_name": "outils-economie",
+      "database_id": "ccbf7519-97c8-4f48-a190-09071d2559ad"
     }
   ]
 }
