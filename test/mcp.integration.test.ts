@@ -527,7 +527,7 @@ describe("Worker HTTP & intégration MCP", () => {
           INSERT INTO domaine_valeur VALUES ('STAT_IMMAT', 'IM', 'Immatriculée'), ('FORM_JURI', 'CIE', 'Société par actions');
           INSERT INTO entites VALUES (
             1, 'qc', '1170123456', NULL, 1, '9123-4567 QUÉBEC INC.', '91234567 constructions tremblay',
-            '["Constructions Tremblay"]', 'CIE', 'IM', '2018-04-12', 'Montréal', 0, '{"im":"2018-04-12"}'
+            '["Constructions Tremblay"]', 'CIE', 'IM', '2018-04-12', 'Montréal', 0, '{"im":"2018-04-12"}', NULL
           );
           INSERT INTO entites_fts(rowid, nom_officiel, nom_recherche)
             SELECT id, nom_officiel, nom_recherche FROM entites;
@@ -595,9 +595,27 @@ describe("Worker HTTP & intégration MCP", () => {
         boundEnv,
       );
       expect(rGet.body.result?.isError).not.toBe(true);
-      expect(
-        RegistreGetEntityOutputSchema.parse(rGet.body.result?.structuredContent).quebec?.neq,
-      ).toBe("1170123456");
+      const rGetParsed = RegistreGetEntityOutputSchema.parse(rGet.body.result?.structuredContent);
+      expect(rGetParsed.quebec?.neq).toBe("1170123456");
+      expect(rGetParsed.gleif).toBeNull();
+      expect(rGetParsed.portails_officiels.req?.url).toContain("registreentreprises.gouv.qc.ca");
+
+      // Requête par LEI sur registre sans lignes GLEIF + erreur 4-XOR / format LEI invalide (isError: true, jamais -32602)
+      for (const badRegArgs of [
+        { neq: "1170123456", lei: "549300QC912345670001" },
+        { lei: "NOT_VALID" },
+      ]) {
+        const badRegRes = await mcpPost(
+          "tools/call",
+          { name: "registre_get_entity", arguments: badRegArgs },
+          111,
+          "https://outils.poirierlavoie.ca/mcp",
+          boundEnv,
+        );
+        expect(badRegRes.status).toBe(200);
+        expect(badRegRes.body.error).toBeUndefined();
+        expect(badRegRes.body.result?.isError).toBe(true);
+      }
 
       const aVer = await mcpPost(
         "tools/call",
@@ -921,5 +939,84 @@ describe("Worker HTTP & intégration MCP", () => {
     };
     expect(sc.tranches).toHaveLength(11);
     expect(sc.tranches[0]!.periods.length).toBeGreaterThan(0);
+  });
+
+  it("PR 2 GLEIF : exécute registre_search et registre_get_entity par LEI via /mcp en lecture seule (PRAGMA query_only = ON)", async () => {
+    const gleifHarness = createSqliteD1Harness({
+      seedSql: [
+        readFileSync(resolve(process.cwd(), "pipeline/registres/schema.sql"), "utf-8"),
+        readFileSync(resolve(process.cwd(), "pipeline/registres/indexes.sql"), "utf-8"),
+        `
+          INSERT INTO meta_sources VALUES
+            ('corp_ca', 'Corporations Canada', 'OGL-Canada', '2026-11-15', 1),
+            ('gleif', 'GLEIF Golden Copy', 'CC0-1.0', '2026-11-25', 3);
+          INSERT INTO entites VALUES
+            (1, 'ca', '8284083', '801423500', 1, 'TECHNOLOGIES NORDIQUES INC.', 'nordic tech', NULL, 'LCSA', 'Actif', '2012-09-01', 'Montréal', 0, '{"rl":"LCSA"}', '549300CA828408300002'),
+            (2, 'lei', '549300CABANKROYALE06', NULL, 1, 'BANQUE ÉCHANTILLON CANADA', 'sample bank canada', NULL, 'GENERAL', 'LAPSED', NULL, 'Montréal', 0, '{"jur":"CA"}', '549300CABANKROYALE06');
+          INSERT INTO entites_fts(rowid, nom_officiel, nom_recherche)
+            SELECT id, nom_officiel, nom_recherche FROM entites;
+          INSERT INTO gleif_entites VALUES
+            ('549300CA828408300002', 1, 'TECHNOLOGIES NORDIQUES INC.', 'CA', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', '2018-09-01T00:00:00Z', '2027-09-01T00:00:00Z', '2026-09-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000072', '828408-3', NULL, '8284083', 'CA', 'CA-QC', 'Montréal', 'H3B 4W5', NULL),
+            ('549300USULTIMATE0004', 0, 'NORDIC GLOBAL HOLDINGS LLC', 'US-DE', 'GENERAL', 'ACTIVE', 'H435', 'ISSUED', '2015-03-01T00:00:00Z', '2027-03-01T00:00:00Z', '2026-03-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000602', 'DE-5511990', NULL, NULL, 'US', 'US-DE', 'Wilmington', '19801', NULL),
+            ('549300CABANKROYALE06', 1, 'BANQUE ÉCHANTILLON CANADA', 'CA', 'GENERAL', 'ACTIVE', 'T15C', 'LAPSED', '2014-06-01T00:00:00Z', '2025-06-01T00:00:00Z', '2024-06-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'ENTITY_SUPPLIED_ONLY', 'RA000831', 'BS-0012', NULL, NULL, 'CA', 'CA-QC', 'Montréal', 'H3B 5G2', NULL);
+          INSERT INTO gleif_liens VALUES
+            (1, '549300CA828408300002', '549300USULTIMATE0004', 'IS_ULTIMATELY_CONSOLIDATED_BY', 'ACTIVE', 'IFRS', NULL, NULL, '2025-01-01', '2025-12-31', 'FULLY_CORROBORATED');
+          INSERT INTO gleif_exceptions VALUES
+            ('549300CABANKROYALE06', 'DIRECT_ACCOUNTING_CONSOLIDATION_PARENT', '["NO_LEI"]', NULL);
+        `,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      const boundEnv: Env = { DB_REGISTRES: gleifHarness.d1 };
+
+      const bankSearch = await mcpPost(
+        "tools/call",
+        {
+          name: "registre_search",
+          arguments: { query: "Banque Échantillon", jurisdiction: "gleif" },
+        },
+        201,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(bankSearch.body.result?.isError).not.toBe(true);
+      const bankParsed = RegistreSearchEntitiesOutputSchema.parse(
+        bankSearch.body.result?.structuredContent,
+      );
+      expect(bankParsed.count).toBe(1);
+      expect(bankParsed.entities[0]?.jurisdiction).toBe("gleif");
+      expect(bankParsed.entities[0]?.has_lei).toBe(true);
+      expect(bankParsed.entities[0]?.lei).toBe("549300CABANKROYALE06");
+
+      const getByLei = await mcpPost(
+        "tools/call",
+        { name: "registre_get_entity", arguments: { lei: "549300ca828408300002" } },
+        202,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(getByLei.body.result?.isError).not.toBe(true);
+      const getParsed = RegistreGetEntityOutputSchema.parse(
+        getByLei.body.result?.structuredContent,
+      );
+      expect(getParsed.lookup_by).toBe("lei");
+      expect(getParsed.federal?.corporation_number).toBe("8284083");
+      expect(getParsed.gleif?.parent_ultime?.nom_legal).toBe("NORDIC GLOBAL HOLDINGS LLC");
+      expect(getParsed.gleif?.parent_ultime?.pays).toBe("US");
+      expect(getParsed.gardes.map((g) => g.code)).toContain(
+        "REGISTRE_GLEIF_DECLARATIF_CONSOLIDATION",
+      );
+      expect(getParsed.portails_officiels.corporations_canada?.url).toContain("corpId=8284083");
+      expect(getParsed.portails_officiels.isc_pisc?.url).toContain(
+        "particuliers-ayant-controle-important",
+      );
+      expect(getParsed.portails_officiels.gleif?.url).toBe(
+        "https://search.gleif.org/#/record/549300CA828408300002",
+      );
+    } finally {
+      gleifHarness.close();
+    }
   });
 });

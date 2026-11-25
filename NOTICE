@@ -49,6 +49,10 @@ lesquels demeurent régis par leurs licences respectives :
   du Québec (palais de justice et greffes, avec les mentions officielles
   reproduites verbatim).
 - LégisQuébec (Éditeur officiel du Québec — concordancier législatif QC).
+- Global Legal Entity Identifier Foundation (GLEIF — Golden Copy Level 1
+  LEI-CDF, Level 2 RR-CDF et exceptions de déclaration REPEX) : CC0 1.0
+  Universel (https://creativecommons.org/publicdomain/zero/1.0/ ; conditions
+  d'utilisation : https://www.gleif.org/en/meta/lei-data-terms-of-use).
 
 ENGLISH — Apache-2.0 applies solely to the source code, schemas, tests,
 original documentation, and curated Rank-1 glossary. No copyright or official
@@ -62,6 +66,10 @@ remain governed by their respective upstream licenses:
   Justice Canada: Open Government Licence – Canada (OGL-Canada).
 - Revenu Québec (art. 28 T.A.A. rates), ministère de la Justice du Québec,
   and LégisQuébec (Québec Official Publisher).
+- Global Legal Entity Identifier Foundation (GLEIF — Golden Copy Level 1
+  LEI-CDF, Level 2 RR-CDF, and REPEX reporting exceptions): CC0 1.0 Universal
+  (https://creativecommons.org/publicdomain/zero/1.0/; LEI Data Terms of Use:
+  https://www.gleif.org/en/meta/lei-data-terms-of-use).
 
 ================================================================================
 3. AUCUN CONSEIL JURIDIQUE, FOURNITURE « TEL QUEL » ET ABSENCE D'AVAL /

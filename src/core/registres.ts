@@ -162,13 +162,13 @@ export const RegistreSearchEntitiesInputSchema = z.strictObject({
     .min(2)
     .max(200)
     .describe(
-      "Nom d'entreprise, autre nom utilisé, numéro de société à numéro (p. ex. '9123-4567 Québec inc.'), NEQ (10 chiffres) ou numéro fédéral.",
+      "Nom d'entreprise, autre nom utilisé, numéro de société à numéro (p. ex. '9123-4567 Québec inc.'), NEQ (10 chiffres), numéro fédéral ou LEI (20 caractères).",
     ),
   jurisdiction: z
-    .enum(["qc", "ca", "all"])
+    .enum(["qc", "ca", "gleif", "all"])
     .optional()
     .describe(
-      "Périmètre juridictionnel : 'qc' (Registraire des entreprises du Québec + RBQ/OPC/RENA), 'ca' (Corporations Canada) ou 'all' (défaut).",
+      "Périmètre juridictionnel : 'qc' (Registraire des entreprises du Québec + RBQ/OPC/RENA), 'ca' (Corporations Canada), 'gleif' (entités titulaires d'un LEI canadien GLEIF) ou 'all' (défaut : REQ, Corporations Canada et LEI canadiens autonomes).",
     ),
   active_only: z
     .boolean()
@@ -187,10 +187,12 @@ export const RegistreSearchEntitiesInputSchema = z.strictObject({
 export type RegistreSearchEntitiesInput = z.infer<typeof RegistreSearchEntitiesInputSchema>;
 
 export const CandidatRegistreSchema = z.object({
-  jurisdiction: z.enum(["qc", "ca"]),
+  jurisdiction: z.enum(["qc", "ca", "gleif"]),
   neq: z.string().nullable(),
   corporation_number: z.string().nullable(),
   bn_ne: z.string().nullable(),
+  has_lei: z.boolean(),
+  lei: z.string().nullable(),
   nom_officiel: z.string(),
   autres_noms: z.array(z.string()),
   forme_juridique: z.string().nullable(),
@@ -206,7 +208,7 @@ export const CandidatRegistreSchema = z.object({
 
 export const RegistreSearchEntitiesOutputSchema = z.object({
   query: z.string(),
-  jurisdiction: z.enum(["qc", "ca", "all"]),
+  jurisdiction: z.enum(["qc", "ca", "gleif", "all"]),
   active_only: z.boolean(),
   count: z.number().int(),
   exact_match_found: z.boolean(),
@@ -225,7 +227,7 @@ export const RegistreGetEntityInputSchema = z.strictObject({
     .max(20)
     .optional()
     .describe(
-      "Numéro d'entreprise du Québec (NEQ à 10 chiffres, p. ex. '1140030355'). Fournir exactement l'un des trois identifiants : neq, corporation_number ou bn_ne.",
+      "Numéro d'entreprise du Québec (NEQ à 10 chiffres, p. ex. '1140030355'). Fournir exactement l'un des quatre identifiants : neq, corporation_number, bn_ne ou lei.",
     ),
   corporation_number: z
     .string()
@@ -234,7 +236,7 @@ export const RegistreGetEntityInputSchema = z.strictObject({
     .max(20)
     .optional()
     .describe(
-      "Numéro de société fédérale de Corporations Canada (p. ex. '8284083'). Fournir exactement l'un des trois identifiants : neq, corporation_number ou bn_ne.",
+      "Numéro de société fédérale de Corporations Canada (p. ex. '8284083'). Fournir exactement l'un des quatre identifiants : neq, corporation_number, bn_ne ou lei.",
     ),
   bn_ne: z
     .string()
@@ -243,7 +245,16 @@ export const RegistreGetEntityInputSchema = z.strictObject({
     .max(20)
     .optional()
     .describe(
-      "Numéro d'entreprise fédéral à 9 chiffres (NE / BN, p. ex. '801423500'). Fournir exactement l'un des trois identifiants : neq, corporation_number ou bn_ne.",
+      "Numéro d'entreprise fédéral à 9 chiffres (NE / BN, p. ex. '801423500'). Fournir exactement l'un des quatre identifiants : neq, corporation_number, bn_ne ou lei.",
+    ),
+  lei: z
+    .string()
+    .trim()
+    .min(1)
+    .max(40)
+    .optional()
+    .describe(
+      "Identifiant d'entité juridique GLEIF (LEI ISO 17442 à 20 caractères alphanumériques, p. ex. '5493001KJTIIGC8Y1R12'). Fournir exactement l'un des quatre identifiants : neq, corporation_number, bn_ne ou lei.",
     ),
 });
 export type RegistreGetEntityInput = z.infer<typeof RegistreGetEntityInputSchema>;
@@ -394,12 +405,92 @@ export const ProfilFederalSchema = z.object({
   }),
 });
 
+export const GleifParentSchema = z.object({
+  lei: z.string(),
+  nom_legal: z.string().nullable(),
+  pays: z.string().nullable(),
+  legal_jurisdiction: z.string().nullable(),
+  statut_entite: z.string().nullable(),
+  relationship_status: z.string(),
+  accounting_standard: z.string().nullable(),
+  quantifier_amount: z.number().nullable(),
+  quantifier_units: z.string().nullable(),
+  validation_sources: z.string().nullable(),
+  in_canadian_snapshot: z.boolean(),
+  matched_neq: z.string().nullable(),
+  matched_corporation_number: z.string().nullable(),
+});
+
+export const GleifExceptionSchema = z.object({
+  categorie: z.string(),
+  raisons: z.array(z.string()),
+  libelle_fr: z.string(),
+});
+
+export const GleifFilialeSchema = z.object({
+  lei: z.string(),
+  nom_legal: z.string(),
+  type_lien: z.enum(["direct", "ultime", "direct_et_ultime"]),
+  legal_jurisdiction: z.string().nullable(),
+  statut_entite: z.string().nullable(),
+  matched_neq: z.string().nullable(),
+  matched_corporation_number: z.string().nullable(),
+});
+
+export const ProfilGleifSchema = z.object({
+  lei: z.string(),
+  is_canadian: z.boolean(),
+  nom_legal: z.string(),
+  autres_noms: z.array(z.string()),
+  statut_entite: z.string(),
+  registration_status: z.string(),
+  next_renewal_date: z.string().nullable(),
+  initial_registration_date: z.string().nullable(),
+  last_update_date: z.string().nullable(),
+  legal_jurisdiction: z.string().nullable(),
+  entity_category: z.string().nullable(),
+  registration_authority_id: z.string().nullable(),
+  registration_authority_entity_id: z.string().nullable(),
+  matched_neq: z.string().nullable(),
+  matched_corporation_number: z.string().nullable(),
+  adresse_legale: z
+    .object({
+      ville: z.string().nullable(),
+      region: z.string().nullable(),
+      pays: z.string().nullable(),
+      code_postal: z.string().nullable(),
+    })
+    .nullable(),
+  parent_direct: GleifParentSchema.nullable(),
+  parent_ultime: GleifParentSchema.nullable(),
+  exceptions_declaration: z.array(GleifExceptionSchema),
+  filiales_canadiennes: z.array(GleifFilialeSchema),
+  filiales_canadiennes_total: z.number().int(),
+});
+
+export const PortailOfficielLienSchema = z.object({
+  url: z.string(),
+  portal_info_url: z.string().optional(),
+  search_url: z.string().optional(),
+  libelle_fr: z.string(),
+  objet_fr: z.string(),
+});
+
+export const PortailsOfficielsSchema = z.object({
+  req: PortailOfficielLienSchema.nullable(),
+  corporations_canada: PortailOfficielLienSchema.nullable(),
+  isc_pisc: PortailOfficielLienSchema.nullable(),
+  gleif: PortailOfficielLienSchema.nullable(),
+});
+
 export const RegistreGetEntityOutputSchema = z.object({
-  lookup_by: z.enum(["neq", "corporation_number", "bn_ne"]),
+  lookup_by: z.enum(["neq", "corporation_number", "bn_ne", "lei"]),
   lookup_value: z.string(),
   snapshots: z.record(z.string(), z.string()),
   quebec: ProfilQuebecSchema.nullable(),
   federal: ProfilFederalSchema.nullable(),
+  gleif: ProfilGleifSchema.nullable(),
+  portails_officiels: PortailsOfficielsSchema,
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
@@ -409,7 +500,7 @@ export type RegistreGetEntityOutput = z.infer<typeof RegistreGetEntityOutputSche
 
 interface RawEntiteRow {
   id: number;
-  juridiction: "qc" | "ca";
+  juridiction: "qc" | "ca" | "lei";
   identifiant_principal: string;
   bn_ne: string | null;
   is_active: number;
@@ -422,6 +513,76 @@ interface RawEntiteRow {
   ville: string | null;
   flags: number;
   fiche_json: string;
+  lei: string | null;
+}
+
+interface RawGleifEntiteRow {
+  lei: string;
+  is_canadian: number;
+  legal_name: string;
+  legal_jurisdiction: string | null;
+  entity_category: string | null;
+  entity_status: string | null;
+  legal_form_code: string | null;
+  registration_status: string | null;
+  initial_registration_date: string | null;
+  next_renewal_date: string | null;
+  last_update_date: string | null;
+  managing_lou: string | null;
+  validation_sources: string | null;
+  ra_id: string | null;
+  ra_entity_id: string | null;
+  matched_neq: string | null;
+  matched_corp_no: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  postal_code: string | null;
+  fiche_json: string | null;
+}
+
+interface RawGleifLienRow {
+  id: number;
+  child_lei: string;
+  parent_lei: string;
+  relationship_type: string;
+  relationship_status: string;
+  accounting_standard: string | null;
+  quantifier_amount: number | null;
+  quantifier_units: string | null;
+  validation_sources: string | null;
+}
+
+interface RawGleifExceptionRow {
+  lei: string;
+  category: string;
+  reasons_json: string;
+}
+
+interface RegistreDbCapabilities {
+  hasEntitesLeiCol: boolean;
+  hasGleifEntites: boolean;
+  hasGleifLiens: boolean;
+  hasGleifExceptions: boolean;
+}
+
+async function loadRegistreDbCapabilities(db: D1Database): Promise<RegistreDbCapabilities> {
+  const res = await db
+    .prepare(
+      "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name IN ('entites', 'gleif_entites', 'gleif_liens', 'gleif_exceptions')",
+    )
+    .all<{ name: string; sql: string | null }>();
+  const byName = new Map<string, string | null>();
+  for (const r of res.results) {
+    byName.set(r.name, r.sql);
+  }
+  const entSql = byName.get("entites") ?? "";
+  return {
+    hasEntitesLeiCol: /\blei\b/i.test(entSql),
+    hasGleifEntites: byName.has("gleif_entites"),
+    hasGleifLiens: byName.has("gleif_liens"),
+    hasGleifExceptions: byName.has("gleif_exceptions"),
+  };
 }
 
 interface QcFicheCompact {
@@ -567,16 +728,59 @@ function parseJsonSafe<T>(raw: string | null, fallback: T): T {
   }
 }
 
-function makeRegistreGardes(includeNcSa: boolean): Garde[] {
+const GLEIF_EXCEPTION_LABELS_FR: Record<string, string> = {
+  NO_LEI: "Société mère sans identifiant LEI attribué",
+  NATURAL_PERSONS:
+    "Contrôle exercé par une ou plusieurs personnes physiques (exclues du périmètre LEI)",
+  NON_CONSOLIDATING: "Entité non consolidée selon les normes comptables applicables",
+  NO_KNOWN_PERSON: "Aucune personne physique ou morale consolidante connue",
+  NON_PUBLIC: "Information non publique ou empêchement de divulgation",
+  CONSENT_NOT_OBTAINED: "Consentement de la société mère non obtenu",
+  DISCLOSURE_DETRIMENTAL: "Divulgation considérée préjudiciable",
+  BINDING_LEGAL_COMMITMENTS: "Engagements juridiques contraignants empêchant la divulgation",
+  LEGAL_OBSTACLES: "Obstacles juridiques empêchant la divulgation",
+};
+
+const GLEIF_CATEGORY_LABELS_FR: Record<string, string> = {
+  DIRECT_ACCOUNTING_CONSOLIDATION_PARENT: "Société mère consolidante directe",
+  ULTIMATE_ACCOUNTING_CONSOLIDATION_PARENT: "Société mère consolidante ultime",
+};
+
+function formatGleifExceptionFr(category: string, reasons: string[]): string {
+  const catLabel = GLEIF_CATEGORY_LABELS_FR[category] ?? category;
+  const reasonLabels = reasons.map((r) => GLEIF_EXCEPTION_LABELS_FR[r] ?? r);
+  return `${catLabel} : ${reasonLabels.join(" ; ") || "aucun motif précisé"}`;
+}
+
+function makeRegistreGardes(includeNcSa: boolean, includeGleif: boolean): Garde[] {
   const gardes: Garde[] = [
     makeGarde("REGISTRE_ABSENCE_PERSONNES_PHYSIQUES"),
     makeGarde("REGISTRE_FRAICHEUR_ET_OPPOSABILITE_LPLE"),
     makeGarde("REGISTRE_ABSENCE_NON_PROBANTE_ANCILLAIRES"),
   ];
+  if (includeGleif) {
+    gardes.push(makeGarde("REGISTRE_GLEIF_DECLARATIF_CONSOLIDATION"));
+  }
   if (includeNcSa) {
     gardes.push(makeGarde("LICENCE_DONNEES_OUVERTES_NC_SA"));
   }
   return gardes;
+}
+
+function appendJurisdictionFilter(
+  jurisdiction: "qc" | "ca" | "gleif" | "all",
+  alias: string,
+  hasEntitesLeiCol: boolean,
+): string {
+  const p = alias ? `${alias}.` : "";
+  if (jurisdiction === "qc") return ` AND ${p}juridiction = 'qc'`;
+  if (jurisdiction === "ca") return ` AND ${p}juridiction = 'ca'`;
+  if (jurisdiction === "gleif") {
+    return hasEntitesLeiCol
+      ? ` AND (${p}juridiction = 'lei' OR ${p}lei IS NOT NULL)`
+      : ` AND ${p}juridiction = 'lei'`;
+  }
+  return "";
 }
 
 export async function registreSearchEntities(
@@ -587,9 +791,16 @@ export async function registreSearchEntities(
   const activeOnly = input.active_only ?? false;
   const limit = input.limit ?? 10;
 
-  const snapshots = await loadMetaSnapshots(db);
+  const [snapshots, caps] = await Promise.all([
+    loadMetaSnapshots(db),
+    loadRegistreDbCapabilities(db),
+  ]);
+  const leiColExpr = caps.hasEntitesLeiCol ? "lei" : "NULL AS lei";
+  const eLeiColExpr = caps.hasEntitesLeiCol ? "e.lei" : "NULL AS lei";
 
   const digitsOnly = input.query.replace(/[\s-]/g, "");
+  const alnumOnly = input.query.replace(/[\s-]+/g, "").toUpperCase();
+  const isLeiQuery = /^[A-Z0-9]{20}$/.test(alnumOnly);
   const byId = new Map<number, { row: RawEntiteRow; score: number }>();
 
   // 1) Recherche directe par identifiant numérique (NEQ 10 ch., NE 9 ch., n° fédéral)
@@ -597,24 +808,37 @@ export async function registreSearchEntities(
     let idSql = `
       SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
              nom_recherche, autres_noms_appercu, forme_code, statut_code,
-             date_constitution, ville, flags, fiche_json
+             date_constitution, ville, flags, fiche_json, ${leiColExpr}
         FROM entites
        WHERE (identifiant_principal = ? OR bn_ne = ?)
     `;
-    const idParams: unknown[] = [digitsOnly, digitsOnly];
-    if (jurisdiction !== "all") {
-      idSql += " AND juridiction = ?";
-      idParams.push(jurisdiction);
-    }
+    idSql += appendJurisdictionFilter(jurisdiction, "", caps.hasEntitesLeiCol);
     if (activeOnly) {
       idSql += " AND is_active = 1";
     }
     idSql += " LIMIT 10";
-    const directRes = await db
-      .prepare(idSql)
-      .bind(...idParams)
-      .all<RawEntiteRow>();
+    const directRes = await db.prepare(idSql).bind(digitsOnly, digitsOnly).all<RawEntiteRow>();
     for (const r of directRes.results) {
+      byId.set(Number(r.id), { row: r, score: -1000 });
+    }
+  }
+
+  // 1b) Recherche directe par LEI à 20 caractères (ISO 17442)
+  if (isLeiQuery && caps.hasEntitesLeiCol) {
+    let leiSql = `
+      SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
+             nom_recherche, autres_noms_appercu, forme_code, statut_code,
+             date_constitution, ville, flags, fiche_json, lei
+        FROM entites
+       WHERE (lei = ? OR identifiant_principal = ?)
+    `;
+    leiSql += appendJurisdictionFilter(jurisdiction, "", caps.hasEntitesLeiCol);
+    if (activeOnly) {
+      leiSql += " AND is_active = 1";
+    }
+    leiSql += " LIMIT 10";
+    const leiRes = await db.prepare(leiSql).bind(alnumOnly, alnumOnly).all<RawEntiteRow>();
+    for (const r of leiRes.results) {
       byId.set(Number(r.id), { row: r, score: -1000 });
     }
   }
@@ -625,17 +849,13 @@ export async function registreSearchEntities(
     let ftsSql = `
       SELECT e.id, e.juridiction, e.identifiant_principal, e.bn_ne, e.is_active, e.nom_officiel,
              e.nom_recherche, e.autres_noms_appercu, e.forme_code, e.statut_code,
-             e.date_constitution, e.ville, e.flags, e.fiche_json,
+             e.date_constitution, e.ville, e.flags, e.fiche_json, ${eLeiColExpr},
              bm25(entites_fts, 3.0, 1.0) AS rank_score
         FROM entites_fts f
         JOIN entites e ON e.id = f.rowid
        WHERE entites_fts MATCH ?
     `;
-    const ftsParams: unknown[] = [ftsQuery];
-    if (jurisdiction !== "all") {
-      ftsSql += " AND e.juridiction = ?";
-      ftsParams.push(jurisdiction);
-    }
+    ftsSql += appendJurisdictionFilter(jurisdiction, "e", caps.hasEntitesLeiCol);
     if (activeOnly) {
       ftsSql += " AND e.is_active = 1";
     }
@@ -643,7 +863,7 @@ export async function registreSearchEntities(
 
     const ftsRes = await db
       .prepare(ftsSql)
-      .bind(...ftsParams)
+      .bind(ftsQuery)
       .all<RawEntiteRow & { rank_score: number }>();
 
     const qNormFull = normalizeEntitySearch(input.query);
@@ -664,15 +884,58 @@ export async function registreSearchEntities(
     .slice(0, limit);
 
   const dvPairs: Array<[string, string | null | undefined]> = [];
+  const unresolvedNeqs: string[] = [];
+  const unresolvedCorps: string[] = [];
   for (const { row } of sorted) {
     if (row.juridiction === "qc") {
       dvPairs.push(["FORM_JURI", row.forme_code], ["STAT_IMMAT", row.statut_code]);
+      if (!row.lei && caps.hasGleifEntites) {
+        unresolvedNeqs.push(row.identifiant_principal);
+      }
+    } else if (row.juridiction === "ca") {
+      if (!row.lei && caps.hasGleifEntites) {
+        unresolvedCorps.push(row.identifiant_principal);
+      }
     }
   }
   const dv = await loadDomaineValeurForPairs(db, dvPairs);
 
+  const leiByNeq = new Map<string, string>();
+  const leiByCorp = new Map<string, string>();
+  if (caps.hasGleifEntites && (unresolvedNeqs.length > 0 || unresolvedCorps.length > 0)) {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (unresolvedNeqs.length > 0) {
+      clauses.push(`matched_neq IN (${unresolvedNeqs.map(() => "?").join(",")})`);
+      params.push(...unresolvedNeqs);
+    }
+    if (unresolvedCorps.length > 0) {
+      clauses.push(`matched_corp_no IN (${unresolvedCorps.map(() => "?").join(",")})`);
+      params.push(...unresolvedCorps);
+    }
+    const gRes = await db
+      .prepare(
+        `SELECT lei, matched_neq, matched_corp_no FROM gleif_entites
+          WHERE ${clauses.join(" OR ")}
+          ORDER BY CASE registration_status WHEN 'ISSUED' THEN 0 WHEN 'LAPSED' THEN 1 ELSE 2 END,
+                   next_renewal_date DESC, lei ASC`,
+      )
+      .bind(...params)
+      .all<{ lei: string; matched_neq: string | null; matched_corp_no: string | null }>();
+    for (const g of gRes.results) {
+      if (g.matched_neq && !leiByNeq.has(g.matched_neq)) {
+        leiByNeq.set(g.matched_neq, g.lei);
+      }
+      if (g.matched_corp_no && !leiByCorp.has(g.matched_corp_no)) {
+        leiByCorp.set(g.matched_corp_no, g.lei);
+      }
+    }
+  }
+
   const entities = sorted.map(({ row }) => {
     const isQc = row.juridiction === "qc";
+    const isCa = row.juridiction === "ca";
+    const isLei = row.juridiction === "lei";
     const forme = isQc ? decodeDv(dv, "FORM_JURI", row.forme_code) : row.forme_code;
     const statut = isQc
       ? (decodeDv(dv, "STAT_IMMAT", row.statut_code) ?? row.statut_code)
@@ -682,12 +945,21 @@ export async function registreSearchEntities(
     const qcFiche = isQc ? parseJsonSafe<QcFicheCompact>(row.fiche_json, {}) : null;
     const effectiveVille =
       isQc && qcFiche ? resolveQcVille(row.ville, qcFiche) : (row.ville ?? null);
+    const effectiveLei =
+      row.lei ??
+      (isQc
+        ? (leiByNeq.get(row.identifiant_principal) ?? null)
+        : isCa
+          ? (leiByCorp.get(row.identifiant_principal) ?? null)
+          : row.identifiant_principal);
 
     return {
-      jurisdiction: row.juridiction,
+      jurisdiction: (isLei ? "gleif" : row.juridiction) as "qc" | "ca" | "gleif",
       neq: isQc ? row.identifiant_principal : null,
-      corporation_number: isQc ? null : row.identifiant_principal,
+      corporation_number: isCa ? row.identifiant_principal : null,
       bn_ne: row.bn_ne ?? null,
+      has_lei: Boolean(effectiveLei),
+      lei: effectiveLei,
       nom_officiel: row.nom_officiel,
       autres_noms: autresNoms,
       forme_juridique: forme ?? null,
@@ -711,6 +983,9 @@ export async function registreSearchEntities(
     ) {
       return true;
     }
+    if (isLeiQuery && e.lei === alnumOnly) {
+      return true;
+    }
     const isExemptCorporate = e.statut === "Non immatriculée" && isCorporateForm(e.forme_juridique);
     if (qNormFull.length === 0 || (!e.is_active && !isExemptCorporate)) {
       return false;
@@ -729,8 +1004,15 @@ export async function registreSearchEntities(
   const hasQc =
     jurisdiction !== "ca" &&
     (entities.some((e) => e.jurisdiction === "qc") || Boolean(snapshots.req));
-  const gardes = makeRegistreGardes(hasQc);
-  const verifiedAt = snapshots.req ?? snapshots.corp_ca ?? snapshots.rbq ?? "2026-11-15";
+  const hasGleif = entities.some((e) => e.has_lei);
+  const gardes = makeRegistreGardes(hasQc, hasGleif);
+  const verifiedAt =
+    snapshots.req ?? snapshots.corp_ca ?? snapshots.gleif ?? snapshots.rbq ?? "2026-11-15";
+
+  const provenanceSource =
+    hasGleif || snapshots.gleif
+      ? "Instantanés ouverts locaux : REQ (CC BY-NC-SA 4.0), RBQ / OPC / RENA (CC BY 4.0), Corporations Canada (OGL-Canada), GLEIF Golden Copy L1/L2/REPEX (CC0 1.0)"
+      : "Instantanés ouverts locaux : REQ (CC BY-NC-SA 4.0), RBQ / OPC / RENA (CC BY 4.0), Corporations Canada (OGL-Canada)";
 
   const structured: RegistreSearchEntitiesOutput = {
     query: input.query,
@@ -741,8 +1023,7 @@ export async function registreSearchEntities(
     snapshots,
     entities,
     provenance: {
-      source:
-        "Instantanés ouverts locaux : REQ (CC BY-NC-SA 4.0), RBQ / OPC / RENA (CC BY 4.0), Corporations Canada (OGL-Canada)",
+      source: provenanceSource,
       verified_at: verifiedAt,
     },
     gardes,
@@ -752,12 +1033,15 @@ export async function registreSearchEntities(
     const idLabel =
       e.jurisdiction === "qc"
         ? `NEQ ${e.neq}`
-        : `Soc. féd. ${e.corporation_number}${e.bn_ne ? ` (NE ${e.bn_ne})` : ""}`;
+        : e.jurisdiction === "ca"
+          ? `Soc. féd. ${e.corporation_number}${e.bn_ne ? ` (NE ${e.bn_ne})` : ""}`
+          : `LEI ${e.lei}`;
     const badges: string[] = [];
     if (e.has_rbq_licence) badges.push("RBQ active");
     if (e.has_opc_permit) badges.push("Permis OPC");
     if (e.in_rena) badges.push("INSCRITE AU RENA");
     if (e.faillite_declaree) badges.push("Faillite déclarée");
+    if (e.has_lei && e.jurisdiction !== "gleif" && e.lei) badges.push(`LEI ${e.lei}`);
     const badgeStr = badges.length > 0 ? ` [${badges.join(" · ")}]` : "";
     const altStr =
       e.autres_noms.length > 0 ? `\n  Autres noms : ${e.autres_noms.slice(0, 4).join(" ; ")}` : "";
@@ -801,17 +1085,21 @@ export async function registreGetEntity(
     input.neq ? (["neq", input.neq] as const) : null,
     input.corporation_number ? (["corporation_number", input.corporation_number] as const) : null,
     input.bn_ne ? (["bn_ne", input.bn_ne] as const) : null,
-  ].filter((x): x is readonly ["neq" | "corporation_number" | "bn_ne", string] => x !== null);
+    input.lei ? (["lei", input.lei] as const) : null,
+  ].filter(
+    (x): x is readonly ["neq" | "corporation_number" | "bn_ne" | "lei", string] => x !== null,
+  );
 
   if (provided.length !== 1) {
     return {
       ok: false,
-      text: "Paramètres invalides : fournir exactement l'un des trois identifiants (`neq`, `corporation_number` ou `bn_ne`).",
+      text: "Paramètres invalides : fournir exactement l'un des quatre identifiants (`neq`, `corporation_number`, `bn_ne` ou `lei`).",
     };
   }
 
   const [lookupBy, rawVal] = provided[0]!;
   const cleanDigits = rawVal.replace(/[\s-]/g, "");
+  const cleanLei = rawVal.replace(/[\s-]+/g, "").toUpperCase();
 
   if (lookupBy === "neq" && !/^\d{10}$/.test(cleanDigits)) {
     return {
@@ -825,22 +1113,40 @@ export async function registreGetEntity(
       text: `Format de NE/BN invalide (« ${rawVal} ») : le numéro d'entreprise fédéral comporte exactement 9 chiffres.`,
     };
   }
+  if (lookupBy === "lei" && !/^[A-Z0-9]{20}$/.test(cleanLei)) {
+    return {
+      ok: false,
+      text: `Format de LEI invalide (« ${rawVal} ») : un identifiant d'entité juridique (LEI ISO 17442) comporte exactement 20 caractères alphanumériques (A–Z, 0–9).`,
+    };
+  }
 
-  const snapshots = await loadMetaSnapshots(db);
+  const [snapshots, caps] = await Promise.all([
+    loadMetaSnapshots(db),
+    loadRegistreDbCapabilities(db),
+  ]);
+  if (lookupBy === "lei" && !caps.hasGleifEntites) {
+    return {
+      ok: false,
+      text: "Les tables GLEIF (LEI) ne sont pas chargées dans cet instantané local de DB_REGISTRES.",
+    };
+  }
+
+  const leiColExpr = caps.hasEntitesLeiCol ? "lei" : "NULL AS lei";
 
   let qcRow: RawEntiteRow | null = null;
   let caRow: RawEntiteRow | null = null;
+  let gleifRow: RawGleifEntiteRow | null = null;
+
+  const selectEntiteCols = `
+    SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
+           nom_recherche, autres_noms_appercu, forme_code, statut_code,
+           date_constitution, ville, flags, fiche_json, ${leiColExpr}
+      FROM entites
+  `;
 
   if (lookupBy === "neq") {
     qcRow = await db
-      .prepare(
-        `SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
-                nom_recherche, autres_noms_appercu, forme_code, statut_code,
-                date_constitution, ville, flags, fiche_json
-           FROM entites
-          WHERE juridiction = 'qc' AND identifiant_principal = ?
-          LIMIT 1`,
-      )
+      .prepare(`${selectEntiteCols} WHERE juridiction = 'qc' AND identifiant_principal = ? LIMIT 1`)
       .bind(cleanDigits)
       .first<RawEntiteRow>();
   } else if (lookupBy === "corporation_number") {
@@ -850,28 +1156,92 @@ export async function registreGetEntity(
     caRow =
       (await db
         .prepare(
-          `SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
-                  nom_recherche, autres_noms_appercu, forme_code, statut_code,
-                  date_constitution, ville, flags, fiche_json
-             FROM entites
-            WHERE juridiction = 'ca' AND identifiant_principal IN (?, ?, ?)
-            LIMIT 1`,
+          `${selectEntiteCols} WHERE juridiction = 'ca' AND identifiant_principal IN (?, ?, ?) LIMIT 1`,
         )
         .bind(rawTrim, stripped, cleanCorp)
         .first<RawEntiteRow>()) ?? null;
-  } else {
+  } else if (lookupBy === "bn_ne") {
     caRow = await db
       .prepare(
-        `SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
-                nom_recherche, autres_noms_appercu, forme_code, statut_code,
-                date_constitution, ville, flags, fiche_json
-           FROM entites
-          WHERE juridiction = 'ca' AND bn_ne = ?
-          ORDER BY is_active DESC, id ASC
-          LIMIT 1`,
+        `${selectEntiteCols} WHERE juridiction = 'ca' AND bn_ne = ? ORDER BY is_active DESC, id ASC LIMIT 1`,
       )
       .bind(cleanDigits)
       .first<RawEntiteRow>();
+  } else {
+    gleifRow = await db
+      .prepare("SELECT * FROM gleif_entites WHERE lei = ? LIMIT 1")
+      .bind(cleanLei)
+      .first<RawGleifEntiteRow>();
+  }
+
+  // Résolution croisée entre REQ (qc), Corporations Canada (ca) et GLEIF
+  if (caps.hasGleifEntites && !gleifRow) {
+    if (qcRow?.lei) {
+      gleifRow = await db
+        .prepare("SELECT * FROM gleif_entites WHERE lei = ? LIMIT 1")
+        .bind(qcRow.lei)
+        .first<RawGleifEntiteRow>();
+    } else if (caRow?.lei) {
+      gleifRow = await db
+        .prepare("SELECT * FROM gleif_entites WHERE lei = ? LIMIT 1")
+        .bind(caRow.lei)
+        .first<RawGleifEntiteRow>();
+    } else if (lookupBy === "neq") {
+      gleifRow = await db
+        .prepare(
+          `SELECT * FROM gleif_entites
+            WHERE matched_neq = ?
+            ORDER BY CASE registration_status WHEN 'ISSUED' THEN 0 WHEN 'LAPSED' THEN 1 ELSE 2 END,
+                     next_renewal_date DESC, lei ASC
+            LIMIT 1`,
+        )
+        .bind(cleanDigits)
+        .first<RawGleifEntiteRow>();
+    } else if (caRow) {
+      gleifRow = await db
+        .prepare(
+          `SELECT * FROM gleif_entites
+            WHERE matched_corp_no = ?
+            ORDER BY CASE registration_status WHEN 'ISSUED' THEN 0 WHEN 'LAPSED' THEN 1 ELSE 2 END,
+                     next_renewal_date DESC, lei ASC
+            LIMIT 1`,
+        )
+        .bind(caRow.identifiant_principal)
+        .first<RawGleifEntiteRow>();
+    }
+  }
+
+  if (gleifRow) {
+    if (!qcRow && (gleifRow.matched_neq || caps.hasEntitesLeiCol)) {
+      if (gleifRow.matched_neq) {
+        qcRow = await db
+          .prepare(
+            `${selectEntiteCols} WHERE juridiction = 'qc' AND identifiant_principal = ? LIMIT 1`,
+          )
+          .bind(gleifRow.matched_neq)
+          .first<RawEntiteRow>();
+      } else if (caps.hasEntitesLeiCol) {
+        qcRow = await db
+          .prepare(`${selectEntiteCols} WHERE juridiction = 'qc' AND lei = ? LIMIT 1`)
+          .bind(gleifRow.lei)
+          .first<RawEntiteRow>();
+      }
+    }
+    if (!caRow && (gleifRow.matched_corp_no || caps.hasEntitesLeiCol)) {
+      if (gleifRow.matched_corp_no) {
+        caRow = await db
+          .prepare(
+            `${selectEntiteCols} WHERE juridiction = 'ca' AND identifiant_principal = ? LIMIT 1`,
+          )
+          .bind(gleifRow.matched_corp_no)
+          .first<RawEntiteRow>();
+      } else if (caps.hasEntitesLeiCol) {
+        caRow = await db
+          .prepare(`${selectEntiteCols} WHERE juridiction = 'ca' AND lei = ? LIMIT 1`)
+          .bind(gleifRow.lei)
+          .first<RawEntiteRow>();
+      }
+    }
   }
 
   // Cas où un NEQ n'est pas dans entites (p. ex. req.zip non chargé) mais figure dans RBQ/OPC/RENA
@@ -879,34 +1249,49 @@ export async function registreGetEntity(
   let opcRows: Array<{ numero_permis: string; payload_json: string }> = [];
   let renaRows: Array<{ nom_entreprise: string; payload_json: string }> = [];
 
-  if (lookupBy === "neq") {
+  const targetNeq =
+    lookupBy === "neq"
+      ? cleanDigits
+      : (qcRow?.identifiant_principal ?? gleifRow?.matched_neq ?? null);
+
+  if (targetNeq) {
     const [rbqRes, opcRes, renaRes] = await db.batch([
       db
         .prepare("SELECT numero_licence, payload_json FROM rbq_licences WHERE neq = ?")
-        .bind(cleanDigits),
+        .bind(targetNeq),
       db
         .prepare("SELECT numero_permis, payload_json FROM opc_permis WHERE neq = ?")
-        .bind(cleanDigits),
+        .bind(targetNeq),
       db
         .prepare("SELECT nom_entreprise, payload_json FROM rena_inscriptions WHERE neq = ?")
-        .bind(cleanDigits),
+        .bind(targetNeq),
     ]);
     rbqRows = (rbqRes?.results ?? []) as Array<{ numero_licence: string; payload_json: string }>;
     opcRows = (opcRes?.results ?? []) as Array<{ numero_permis: string; payload_json: string }>;
     renaRows = (renaRes?.results ?? []) as Array<{ nom_entreprise: string; payload_json: string }>;
   }
 
-  if (!qcRow && !caRow && rbqRows.length === 0 && opcRows.length === 0 && renaRows.length === 0) {
+  if (
+    !qcRow &&
+    !caRow &&
+    !gleifRow &&
+    rbqRows.length === 0 &&
+    opcRows.length === 0 &&
+    renaRows.length === 0
+  ) {
     return {
       ok: false,
-      text: `Aucune entité trouvée pour ${lookupBy}=« ${rawVal} » dans les instantanés locaux (${Object.keys(snapshots).join(", ") || "aucune source"}).`,
+      text: `Aucune entité trouvée pour ${lookupBy}=« ${lookupBy === "lei" ? cleanLei : rawVal} » dans les instantanés locaux (${Object.keys(snapshots).join(", ") || "aucune source"}).`,
     };
   }
 
+  // Calcul de la dispense d'adresse LPLE (da=1) AVANT toute sérialisation QC, fédérale ou GLEIF
+  const qcFiche = parseJsonSafe<QcFicheCompact>(qcRow?.fiche_json ?? null, {});
+  const dispenseAdresse = qcFiche.da === 1;
+
   let quebec: z.infer<typeof ProfilQuebecSchema> | null = null;
-  if (qcRow || rbqRows.length > 0 || opcRows.length > 0 || renaRows.length > 0) {
-    const f = parseJsonSafe<QcFicheCompact>(qcRow?.fiche_json ?? null, {});
-    const dispenseAdresse = f.da === 1;
+  if (targetNeq && (qcRow || rbqRows.length > 0 || opcRows.length > 0 || renaRows.length > 0)) {
+    const f = qcFiche;
     const statCode = qcRow?.statut_code ?? "ND";
 
     const dvPairs: Array<[string, string | null | undefined]> = [
@@ -976,10 +1361,10 @@ export async function registreGetEntity(
       qcRow?.nom_officiel ??
       opcParsed[0]?.nom_commercant ??
       renaParsed[0]?.nom_entreprise ??
-      `Entité NEQ ${cleanDigits}`;
+      `Entité NEQ ${targetNeq}`;
 
     quebec = {
-      neq: cleanDigits,
+      neq: targetNeq,
       nom_officiel: fallbackName,
       is_active: qcRow ? qcRow.is_active === 1 : true,
       statut_immatriculation: {
@@ -1076,13 +1461,15 @@ export async function registreGetEntity(
         annee_dernier_depot_annuel: f.an ?? null,
         date_derniere_assemblee: f.ag ?? null,
       },
-      adresse_siege: {
-        rue: f.ad ?? null,
-        ville: caRow.ville ?? null,
-        province: f.pr ?? null,
-        pays: f.py ?? null,
-        code_postal: f.cp ?? null,
-      },
+      adresse_siege: dispenseAdresse
+        ? { rue: null, ville: null, province: null, pays: null, code_postal: null }
+        : {
+            rue: f.ad ?? null,
+            ville: caRow.ville ?? null,
+            province: f.pr ?? null,
+            pays: f.py ?? null,
+            code_postal: f.cp ?? null,
+          },
       administrateurs: {
         min: f.dmin ?? null,
         max: f.dmax ?? null,
@@ -1090,18 +1477,241 @@ export async function registreGetEntity(
     };
   }
 
-  const gardes = makeRegistreGardes(Boolean(quebec && qcRow));
-  const verifiedAt = snapshots.req ?? snapshots.corp_ca ?? snapshots.rbq ?? "2026-11-15";
+  let gleif: z.infer<typeof ProfilGleifSchema> | null = null;
+  if (gleifRow) {
+    const gleifFiche = parseJsonSafe<{ autres_noms?: string[] }>(gleifRow.fiche_json, {});
+    let parentDirect: z.infer<typeof GleifParentSchema> | null = null;
+    let parentUltime: z.infer<typeof GleifParentSchema> | null = null;
+
+    if (caps.hasGleifLiens) {
+      const parentEdgesRes = await db
+        .prepare(
+          `SELECT id, child_lei, parent_lei, relationship_type, relationship_status,
+                  accounting_standard, quantifier_amount, quantifier_units, validation_sources
+             FROM gleif_liens
+            WHERE child_lei = ?
+              AND relationship_type IN ('IS_DIRECTLY_CONSOLIDATED_BY', 'IS_ULTIMATELY_CONSOLIDATED_BY')
+            ORDER BY CASE relationship_status WHEN 'ACTIVE' THEN 0 ELSE 1 END, id ASC`,
+        )
+        .bind(gleifRow.lei)
+        .all<RawGleifLienRow>();
+
+      const directEdge = parentEdgesRes.results.find(
+        (r) => r.relationship_type === "IS_DIRECTLY_CONSOLIDATED_BY",
+      );
+      const ultimeEdge = parentEdgesRes.results.find(
+        (r) => r.relationship_type === "IS_ULTIMATELY_CONSOLIDATED_BY",
+      );
+
+      const parentLeis = Array.from(
+        new Set(
+          [directEdge?.parent_lei, ultimeEdge?.parent_lei].filter((x): x is string => Boolean(x)),
+        ),
+      );
+      const parentByLei = new Map<string, RawGleifEntiteRow>();
+      if (parentLeis.length > 0) {
+        const pRes = await db
+          .prepare(
+            `SELECT * FROM gleif_entites WHERE lei IN (${parentLeis.map(() => "?").join(",")})`,
+          )
+          .bind(...parentLeis)
+          .all<RawGleifEntiteRow>();
+        for (const p of pRes.results) {
+          parentByLei.set(p.lei, p);
+        }
+      }
+
+      const mapParent = (
+        edge: RawGleifLienRow | undefined,
+      ): z.infer<typeof GleifParentSchema> | null => {
+        if (!edge) return null;
+        const pEnt = parentByLei.get(edge.parent_lei);
+        return {
+          lei: edge.parent_lei,
+          nom_legal: pEnt?.legal_name ?? null,
+          pays: pEnt?.country ?? null,
+          legal_jurisdiction: pEnt?.legal_jurisdiction ?? null,
+          statut_entite: pEnt?.entity_status ?? null,
+          relationship_status: edge.relationship_status,
+          accounting_standard: edge.accounting_standard ?? null,
+          quantifier_amount: edge.quantifier_amount ?? null,
+          quantifier_units: edge.quantifier_units ?? null,
+          validation_sources: edge.validation_sources ?? null,
+          in_canadian_snapshot: pEnt ? pEnt.is_canadian === 1 : false,
+          matched_neq: pEnt?.matched_neq ?? null,
+          matched_corporation_number: pEnt?.matched_corp_no ?? null,
+        };
+      };
+
+      parentDirect = mapParent(directEdge);
+      parentUltime = mapParent(ultimeEdge);
+    }
+
+    let exceptionsDeclaration: Array<z.infer<typeof GleifExceptionSchema>> = [];
+    if (caps.hasGleifExceptions) {
+      const excRes = await db
+        .prepare(
+          "SELECT lei, category, reasons_json FROM gleif_exceptions WHERE lei = ? ORDER BY category ASC",
+        )
+        .bind(gleifRow.lei)
+        .all<RawGleifExceptionRow>();
+      exceptionsDeclaration = excRes.results.map((r) => {
+        const raisons = parseJsonSafe<string[]>(r.reasons_json, []);
+        return {
+          categorie: r.category,
+          raisons,
+          libelle_fr: formatGleifExceptionFr(r.category, raisons),
+        };
+      });
+    }
+
+    const filialesCanadiennes: Array<z.infer<typeof GleifFilialeSchema>> = [];
+    let filialesTotal = 0;
+    if (caps.hasGleifLiens) {
+      const countRow = await db
+        .prepare(
+          `SELECT COUNT(DISTINCT l.child_lei) AS total
+             FROM gleif_liens l
+             JOIN gleif_entites c ON c.lei = l.child_lei
+            WHERE l.parent_lei = ?
+              AND l.relationship_status = 'ACTIVE'
+              AND l.relationship_type IN ('IS_DIRECTLY_CONSOLIDATED_BY', 'IS_ULTIMATELY_CONSOLIDATED_BY')
+              AND c.is_canadian = 1`,
+        )
+        .bind(gleifRow.lei)
+        .first<{ total: number }>();
+      filialesTotal = Number(countRow?.total ?? 0);
+
+      if (filialesTotal > 0) {
+        const filRes = await db
+          .prepare(
+            `SELECT c.lei, c.legal_name, c.legal_jurisdiction, c.entity_status,
+                    c.matched_neq, c.matched_corp_no,
+                    MAX(CASE WHEN l.relationship_type = 'IS_DIRECTLY_CONSOLIDATED_BY' THEN 1 ELSE 0 END) AS is_direct,
+                    MAX(CASE WHEN l.relationship_type = 'IS_ULTIMATELY_CONSOLIDATED_BY' THEN 1 ELSE 0 END) AS is_ultime
+               FROM gleif_liens l
+               JOIN gleif_entites c ON c.lei = l.child_lei
+              WHERE l.parent_lei = ?
+                AND l.relationship_status = 'ACTIVE'
+                AND l.relationship_type IN ('IS_DIRECTLY_CONSOLIDATED_BY', 'IS_ULTIMATELY_CONSOLIDATED_BY')
+                AND c.is_canadian = 1
+              GROUP BY c.lei, c.legal_name, c.legal_jurisdiction, c.entity_status, c.matched_neq, c.matched_corp_no
+              ORDER BY c.legal_name ASC, c.lei ASC
+              LIMIT 50`,
+          )
+          .bind(gleifRow.lei)
+          .all<{
+            lei: string;
+            legal_name: string;
+            legal_jurisdiction: string | null;
+            entity_status: string | null;
+            matched_neq: string | null;
+            matched_corp_no: string | null;
+            is_direct: number;
+            is_ultime: number;
+          }>();
+        for (const r of filRes.results) {
+          const typeLien: "direct" | "ultime" | "direct_et_ultime" =
+            r.is_direct && r.is_ultime ? "direct_et_ultime" : r.is_direct ? "direct" : "ultime";
+          filialesCanadiennes.push({
+            lei: r.lei,
+            nom_legal: r.legal_name,
+            type_lien: typeLien,
+            legal_jurisdiction: r.legal_jurisdiction ?? null,
+            statut_entite: r.entity_status ?? null,
+            matched_neq: r.matched_neq ?? null,
+            matched_corporation_number: r.matched_corp_no ?? null,
+          });
+        }
+      }
+    }
+
+    gleif = {
+      lei: gleifRow.lei,
+      is_canadian: gleifRow.is_canadian === 1,
+      nom_legal: gleifRow.legal_name,
+      autres_noms: Array.isArray(gleifFiche.autres_noms) ? gleifFiche.autres_noms : [],
+      statut_entite: gleifRow.entity_status ?? "n/d",
+      registration_status: gleifRow.registration_status ?? "n/d",
+      next_renewal_date: gleifRow.next_renewal_date ?? null,
+      initial_registration_date: gleifRow.initial_registration_date ?? null,
+      last_update_date: gleifRow.last_update_date ?? null,
+      legal_jurisdiction: gleifRow.legal_jurisdiction ?? null,
+      entity_category: gleifRow.entity_category ?? null,
+      registration_authority_id: gleifRow.ra_id ?? null,
+      registration_authority_entity_id: gleifRow.ra_entity_id ?? null,
+      matched_neq: gleifRow.matched_neq ?? null,
+      matched_corporation_number: gleifRow.matched_corp_no ?? null,
+      adresse_legale: dispenseAdresse
+        ? null
+        : {
+            ville: gleifRow.city ?? null,
+            region: gleifRow.region ?? null,
+            pays: gleifRow.country ?? null,
+            code_postal: gleifRow.postal_code ?? null,
+          },
+      parent_direct: parentDirect,
+      parent_ultime: parentUltime,
+      exceptions_declaration: exceptionsDeclaration,
+      filiales_canadiennes: filialesCanadiennes,
+      filiales_canadiennes_total: filialesTotal,
+    };
+  }
+
+  const portailsOfficiels: z.infer<typeof PortailsOfficielsSchema> = {
+    req: quebec
+      ? {
+          url: "https://www.registreentreprises.gouv.qc.ca/REQNA/GR/GR03/GR03A71.RechercheRegistre.MVC/GR03A71/RechercheParNeq",
+          portal_info_url:
+            "https://www.quebec.ca/entreprises-et-travailleurs-autonomes/obtenir-renseignements-entreprise/recherche-registre-entreprises/acceder-registre-entreprises",
+          libelle_fr: "Registraire des entreprises du Québec (REQ) — Recherche par NEQ",
+          objet_fr: `Consulter l'état des informations en direct (valeur probante L.P.L.E.), les administrateurs, dirigeants, actionnaires principaux et bénéficiaires ultimes pour le NEQ ${quebec.neq}.`,
+        }
+      : null,
+    corporations_canada: federal
+      ? {
+          url: `https://ised-isde.canada.ca/cc/lgcy/fdrlCrpDtls.html?corpId=${encodeURIComponent(federal.corporation_number)}&lang=fra`,
+          search_url: "https://ised-isde.canada.ca/cc/lgcy/fdrlCrpSrch.html?lang=fra",
+          libelle_fr: "Corporations Canada — Fiche officielle de société fédérale",
+          objet_fr: `Consulter les administrateurs actuels, le siège social et les dépôts annuels de la société fédérale n° ${federal.corporation_number}.`,
+        }
+      : null,
+    isc_pisc: federal
+      ? {
+          url: "https://ised-isde.canada.ca/site/corporations-canada/fr/particuliers-ayant-controle-important",
+          libelle_fr: "Corporations Canada — Particuliers ayant un contrôle important (PCI / ISC)",
+          objet_fr:
+            "Consulter le registre fédéral des particuliers ayant un contrôle important (bénéficiaires ultimes L.C.S.A.) et les règles de divulgation applicables.",
+        }
+      : null,
+    gleif: gleif
+      ? {
+          url: `https://search.gleif.org/#/record/${encodeURIComponent(gleif.lei)}`,
+          libelle_fr: "GLEIF — Fiche publique officielle du LEI",
+          objet_fr: `Vérifier en direct le statut d'enregistrement (${gleif.registration_status}), la date de renouvellement et les déclarations Level 2 du LEI ${gleif.lei}.`,
+        }
+      : null,
+  };
+
+  const gardes = makeRegistreGardes(Boolean(quebec && qcRow), gleif !== null);
+  const verifiedAt =
+    snapshots.req ?? snapshots.corp_ca ?? snapshots.gleif ?? snapshots.rbq ?? "2026-11-15";
+
+  const provenanceSource =
+    gleif !== null || snapshots.gleif
+      ? "Instantanés ouverts locaux : REQ (CC BY-NC-SA 4.0), RBQ / OPC / RENA (CC BY 4.0), Corporations Canada (OGL-Canada), GLEIF Golden Copy L1/L2/REPEX (CC0 1.0)"
+      : "Instantanés ouverts locaux : REQ (CC BY-NC-SA 4.0), RBQ / OPC / RENA (CC BY 4.0), Corporations Canada (OGL-Canada)";
 
   const structured: RegistreGetEntityOutput = {
     lookup_by: lookupBy,
-    lookup_value: rawVal,
+    lookup_value: lookupBy === "lei" ? cleanLei : rawVal,
     snapshots,
     quebec,
     federal,
+    gleif,
+    portails_officiels: portailsOfficiels,
     provenance: {
-      source:
-        "Instantanés ouverts locaux : REQ (CC BY-NC-SA 4.0), RBQ / OPC / RENA (CC BY 4.0), Corporations Canada (OGL-Canada)",
+      source: provenanceSource,
       verified_at: verifiedAt,
     },
     gardes,
@@ -1147,8 +1757,70 @@ export async function registreGetEntity(
     sections.push(
       `Fiche fédérale (Corporations Canada) — Société n° ${federal.corporation_number}${federal.bn_ne ? ` (NE ${federal.bn_ne})` : ""} : ${federal.nom_officiel}`,
       `Régime : ${federal.regime_legislatif} | Statut : ${federal.statut}${federal.detail_statut ? ` (${federal.detail_statut})` : ""}`,
-      `Siège déclaré : ${[federal.adresse_siege.rue, federal.adresse_siege.ville, federal.adresse_siege.province, federal.adresse_siege.code_postal].filter(Boolean).join(", ") || "Non déclaré"}`,
+      `Siège déclaré : ${
+        dispenseAdresse
+          ? "Occulté (dispense d'adresse LPLE)"
+          : [
+              federal.adresse_siege.rue,
+              federal.adresse_siege.ville,
+              federal.adresse_siege.province,
+              federal.adresse_siege.code_postal,
+            ]
+              .filter(Boolean)
+              .join(", ") || "Non déclaré"
+      }`,
       `Administrateurs (min–max statutaire) : ${federal.administrateurs.min ?? "n/d"} à ${federal.administrateurs.max ?? "n/d"}`,
+    );
+  }
+
+  if (gleif) {
+    sections.push(
+      `Fiche GLEIF — LEI ${gleif.lei} : ${gleif.nom_legal}`,
+      `Statut entité : ${gleif.statut_entite} | Enregistrement : ${gleif.registration_status}${gleif.next_renewal_date ? ` (prochain renouvellement : ${gleif.next_renewal_date.slice(0, 10)})` : ""}${gleif.legal_jurisdiction ? ` | Juridiction : ${gleif.legal_jurisdiction}` : ""}`,
+    );
+    if (gleif.parent_direct) {
+      sections.push(
+        `  Mère consolidante directe : ${gleif.parent_direct.nom_legal ?? gleif.parent_direct.lei} (LEI ${gleif.parent_direct.lei}, ${gleif.parent_direct.pays ?? "n/d"}, statut ${gleif.parent_direct.relationship_status})`,
+      );
+    }
+    if (gleif.parent_ultime) {
+      sections.push(
+        `  Mère consolidante ultime : ${gleif.parent_ultime.nom_legal ?? gleif.parent_ultime.lei} (LEI ${gleif.parent_ultime.lei}, ${gleif.parent_ultime.pays ?? "n/d"}, statut ${gleif.parent_ultime.relationship_status})`,
+      );
+    }
+    for (const exc of gleif.exceptions_declaration) {
+      sections.push(`  Exception Level 2 : ${exc.libelle_fr}`);
+    }
+    if (gleif.filiales_canadiennes_total > 0) {
+      sections.push(
+        `  Filiales canadiennes consolidées (${gleif.filiales_canadiennes_total}) : ${gleif.filiales_canadiennes
+          .slice(0, 10)
+          .map((fil) => `${fil.nom_legal} (${fil.lei}, ${fil.type_lien})`)
+          .join(" ; ")}`,
+      );
+    }
+  }
+
+  const portalLines: string[] = [];
+  if (portailsOfficiels.req) {
+    portalLines.push(
+      `  - REQ : ${portailsOfficiels.req.url} (info : ${portailsOfficiels.req.portal_info_url})`,
+    );
+  }
+  if (portailsOfficiels.corporations_canada) {
+    portalLines.push(`  - Corporations Canada : ${portailsOfficiels.corporations_canada.url}`);
+  }
+  if (portailsOfficiels.isc_pisc) {
+    portalLines.push(`  - PCI / ISC fédéral : ${portailsOfficiels.isc_pisc.url}`);
+  }
+  if (portailsOfficiels.gleif) {
+    portalLines.push(`  - GLEIF : ${portailsOfficiels.gleif.url}`);
+  }
+  if (portalLines.length > 0) {
+    sections.push(
+      "",
+      "Portails officiels (dirigeants, bénéficiaires ultimes et état en direct) :",
+      ...portalLines,
     );
   }
 

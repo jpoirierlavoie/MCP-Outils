@@ -68,7 +68,7 @@ export const INSTRUCTIONS =
   "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de trois bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
   "1) Calculs — calendrier_holidays, calendrier_deadlines et interets_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
   "2) Greffes et palais du Québec — greffe_parse_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses et coordonnées relevées le 2026-11-17, table des lieux 2026-07-22) sans consulter aucun plumitif ; quatre greffes itinérants demeurent sans adresse civique fixe. " +
-  "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1) : consulter le portail officiel du Registraire avant toute signification ou désignation finale d'une partie. " +
+  "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada et GLEIF Golden Copy CC0 1.0 pour les LEI et hiérarchies corporatives Level 2). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus des jeux ouverts (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1 ; L.C.S.A.) : consulter les portails officiels (REQ, Corporations Canada, PCI/ISC et GLEIF) retournés dans portails_officiels avant toute signification ou désignation finale d'une partie. " +
   "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
   "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « lois » ; pour la jurisprudence, employer « juris »).";
 
@@ -153,17 +153,17 @@ const TOOL_SPECS: ReadonlyArray<{
   },
   {
     name: "registre_search",
-    title: "Registres d'entreprises (QC / Canada) — recherche",
+    title: "Registres d'entreprises (QC / Canada / GLEIF) — recherche",
     description:
-      "Recherche hors ligne dans les instantanés locaux de données ouvertes du Registraire des entreprises du Québec (REQ, enrichi des licences RBQ actives, permis OPC et inscriptions RENA) et de Corporations Canada (sociétés fédérales). Trouve une entité par dénomination sociale, autre nom utilisé, numéro de société à numéro (p. ex. '9123-4567 Québec inc.'), NEQ ou numéro fédéral. Exclut les dirigeants et actionnaires personnes physiques (restriction légale du jeu ouvert REQ) : vérifier l'état officiel à jour auprès du Registraire avant toute signification ou désignation d'une partie.",
+      "Recherche hors ligne dans les instantanés locaux de données ouvertes du Registraire des entreprises du Québec (REQ, enrichi des licences RBQ actives, permis OPC et inscriptions RENA), de Corporations Canada (sociétés fédérales) et de la GLEIF (entités canadiennes titulaires d'un LEI ISO 17442, dont banques, fiducies et sociétés extraprovinciales). Trouve une entité par dénomination sociale, autre nom utilisé, société à numéro ('9123-4567 Québec inc.'), NEQ, numéro fédéral ou LEI à 20 caractères, et signale has_lei. Exclut les dirigeants et bénéficiaires ultimes personnes physiques (L.P.L.E. / L.C.S.A.) : vérifier aux portails officiels avant toute signification ou désignation d'une partie.",
     family: "registre",
     inputSchema: RegistreSearchEntitiesInputSchema,
   },
   {
     name: "registre_get_entity",
-    title: "Registres d'entreprises (QC / Canada) — fiche complète",
+    title: "Registres d'entreprises (QC / Canada / GLEIF) — fiche complète",
     description:
-      "Récupère la fiche détaillée d'une entreprise par NEQ à 10 chiffres (Québec : statut d'immatriculation, forme et régime juridiques, dates clés, domicile élu ou dispense d'adresse, autres noms en vigueur et antérieurs, établissements, fusions/scissions, continuations, licences RBQ, permis OPC et inscriptions RENA) ou par numéro de société fédérale / NE à 9 chiffres (Corporations Canada : statut, loi constitutive, siège social, dernier dépôt annuel). Instantanés locaux en lecture seule sans valeur de certificat ni d'attestation officielle.",
+      "Récupère la fiche détaillée d'une entreprise par NEQ à 10 chiffres (Québec : statut, forme/régime juridique, domicile élu ou dispense d'adresse LPLE, établissements, fusions/scissions, RBQ, OPC et RENA), numéro de société fédérale / NE à 9 chiffres (Corporations Canada) ou LEI ISO 17442 à 20 caractères (GLEIF Level 1 et hiérarchie comptable Level 2 : parent_direct, parent_ultime y compris sociétés mères étrangères, exceptions_declaration REPEX et filiales canadiennes). Retourne les liens directs vers les portails officiels (REQ, Corporations Canada, PCI/ISC fédéral et GLEIF) pour consulter les administrateurs et bénéficiaires ultimes personnes physiques sans jamais en stocker ni en retourner. Instantanés locaux sans valeur de certificat officiel.",
     family: "registre",
     inputSchema: RegistreGetEntityInputSchema,
   },

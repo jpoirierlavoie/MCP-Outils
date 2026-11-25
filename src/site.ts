@@ -353,7 +353,7 @@ ${biP(
       "compte ni aucune clé requis). Il permet à votre assistant IA de calculer avec exactitude " +
       "les jours fériés, les délais de procédure et les intérêts (art. 1619 C.c.Q.) et de consulter " +
       "hors ligne les numéros de dossier de cour, les palais de justice, les registres d'entreprises " +
-      "(REQ, RBQ, OPC, RENA, Corporations Canada), les adresses civiques (RQA) et la terminologie " +
+      "(REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), les adresses civiques (RQA) et la terminologie " +
       "juridique bilingue.",
   ],
   EN.intro,
@@ -404,11 +404,11 @@ export const RESUME_OUTILS_FR: Readonly<Record<string, readonly string[]>> = {
     "Affiche la fiche complète d'un palais de justice : adresse civique et postale, heures d'ouverture, télécopieur, numéros de téléphone et courriels par chambre ou service. Vérifiez sur le site du Ministère avant toute signification ou audience.",
   ],
   registre_search: [
-    "Recherche hors ligne dans les données ouvertes du Registraire des entreprises du Québec (REQ, enrichies des licences RBQ, permis OPC et inscriptions RENA) et de Corporations Canada par nom, nom d'emprunt, société à numéro ou NEQ.",
-    "La loi exclut les dirigeants et actionnaires personnes physiques du jeu ouvert du REQ : vérifiez l'état en direct avant de désigner ou signifier une partie.",
+    "Recherche hors ligne dans les données ouvertes du Registraire des entreprises du Québec (REQ, enrichies des licences RBQ, permis OPC et inscriptions RENA), de Corporations Canada et de la GLEIF (entités canadiennes titulaires d'un LEI, dont banques et fiducies) par nom, nom d'emprunt, société à numéro, NEQ, numéro fédéral ou LEI.",
+    "La loi exclut les dirigeants et bénéficiaires ultimes personnes physiques des jeux ouverts : vérifiez aux portails officiels avant de désigner ou signifier une partie.",
   ],
   registre_get_entity: [
-    "Obtient la fiche détaillée d'une entreprise par son NEQ à 10 chiffres ou numéro fédéral (statut, forme juridique, noms déclarés, établissements, licences RBQ, permis OPC, RENA). Instantané informatif seulement — ne vaut pas certificat officiel.",
+    "Obtient la fiche détaillée d'une entreprise par NEQ à 10 chiffres, numéro fédéral, NE/BN ou LEI à 20 caractères (statut, forme juridique, établissements, licences RBQ, permis OPC, RENA, hiérarchie comptable GLEIF Level 2 et liens directs vers les portails officiels REQ, Corporations Canada, PCI/ISC et GLEIF). Instantané informatif seulement — ne vaut pas certificat officiel.",
   ],
   adresse_verify: [
     "Vérifie l'existence municipale d'une adresse au Québec et en normalise l'orthographe, le code postal et le district judiciaire probable (en corrigeant fautes de frappe et anciens noms de rue). N'établit jamais le domicile d'une partie ni un titre foncier.",
@@ -483,12 +483,14 @@ ${biP(
   EN.familleGreffeTexte,
 )}
 ${greffe.map(carte).join("\n")}
-<h3>${bi("Registres d'entreprises (QC / Canada) — REQ, RBQ, OPC, RENA et Corporations Canada", EN.familleRegistre)}</h3>
+<h3>${bi("Registres d'entreprises (QC / Canada / GLEIF) — REQ, RBQ, OPC, RENA, Corporations Canada et LEI", EN.familleRegistre)}</h3>
 ${biP(
   [
-    "Deux outils adossés à un instantané local en lecture seule des registres publics d'entreprises. " +
-      "Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du fichier " +
-      "ouvert du REQ conformément à la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1).",
+    "Deux outils adossés à un instantané local en lecture seule des registres publics d'entreprises et " +
+      "des hiérarchies comptables GLEIF (CC0 1.0). Les dirigeants, administrateurs et bénéficiaires ultimes " +
+      "personnes physiques sont exclus conformément à la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1) " +
+      "et à la L.C.S.A. : des liens directs vers les portails officiels (REQ, Corporations Canada, PCI/ISC et GLEIF) " +
+      "sont fournis à chaque fiche.",
   ],
   EN.familleRegistreTexte,
 )}
@@ -836,7 +838,8 @@ ${biP(
     "Jason Poirier Lavoie, avocat (Québec). Sources de données ouvertes : Revenu Québec " +
       "(art. 28 L.A.F.), ministère de la Justice du Québec, Registraire des entreprises " +
       "(CC BY-NC-SA 4.0), RBQ / OPC / AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada " +
-      "et TERMIUM Plus® (OGL-Canada), Office québécois de la langue française (CC BY-NC-SA 4.0).",
+      "et TERMIUM Plus® (OGL-Canada), GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), Office québécois " +
+      "de la langue française (CC BY-NC-SA 4.0).",
     "Aucun conseil juridique. Cet outil ne remplace ni la vérification à la source, ni le " +
       "jugement professionnel.",
   ],
@@ -883,7 +886,7 @@ function construireJsonLd(): string {
           "Tables judiciaires MJQ, taux art. 28 L.A.F., registres d'entreprises, adresses RQA et terminologie bijuridique",
           "MJQ judicial directories, art. 28 T.A.A. rates, business registries, RQA addresses, and bijural terminology",
         ],
-        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, and read-only REQ/RBQ/OPC/RENA, RQA, and bijural terminology snapshots.`,
+        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, and bijural terminology snapshots.`,
         url: `${ORIGINE_SITE}/#greffes`,
         inLanguage: ["fr-CA", "en-CA"],
         dateModified: RELEVE_LE,

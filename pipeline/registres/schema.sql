@@ -1,5 +1,8 @@
--- Schéma D1 lecture seule — Domaine B : Registres d'entreprises (QC + Canada)
+-- Schéma D1 lecture seule — Domaine B : Registres d'entreprises (QC + Canada + GLEIF)
 
+DROP TABLE IF EXISTS gleif_exceptions;
+DROP TABLE IF EXISTS gleif_liens;
+DROP TABLE IF EXISTS gleif_entites;
 DROP TABLE IF EXISTS entites_fts;
 DROP TABLE IF EXISTS rena_inscriptions;
 DROP TABLE IF EXISTS opc_permis;
@@ -25,7 +28,7 @@ CREATE TABLE domaine_valeur (
 
 CREATE TABLE entites (
   id INTEGER PRIMARY KEY,
-  juridiction TEXT NOT NULL CHECK (juridiction IN ('qc', 'ca')),
+  juridiction TEXT NOT NULL CHECK (juridiction IN ('qc', 'ca', 'lei')),
   identifiant_principal TEXT NOT NULL,
   bn_ne TEXT,
   is_active INTEGER NOT NULL DEFAULT 0,
@@ -37,7 +40,8 @@ CREATE TABLE entites (
   date_constitution TEXT,
   ville TEXT,
   flags INTEGER NOT NULL DEFAULT 0,
-  fiche_json TEXT NOT NULL
+  fiche_json TEXT NOT NULL,
+  lei TEXT
 );
 
 CREATE TABLE rbq_licences (
@@ -61,3 +65,50 @@ CREATE TABLE rena_inscriptions (
   nom_norm TEXT NOT NULL,
   payload_json TEXT NOT NULL
 );
+
+CREATE TABLE gleif_entites (
+  lei TEXT PRIMARY KEY,
+  is_canadian INTEGER NOT NULL DEFAULT 1,
+  legal_name TEXT NOT NULL,
+  legal_jurisdiction TEXT,
+  entity_category TEXT,
+  entity_status TEXT,
+  legal_form_code TEXT,
+  registration_status TEXT,
+  initial_registration_date TEXT,
+  next_renewal_date TEXT,
+  last_update_date TEXT,
+  managing_lou TEXT,
+  validation_sources TEXT,
+  ra_id TEXT,
+  ra_entity_id TEXT,
+  matched_neq TEXT,
+  matched_corp_no TEXT,
+  country TEXT,
+  region TEXT,
+  city TEXT,
+  postal_code TEXT,
+  fiche_json TEXT
+);
+
+CREATE TABLE gleif_liens (
+  id INTEGER PRIMARY KEY,
+  child_lei TEXT NOT NULL,
+  parent_lei TEXT NOT NULL,
+  relationship_type TEXT NOT NULL,
+  relationship_status TEXT NOT NULL,
+  accounting_standard TEXT,
+  quantifier_amount REAL,
+  quantifier_units TEXT,
+  period_start TEXT,
+  period_end TEXT,
+  validation_sources TEXT
+);
+
+CREATE TABLE gleif_exceptions (
+  lei TEXT NOT NULL,
+  category TEXT NOT NULL,
+  reasons_json TEXT NOT NULL,
+  references_json TEXT,
+  PRIMARY KEY (lei, category)
+) WITHOUT ROWID;
