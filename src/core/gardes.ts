@@ -26,6 +26,8 @@ export const GARDE_CODES = [
   "ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE",
   "ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE",
   "ADRESSE_CORRESPONDANCE_APPROXIMATIVE",
+  "ADRESSE_LOT_MULTI_OU_COPROPRIETE",
+  "ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT",
   "TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE",
 ] as const;
 
@@ -97,6 +99,10 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "Les numéros de lot cadastral (numero_lot, pouvant en outre omettre les parties privatives en copropriété divise ou refléter une jointure de bâtiment sur plusieurs lots) et le matricule d'évaluation municipale issus du RQA sont fournis à titre purement indicatif et n'ont AUCUNE valeur légale (art. 3030 al. 2 et 3032 C.c.Q.). Toujours vérifier l'index des immeubles au Registre foncier du Québec avant toute désignation cadastrale dans un acte ou une réquisition d'inscription.",
   ADRESSE_CORRESPONDANCE_APPROXIMATIVE:
     "La correspondance d'adresse retournée n'est pas un appariement civique exact (correction orthographique d'odonyme, unité d'appartement ou de bureau non confirmée dans le RQA, ou rue repérée sans ce numéro civique) : revérifier minutieusement chaque composante auprès de la municipalité ou de Postes Canada avant toute signification.",
+  ADRESSE_LOT_MULTI_OU_COPROPRIETE:
+    "Ambiguïté cadastrale ou de copropriété : au moins un candidat comporte plusieurs numéros de lot, vise un immeuble subdivisé en unités (copropriété divise potentielle), partage le lot de l'immeuble parent ou associe un même lot à plusieurs adresses civiques. En vertu des art. 3030 al. 2 et 3032 C.c.Q., ne jamais confondre le lot de l'immeuble parent ou des parties communes avec le lot d'une partie privative : vérifier l'index des immeubles et le plan cadastral au Registre foncier du Québec.",
+  ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT:
+    "Repli sur l'immeuble parent (numero_unite = '') : l'unité demandée est absente du RQA ou sa fiche ne porte pas de numéro de lot ou de matricule propre ; les données cadastrales ou d'évaluation affichées proviennent de la fiche du bâtiment principal. En copropriété divise, ce lot parent ne constitue pas le lot de la partie privative (art. 3030 al. 2 et 3032 C.c.Q.).",
   TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE:
     "Les équivalents terminologiques (hors attestations textuelles tirées des lois consolidées) constituent une aide à la rédaction bijuridique ; en droit québécois, les versions française et anglaise des lois ont la même valeur juridique sous réserve de la préséance du texte français en cas de divergence que les règles ordinaires d'interprétation ne permettent pas de résoudre (art. 7 par. 3° et 7.1 de la Charte de la langue française).",
 };

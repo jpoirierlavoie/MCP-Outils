@@ -3,6 +3,7 @@
 
 DROP TABLE IF EXISTS odonymes_trigram;
 DROP TABLE IF EXISTS odonymes_fts;
+DROP TABLE IF EXISTS lots_cadastraux_index;
 DROP TABLE IF EXISTS adresses_civiques;
 DROP TABLE IF EXISTS odonymes;
 DROP TABLE IF EXISTS municipalites;
@@ -55,3 +56,9 @@ CREATE TABLE adresses_civiques (
   latitude REAL,
   longitude REAL
 );
+
+CREATE TABLE lots_cadastraux_index (
+  lot_num INTEGER NOT NULL,
+  civ_id INTEGER NOT NULL,
+  PRIMARY KEY (lot_num, civ_id)
+) WITHOUT ROWID;

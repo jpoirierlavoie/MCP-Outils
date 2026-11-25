@@ -547,6 +547,7 @@ describe("Worker HTTP & intégration MCP", () => {
             'rue Notre-Dame Est', 'rue Notre-Dame Est', 'notre dame', '${computeConsonantKey("Notre-Dame")}', ''
           );
           INSERT INTO adresses_civiques VALUES (1, 1, 1, '', '', NULL, 'H2Y1B6', 'C', 'Principal', '2359285', '9891-44-1234', 45.508841, -73.554012);
+          INSERT INTO lots_cadastraux_index VALUES (2359285, 1);
           INSERT INTO odonymes_fts(rowid, specifique, odonyme_normal, renvois_recherche)
             SELECT id, specifique, odonyme_normal, renvois_recherche FROM odonymes;
           INSERT INTO odonymes_trigram(rowid, specifique_norm)
@@ -609,6 +610,46 @@ describe("Worker HTTP & intégration MCP", () => {
       expect(AdresseVerifyOutputSchema.parse(aVer.body.result?.structuredContent).status).toBe(
         "exact_civic",
       );
+
+      const aRevLot = await mcpPost(
+        "tools/call",
+        { name: "adresse_verify", arguments: { lot_number: "2 359 285" } },
+        121,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(aRevLot.body.result?.isError).not.toBe(true);
+      const revLotParsed = AdresseVerifyOutputSchema.parse(aRevLot.body.result?.structuredContent);
+      expect(revLotParsed.status).toBe("exact_civic");
+      expect(revLotParsed.candidates[0]?.lot_source).toBe("rqa_immeuble_parent");
+
+      const aRevMat = await mcpPost(
+        "tools/call",
+        { name: "adresse_verify", arguments: { matricule: "9891441234" } },
+        122,
+        "https://outils.poirierlavoie.ca/mcp",
+        boundEnv,
+      );
+      expect(aRevMat.body.result?.isError).not.toBe(true);
+      expect(AdresseVerifyOutputSchema.parse(aRevMat.body.result?.structuredContent).status).toBe(
+        "exact_civic",
+      );
+
+      for (const badArgs of [
+        { lot_number: "2359285", matricule: "9891-44-1234" },
+        { lot_number: "invalide" },
+      ]) {
+        const badRes = await mcpPost(
+          "tools/call",
+          { name: "adresse_verify", arguments: badArgs },
+          123,
+          "https://outils.poirierlavoie.ca/mcp",
+          boundEnv,
+        );
+        expect(badRes.status).toBe(200);
+        expect(badRes.body.error).toBeUndefined();
+        expect(badRes.body.result?.isError).toBe(true);
+      }
 
       const tLook = await mcpPost(
         "tools/call",

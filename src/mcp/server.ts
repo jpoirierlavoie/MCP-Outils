@@ -171,7 +171,7 @@ const TOOL_SPECS: ReadonlyArray<{
     name: "adresse_verify",
     title: "Référentiel québécois des adresses (RQA) — vérification et normalisation",
     description:
-      "Vérifie l'existence municipale d'une adresse québécoise et la normalise selon le Référentiel québécois des adresses (RQA, MRNF) et Odonymes et renvois. Corrige les fautes de frappe et abréviations courantes ('boul', 'Mtl', 'St-', anciens odonymes), distingue les unités confirmées des bureaux non subdivisés, indique la plage civique d'une rue, le code postal, les lots cadastraux et matricules indicatifs ainsi que le district judiciaire probable par municipalité. N'établit jamais le domicile ou l'établissement d'une partie ni la propriété foncière.",
+      "Vérifie l'existence municipale d'une adresse québécoise et la normalise selon le Référentiel québécois des adresses (RQA, MRNF) et Odonymes et renvois, ou effectue une recherche inversée par numéro de lot cadastral (`lot_number`) ou matricule d'évaluation (`matricule`). Corrige les fautes de frappe et abréviations courantes ('boul', 'Mtl', 'St-', anciens odonymes), distingue les unités confirmées des bureaux non subdivisés, précise la provenance des lots (unité vs repli sur l'immeuble parent) et les ambiguïtés de copropriété, et indique la plage civique d'une rue, le code postal, les lots cadastraux et matricules indicatifs ainsi que le district judiciaire probable par municipalité. N'établit jamais le domicile ou l'établissement d'une partie ni la propriété foncière.",
     family: "adresse",
     inputSchema: AdresseVerifyInputSchema,
   },
