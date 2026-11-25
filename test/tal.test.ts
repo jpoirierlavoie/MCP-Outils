@@ -11,19 +11,29 @@ function createTestCmhcDb() {
       readFileSync(resolve(process.cwd(), "pipeline/economie/indexes.sql"), "utf-8"),
       `
         INSERT INTO meta_sources VALUES
-          ('statcan_cmhc_rents', 'StatCan 34-10-0133-01', 'OGL-Canada', '2025-12-17', 6);
+          ('statcan_cmhc_rents', 'StatCan 34-10-0133-01', 'OGL-Canada', '2025-12-17', 10);
         INSERT INTO cmhc_centres VALUES
+          (36, 'hawkesbury-partie-quebecoise-qc', 'Hawkesbury, Quebec part, Ontario/Quebec', 'Hawkesbury, partie québécoise, Ontario/Québec', 'hawkesbury partie quebecoise', 'QC', 1, 'Dollars', 1987, 2025),
           (37, 'ottawa-gatineau-partie-quebecoise-qc', 'Ottawa-Gatineau, Quebec part, Ontario/Quebec', 'Ottawa-Gatineau, partie québécoise, Ontario/Québec', 'ottawa gatineau partie quebecoise', 'QC', 1, 'Dollars', 1987, 2025),
           (46, 'montreal-qc', 'Montréal, Quebec', 'Montréal, Québec', 'montreal', 'QC', 1, 'Dollars', 1987, 2025),
           (48, 'quebec-qc', 'Québec, Quebec', 'Québec, Québec', 'quebec', 'QC', 1, 'Dollars', 1987, 2025),
-          (105, 'ottawa-gatineau-on-qc', 'Ottawa-Gatineau, Ontario/Quebec', 'Ottawa-Gatineau, Ontario/Québec', 'ottawa gatineau', 'ON/QC', 0, 'Dollars', 1987, 2025);
+          (86, 'hawkesbury-partie-ontarienne-on', 'Hawkesbury, Ontario part, Ontario/Quebec', 'Hawkesbury, partie ontarienne, Ontario/Québec', 'hawkesbury partie ontarienne', 'ON', 0, 'Dollars', 1987, 2025),
+          (105, 'ottawa-gatineau-on-qc', 'Ottawa-Gatineau, Ontario/Quebec', 'Ottawa-Gatineau, Ontario/Québec', 'ottawa gatineau', 'ON/QC', 0, 'Dollars', 1987, 2025),
+          (106, 'ottawa-gatineau-partie-ontarienne-on', 'Ottawa-Gatineau, Ontario part, Ontario/Quebec', 'Ottawa-Gatineau, partie ontarienne, Ontario/Québec', 'ottawa gatineau partie ontarienne', 'ON', 0, 'Dollars', 1987, 2025),
+          (203, 'saint-lin-laurentides-qc', 'Saint-Lin--Laurentides, Quebec', 'Saint-Lin--Laurentides, Québec', 'saint lin laurentides', 'QC', 1, 'Dollars', 1987, 2016),
+          (219, 'sainte-sophie-qc', 'Sainte- Sophie, Quebec', 'Sainte- Sophie, Québec', 'sainte sophie', 'QC', 1, 'Dollars', 1987, 2025);
         INSERT INTO cmhc_rents VALUES
+          (36, 3, 3, 2025, 1100),
           (46, 3, 2, 2025, 1131),
           (46, 3, 3, 2025, 1346),
           (46, 3, 4, 2025, 1625),
           (48, 3, 3, 2025, 1276),
           (37, 3, 3, 2025, 1452),
-          (105, 3, 3, 2025, 1740);
+          (86, 3, 3, 2025, 1150),
+          (105, 3, 3, 2025, 1740),
+          (106, 3, 3, 2025, 1790),
+          (203, 3, 3, 2016, 780),
+          (219, 3, 3, 2025, 1180);
       `,
     ],
     enforceQueryOnly: true,
@@ -320,8 +330,63 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
         year: 2027,
       });
       expect(futureCmhc.ok).toBe(false);
+
+      // Régression : variantes « Québec, Québec », « Quebec, QC », « Quebec part », « Ontario/Québec » et tirets/espaces StatCan
+      const expectedIds: Array<[string, number]> = [
+        ["Québec, Québec", 48],
+        ["Québec, Quebec", 48],
+        ["Quebec, QC", 48],
+        ["Ottawa-Gatineau, Quebec part", 37],
+        ["Ottawa-Gatineau, Quebec part, Ontario/Quebec", 37],
+        ["Ottawa-Gatineau, partie québécoise, Ontario/Québec", 37],
+        ["Hawkesbury, partie québécoise, Ontario/Québec", 36],
+        ["Ottawa-Gatineau", 105],
+        ["Ottawa-Gatineau, Ontario part", 106],
+        ["Sainte-Sophie", 219],
+        ["Sainte- Sophie, Québec", 219],
+        ["Saint-Lin-Laurentides", 203],
+        ["Saint-Lin--Laurentides, Québec", 203],
+      ];
+      for (const [label, expectedId] of expectedIds) {
+        const res = await loyerTal(harness.d1, {
+          mode: "schl",
+          cmhc_geo: label,
+          unit_type: "two_bedroom",
+        });
+        expect(res.ok, `Expected SCHL lookup to succeed for ${label}`).toBe(true);
+        if (res.ok) {
+          expect(res.structured.cmhc_results).toHaveLength(1);
+          expect(res.structured.cmhc_results[0]?.geo_member_id).toBe(expectedId);
+        }
+      }
+
+      // Les jokers SQL seuls ne doivent jamais correspondre à tous les centres
+      const wildcardOnly = await loyerTal(harness.d1, {
+        mode: "schl",
+        cmhc_geo: "%%%",
+      });
+      expect(wildcardOnly.ok).toBe(false);
     } finally {
       harness.close();
     }
+  });
+
+  it("émet à la fois TAL_REGIME_TRANSITOIRE_PRE_2026 et TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ si Cas T1 et Cas T2 sont combinés", async () => {
+    const combined = await loyerTal(null, {
+      mode: "calcul_2026",
+      notice_date: "2025-12-20",
+      lease_renewal_date: "2026-07-01",
+      section_f_exemption_5_ans: true,
+      current_rent_cents: 100_000,
+    });
+    expect(combined.ok).toBe(true);
+    if (!combined.ok) return;
+    expect(combined.structured.regime).toBe("pre_2026_transitoire");
+    const codes = combined.structured.gardes.map((g) => g.code);
+    expect(codes).toContain("TAL_REGIME_TRANSITOIRE_PRE_2026");
+    expect(codes).toContain("TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ");
+    expect(codes).toContain("TAL_POUVOIR_DISCRETIONNAIRE_FIXATION");
+    expect(combined.text).toContain("1455-2025");
+    expect(combined.text).toContain("1955 C.c.Q.");
   });
 });

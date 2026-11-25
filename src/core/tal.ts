@@ -570,6 +570,44 @@ function normalizeSearch(raw: string): string {
     .trim();
 }
 
+function escapeLikePattern(term: string): string {
+  return term.replace(/[\\%_]/g, "\\$&");
+}
+
+function buildCmhcQueryTerms(raw: string): string[] {
+  const qNorm = normalizeSearch(raw);
+  if (!qNorm) return [];
+
+  const terms: string[] = [];
+  const push = (t: string) => {
+    const cleaned = t.trim();
+    if (cleaned && !terms.includes(cleaned)) {
+      terms.push(cleaned);
+    }
+  };
+
+  push(qNorm);
+
+  // Retirer uniquement un suffixe provincial en fin de chaîne (jamais le jeton ville seul)
+  const strippedProv = qNorm
+    .replace(
+      /\s+(?:(?:ontario|new brunswick|nouveau brunswick)\s+quebec|saskatchewan\s+alberta|saskachewan\s+alberta|quebec|qc|ontario|on|new brunswick|nouveau brunswick|nb|alberta|ab|british columbia|colombie britannique|bc|manitoba|mb|nova scotia|nouvelle ecosse|ns|newfoundland and labrador|terre neuve et labrador|nl|prince edward island|ile du prince edouard|pe|pei|yukon|yt|northwest territories|territoires du nord ouest|nt|nunavut|nu)$/,
+      "",
+    )
+    .trim();
+
+  const mappedParts = strippedProv
+    .replace(/\bquebec part\b/g, "partie quebecoise")
+    .replace(/\bontario part\b/g, "partie ontarienne")
+    .replace(/\bnew brunswick part\b/g, "partie nouveau brunswick")
+    .trim();
+
+  push(mappedParts);
+  push(strippedProv);
+
+  return terms;
+}
+
 const STRUCTURE_META: Record<CmhcStructureType, { id: number; labelFr: string }> = {
   apartment_3_plus: { id: 1, labelFr: "Immeubles d'appartements de 3 logements et plus" },
   row_3_plus: { id: 2, labelFr: "Logements en bandes de 3 logements et plus" },
@@ -718,44 +756,66 @@ export async function loyerTal(
         .first<CmhcCentreRow>();
       if (row) centres = [row];
     } else {
-      const qNorm = normalizeSearch(input.cmhc_geo);
-      const qNoQc = qNorm.replace(/\b(quebec|qc)\b/g, "").trim();
-      const queryTerm = qNorm === "quebec" ? "quebec" : qNoQc || qNorm;
-
-      const exactRow = await db
-        .prepare(
-          "SELECT geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year " +
-            "FROM cmhc_centres WHERE search_norm = ? ORDER BY is_quebec DESC, geo_member_id ASC LIMIT 1",
-        )
-        .bind(queryTerm)
-        .first<CmhcCentreRow>();
-      if (exactRow) {
-        centres = [exactRow];
-      } else {
-        const likeRes = await db
-          .prepare(
-            "SELECT geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year " +
-              "FROM cmhc_centres WHERE search_norm LIKE ? ORDER BY is_quebec DESC, LENGTH(search_norm) ASC LIMIT 10",
-          )
-          .bind(`%${queryTerm}%`)
-          .all<CmhcCentreRow>();
-        const candidates = likeRes.results ?? [];
-        if (candidates.length === 1) {
-          centres = candidates;
-        } else if (candidates.length > 1) {
-          // Préférer le centre québécois si unique ou correspondance forte (ex. 'gatineau' -> partie québécoise)
-          const qcCandidates = candidates.filter((c) => c.is_quebec === 1);
-          if (qcCandidates.length === 1) {
-            centres = qcCandidates;
+      const queryTerms = buildCmhcQueryTerms(input.cmhc_geo);
+      if (queryTerms.length > 0) {
+        let exactRow: CmhcCentreRow | null = null;
+        for (const term of queryTerms) {
+          exactRow = await db
+            .prepare(
+              "SELECT geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year " +
+                "FROM cmhc_centres WHERE search_norm = ? ORDER BY is_quebec DESC, geo_member_id ASC LIMIT 1",
+            )
+            .bind(term)
+            .first<CmhcCentreRow>();
+          if (exactRow) break;
+        }
+        if (exactRow) {
+          centres = [exactRow];
+        } else {
+          // Repli exact sur name_fr / name_en normalisés (ex. « Smiths Falls, Ontario » vs « Smith Falls »)
+          const allCentresRes = await db
+            .prepare(
+              "SELECT geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year " +
+                "FROM cmhc_centres ORDER BY is_quebec DESC, geo_member_id ASC",
+            )
+            .all<CmhcCentreRow>();
+          const allCentres = allCentresRes.results ?? [];
+          const termSet = new Set(queryTerms);
+          const nameMatched = allCentres.filter((c) => {
+            const frNorm = normalizeSearch(c.name_fr);
+            const enNorm = normalizeSearch(c.name_en);
+            return termSet.has(frNorm) || termSet.has(enNorm) || termSet.has(c.search_norm);
+          });
+          if (nameMatched.length > 0) {
+            centres = [nameMatched[0]!];
           } else {
-            const listLabel = candidates
-              .slice(0, 8)
-              .map((c) => `${c.name_fr} (id=${c.geo_member_id})`)
-              .join(", ");
-            return {
-              ok: false,
-              text: `Plusieurs centres SCHL correspondent à « ${input.cmhc_geo} » : ${listLabel}. Préciser le nom exact ou l'identifiant numérique.`,
-            };
+            const likeTerm = queryTerms[1] ?? queryTerms[0]!;
+            const likeRes = await db
+              .prepare(
+                "SELECT geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year " +
+                  "FROM cmhc_centres WHERE search_norm LIKE ? ESCAPE '\\' ORDER BY is_quebec DESC, LENGTH(search_norm) ASC LIMIT 10",
+              )
+              .bind(`%${escapeLikePattern(likeTerm)}%`)
+              .all<CmhcCentreRow>();
+            const candidates = likeRes.results ?? [];
+            if (candidates.length === 1) {
+              centres = candidates;
+            } else if (candidates.length > 1) {
+              // Préférer le centre québécois si unique ou correspondance forte (ex. 'gatineau' -> partie québécoise)
+              const qcCandidates = candidates.filter((c) => c.is_quebec === 1);
+              if (qcCandidates.length === 1) {
+                centres = qcCandidates;
+              } else {
+                const listLabel = candidates
+                  .slice(0, 8)
+                  .map((c) => `${c.name_fr} (id=${c.geo_member_id})`)
+                  .join(", ");
+                return {
+                  ok: false,
+                  text: `Plusieurs centres SCHL correspondent à « ${input.cmhc_geo} » : ${listLabel}. Préciser le nom exact ou l'identifiant numérique.`,
+                };
+              }
+            }
           }
         }
       }
@@ -895,6 +955,16 @@ export async function loyerTal(
     const { year: renewalYear } = parseIsoDate(input.lease_renewal_date);
     const clampedPreYear = Math.min(2026, Math.max(2015, renewalYear));
     const preList = buildPre2026List(clampedPreYear);
+    const gardes = [
+      makeGarde(
+        "TAL_REGIME_TRANSITOIRE_PRE_2026",
+        `Avis daté du ${input.notice_date} (< 2026-01-01) : calculateur 2026 inapplicable.`,
+      ),
+    ];
+    if (input.section_f_exemption_5_ans === true) {
+      gardes.push(makeGarde("TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ"));
+    }
+    gardes.push(makeGarde("TAL_POUVOIR_DISCRETIONNAIRE_FIXATION"));
     const structured: LoyerTalOutput = {
       mode: "calcul_2026",
       regime: "pre_2026_transitoire",
@@ -907,13 +977,7 @@ export async function loyerTal(
         verified_at: talCriteresJson.metadata.verified_at,
         table_version: talCriteresJson.metadata.table_version,
       },
-      gardes: [
-        makeGarde(
-          "TAL_REGIME_TRANSITOIRE_PRE_2026",
-          `Avis daté du ${input.notice_date} (< 2026-01-01) : calculateur 2026 inapplicable.`,
-        ),
-        makeGarde("TAL_POUVOIR_DISCRETIONNAIRE_FIXATION"),
-      ],
+      gardes,
     };
     return { ok: true, structured, text: formatTalText(structured) };
   }
@@ -1216,6 +1280,11 @@ function formatTalText(out: LoyerTalOutput): string {
     lines.push(
       "Fixation de loyer TAL — Régime transitoire pré-2026 applicable (art. 6 Décret 1455-2025 ; avis donné avant le 1er janvier 2026).",
     );
+    if (out.gardes.some((g) => g.code === "TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ")) {
+      lines.push(
+        "Exemption de 5 ans également déclarée (art. 1955 C.c.Q., Section F du bail) : aucune fixation par le TAL pendant la période de 5 ans si les mentions obligatoires figurent au bail.",
+      );
+    }
     for (const row of out.bareme_pre_2026) {
       lines.push(
         `- Barème ${row.year} : électricité ${formatBpsComma(row.electricity_bps)}, gaz ${formatBpsComma(row.gas_bps)}, mazout ${formatBpsComma(row.oil_other_bps)}, entretien ${formatBpsComma(row.maintenance_bps)}, services ${formatBpsComma(row.services_bps)}, gestion ${formatBpsComma(row.management_bps)}, revenu net ${formatBpsComma(row.net_income_bps)}, immobilisations ${formatBpsComma(row.capital_expenditures_bps)}.`,

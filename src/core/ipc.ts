@@ -144,6 +144,8 @@ export const IndiceIpcOutputSchema = z.object({
   available_first_period: z.string(),
   available_last_period: z.string(),
   count: z.number().int(),
+  total_observations: z.number().int(),
+  observations_truncated: z.boolean(),
   cumulative_change_bps: z.number().int().nullable(),
   observations: z.array(CpiObservationOutputSchema),
   escalation: CpiEscalationOutputSchema.nullable(),
@@ -482,6 +484,8 @@ export async function indiceIpc(
   const obsOut: Array<z.infer<typeof CpiObservationOutputSchema>> = [];
   let escalationOut: z.infer<typeof CpiEscalationOutputSchema> | null = null;
   let cumulativeChangeBps: number | null = null;
+  let totalObservations = 0;
+  let observationsTruncated = false;
 
   const availStart = formatPeriodInt(dbFreq, startSeries.first_period);
   const availEnd = formatPeriodInt(dbFreq, endSeries.last_period);
@@ -534,6 +538,7 @@ export async function indiceIpc(
       yoy_bps: yoyBps,
       yoy_percent: yoyPercent,
     });
+    totalObservations = 1;
     if (startSeries.uom !== "2002=100") {
       guardSet.add("IPC_BASE_REINDEXATION_ATTENTION");
     }
@@ -562,6 +567,18 @@ export async function indiceIpc(
           ok: false,
           text: `Aucune observation IPC entre ${startParsed!.formatted} et ${endParsed!.formatted} pour ${startSeries.geo_fr} — ${startSeries.product_fr}.`,
         };
+      }
+
+      totalObservations = rows.length;
+      if (rows.length === limit) {
+        const countRow = await db
+          .prepare(
+            "SELECT COUNT(*) AS total FROM cpi_observations WHERE series_id = ? AND period BETWEEN ? AND ?",
+          )
+          .bind(startSeries.id, startInt, endInt)
+          .first<{ total: number }>();
+        totalObservations = countRow?.total ?? rows.length;
+        observationsTruncated = totalObservations > rows.length;
       }
 
       const prevWindowStart = dbFreq === "M" ? startInt - 100 : startInt - 1;
@@ -599,7 +616,53 @@ export async function indiceIpc(
         });
       }
 
-      if (rows.length >= 2) {
+      const needEndpointQueries = input.amount !== undefined || observationsTruncated;
+      let startObs: CpiObsRow | null = rows[0] && rows[0].period === startInt ? rows[0] : null;
+      let endObs: CpiObsRow | null =
+        !observationsTruncated && rows[rows.length - 1] && rows[rows.length - 1]!.period === endInt
+          ? rows[rows.length - 1]!
+          : null;
+
+      if (needEndpointQueries && !startObs) {
+        startObs = await db
+          .prepare(
+            "SELECT series_id, period, value_milli FROM cpi_observations WHERE series_id = ? AND period = ?",
+          )
+          .bind(startSeries.id, startInt)
+          .first<CpiObsRow>();
+      }
+      if (needEndpointQueries && !endObs) {
+        endObs = await db
+          .prepare(
+            "SELECT series_id, period, value_milli FROM cpi_observations WHERE series_id = ? AND period = ?",
+          )
+          .bind(endSeries.id, endInt)
+          .first<CpiObsRow>();
+      }
+
+      if (startObs && endObs && startObs.period !== endObs.period && startObs.value_milli > 0) {
+        const firstM = BigInt(startObs.value_milli);
+        const lastM = BigInt(endObs.value_milli);
+        cumulativeChangeBps = Number(roundHalfAwayFromZero((lastM - firstM) * 10_000n, firstM));
+      } else if (observationsTruncated) {
+        const lastRangeObs = await db
+          .prepare(
+            "SELECT series_id, period, value_milli FROM cpi_observations " +
+              "WHERE series_id = ? AND period BETWEEN ? AND ? ORDER BY period DESC LIMIT 1",
+          )
+          .bind(startSeries.id, startInt, endInt)
+          .first<CpiObsRow>();
+        if (
+          lastRangeObs &&
+          rows[0] &&
+          rows[0].period !== lastRangeObs.period &&
+          rows[0].value_milli > 0
+        ) {
+          const firstM = BigInt(rows[0].value_milli);
+          const lastM = BigInt(lastRangeObs.value_milli);
+          cumulativeChangeBps = Number(roundHalfAwayFromZero((lastM - firstM) * 10_000n, firstM));
+        }
+      } else if (rows.length >= 2 && rows[0]!.value_milli > 0) {
         const firstM = BigInt(rows[0]!.value_milli);
         const lastM = BigInt(rows[rows.length - 1]!.value_milli);
         cumulativeChangeBps = Number(roundHalfAwayFromZero((lastM - firstM) * 10_000n, firstM));
@@ -610,18 +673,6 @@ export async function indiceIpc(
       }
 
       if (input.amount !== undefined) {
-        const startObs = await db
-          .prepare(
-            "SELECT series_id, period, value_milli FROM cpi_observations WHERE series_id = ? AND period = ?",
-          )
-          .bind(startSeries.id, startInt)
-          .first<CpiObsRow>();
-        const endObs = await db
-          .prepare(
-            "SELECT series_id, period, value_milli FROM cpi_observations WHERE series_id = ? AND period = ?",
-          )
-          .bind(endSeries.id, endInt)
-          .first<CpiObsRow>();
         if (!startObs || !endObs) {
           return {
             ok: false,
@@ -691,6 +742,18 @@ export async function indiceIpc(
       }
     } else {
       // Plage multi-UOM sans indexation (startUom !== endUom)
+      if (
+        startInt < startSeries.first_period ||
+        startInt > startSeries.last_period ||
+        endInt < endSeries.first_period ||
+        endInt > endSeries.last_period
+      ) {
+        return {
+          ok: false,
+          text: `La plage demandée (${startParsed!.formatted} à ${endParsed!.formatted}) déborde de l'instantané vérifié pour ${startSeries.geo_fr} — ${startSeries.product_fr} (${startSeries.uom} : ${formatPeriodInt(dbFreq, startSeries.first_period)} à ${formatPeriodInt(dbFreq, startSeries.last_period)} ; ${endSeries.uom} : ${formatPeriodInt(dbFreq, endSeries.first_period)} à ${formatPeriodInt(dbFreq, endSeries.last_period)}). Aucune extrapolation n'est effectuée.`,
+        };
+      }
+
       guardSet.add("IPC_BASE_REINDEXATION_ATTENTION");
       const r1 = await db
         .prepare(
@@ -719,6 +782,19 @@ export async function indiceIpc(
           ok: false,
           text: `Aucune observation IPC entre ${startParsed!.formatted} et ${endParsed!.formatted} pour ${startSeries.geo_fr} — ${startSeries.product_fr}.`,
         };
+      }
+
+      const combinedCount = (r1.results?.length ?? 0) + (r2.results?.length ?? 0);
+      totalObservations = combinedCount;
+      if (tagged.length === limit) {
+        const countRow = await db
+          .prepare(
+            "SELECT COUNT(*) AS total FROM cpi_observations WHERE series_id IN (?, ?) AND period BETWEEN ? AND ?",
+          )
+          .bind(startSeries.id, endSeries.id, startInt, endInt)
+          .first<{ total: number }>();
+        totalObservations = countRow?.total ?? combinedCount;
+        observationsTruncated = totalObservations > tagged.length;
       }
 
       for (const item of tagged) {
@@ -753,6 +829,8 @@ export async function indiceIpc(
     available_first_period: availStart,
     available_last_period: availEnd,
     count: obsOut.length,
+    total_observations: totalObservations,
+    observations_truncated: observationsTruncated,
     cumulative_change_bps: cumulativeChangeBps,
     observations: obsOut,
     escalation: escalationOut,
@@ -782,9 +860,15 @@ function formatIpcText(out: IndiceIpcOutput): string {
     const yoy = obs.yoy_percent ? ` (var. annuelle : ${obs.yoy_percent})` : "";
     lines.push(`- ${obs.period} : ${obs.value_decimal} [${obs.uom}]${yoy}`);
   }
-  if (out.cumulative_change_bps !== null) {
+  if (out.observations_truncated) {
     lines.push(
-      `Variation cumulative sur la plage : ${formatSignedBpsPercent(BigInt(out.cumulative_change_bps))} (${out.cumulative_change_bps} bps).`,
+      `Affichage tronqué à ${out.count} observations sur ${out.total_observations} dans la plage (augmenter 'limit' jusqu'à 500 pour tout afficher).`,
+    );
+  }
+  if (out.cumulative_change_bps !== null) {
+    const spanTag = out.observations_truncated ? " (plage complète)" : "";
+    lines.push(
+      `Variation cumulative sur la plage${spanTag} : ${formatSignedBpsPercent(BigInt(out.cumulative_change_bps))} (${out.cumulative_change_bps} bps).`,
     );
   }
   if (out.escalation) {

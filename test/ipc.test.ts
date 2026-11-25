@@ -255,4 +255,88 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       harness.close();
     }
   });
+
+  it("calcule cumulative_change_bps sur toute la plage même quand limit tronque observations et rejette les bornes hors instantané en mode multi-UOM", async () => {
+    const harness = createSqliteD1Harness({
+      seedSql: [
+        readFileSync(resolve(process.cwd(), "pipeline/economie/schema.sql"), "utf-8"),
+        readFileSync(resolve(process.cwd(), "pipeline/economie/indexes.sql"), "utf-8"),
+        `
+          INSERT INTO meta_sources VALUES
+            ('statcan_cpi_monthly', 'StatCan 18-10-0004-01', 'OGL-Canada', '2026-10-01', 7);
+          INSERT INTO cpi_series VALUES
+            (1, 18100004, 'M', 'quebec', 'Quebec', 'Québec', 'all_items', 'All-items', 'Ensemble', '11.2.0.0.0.0.0.0.0.0', 41691783, '2002=100', 202401, 202405),
+            (2, 18100004, 'M', 'quebec', 'Quebec', 'Québec', 'all_items', 'All-items (1992=100)', 'Ensemble (1992=100)', '11.309.0.0.0.0.0.0.0.0', 41713412, '1992=100', 201712, 201812);
+          INSERT INTO cpi_observations VALUES
+            (1, 202401, 150000),
+            (1, 202402, 151000),
+            (1, 202403, 152000),
+            (1, 202404, 153000),
+            (1, 202405, 165000),
+            (2, 201712, 152100),
+            (2, 201812, 154600);
+        `,
+      ],
+      enforceQueryOnly: true,
+    });
+    try {
+      // limit=3 sur 5 mois (2024-01..2024-05) : +10.00 % (1000 bps) sur la plage complète, pas +1.33 % (133 bps)
+      const truncatedWithAmount = await indiceIpc(harness.d1, {
+        geo: "quebec",
+        product: "all_items",
+        start_period: "2024-01",
+        end_period: "2024-05",
+        amount: "1000.00",
+        limit: 3,
+      });
+      expect(truncatedWithAmount.ok).toBe(true);
+      if (!truncatedWithAmount.ok) return;
+      expect(truncatedWithAmount.structured.count).toBe(3);
+      expect(truncatedWithAmount.structured.total_observations).toBe(5);
+      expect(truncatedWithAmount.structured.observations_truncated).toBe(true);
+      expect(truncatedWithAmount.structured.cumulative_change_bps).toBe(1000);
+      expect(truncatedWithAmount.structured.escalation?.raw_change_bps).toBe(1000);
+      expect(truncatedWithAmount.text).toContain("3 observations sur 5");
+
+      // Sans amount également : cumulative_change_bps reflète toute la plage [2024-01, 2024-05]
+      const truncatedRangeOnly = await indiceIpc(harness.d1, {
+        geo: "quebec",
+        product: "all_items",
+        start_period: "2024-01",
+        end_period: "2024-05",
+        limit: 3,
+      });
+      expect(truncatedRangeOnly.ok).toBe(true);
+      if (!truncatedRangeOnly.ok) return;
+      expect(truncatedRangeOnly.structured.cumulative_change_bps).toBe(1000);
+      expect(truncatedRangeOnly.structured.observations_truncated).toBe(true);
+
+      // Multi-UOM sans amount : end_period futur hors instantané DOIT échouer (pas d'extrapolation)
+      const multiUomFuture = await indiceIpc(harness.d1, {
+        geo: "quebec",
+        product: "all_items",
+        uom: "1992=100",
+        end_uom: "2002=100",
+        start_period: "2018-12",
+        end_period: "2099-01",
+      });
+      expect(multiUomFuture.ok).toBe(false);
+      if (!multiUomFuture.ok) {
+        expect(multiUomFuture.text).toContain("extrapolation");
+      }
+
+      // Multi-UOM sans amount : start_period antérieur à startSeries.first_period DOIT échouer
+      const multiUomPast = await indiceIpc(harness.d1, {
+        geo: "quebec",
+        product: "all_items",
+        uom: "1992=100",
+        end_uom: "2002=100",
+        start_period: "1990-01",
+        end_period: "2024-05",
+      });
+      expect(multiUomPast.ok).toBe(false);
+    } finally {
+      harness.close();
+    }
+  });
 });
