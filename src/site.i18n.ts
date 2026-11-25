@@ -90,30 +90,34 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
       "UNKNOWN, never non-existent.",
   },
   registre_search: {
-    titre: "Business registries (QC / Canada) — search",
+    titre: "Business registries (QC / Canada / GLEIF) — search",
     resume: [
-      "Searches offline snapshots of Québec's Registraire des entreprises (REQ, enriched with RBQ, OPC, and RENA records) and Corporations Canada by company name, trade name, numbered-company name, or NEQ.",
-      "Natural-person directors and shareholders are omitted from REQ open data by law; verify current live status before naming or serving a party.",
+      "Searches offline snapshots of Québec's Registraire des entreprises (REQ, enriched with RBQ, OPC, and RENA records), Corporations Canada, and GLEIF (Canadian LEI holders including banks and trusts) by name, trade name, numbered-company name, NEQ, federal number, or 20-char LEI, surfacing has_lei.",
+      "Natural-person directors and beneficial owners are omitted from open datasets by law; verify live official portals before naming or serving a party.",
     ],
     texte:
       "Offline search across read-only open-data snapshots of the Registraire des entreprises du " +
       "Québec (REQ, enriched with active RBQ contractor licences, OPC permits, and RENA public-contract " +
-      "ineligibility records) and Corporations Canada. Matches corporate names, trade names, numbered " +
-      "corporations ('9123-4567 Québec inc.'), NEQ, or federal corporation numbers. Natural-person " +
-      "directors and shareholders are excluded from REQ open data by statute: verify live official " +
-      "status before serving proceedings or naming a party.",
+      "ineligibility records), Corporations Canada, and GLEIF Golden Copy (Canadian LEI holders). " +
+      "Matches corporate names, trade names, numbered corporations ('9123-4567 Québec inc.'), NEQ, " +
+      "federal corporation numbers, or 20-char ISO 17442 LEIs, and surfaces has_lei. Natural-person " +
+      "directors and UBOs are excluded by statute: verify live official portals before serving " +
+      "proceedings or naming a party.",
   },
   registre_get_entity: {
-    titre: "Business registries (QC / Canada) — full record",
+    titre: "Business registries (QC / Canada / GLEIF) — full record",
     resume: [
-      "Looks up a company's full snapshot record by 10-digit NEQ or federal corporation/BN number (status, legal form, trade names, establishments, RBQ licences, OPC permits, RENA listings). Informational snapshot only — not an official certificate.",
+      "Looks up a company's full snapshot record by 10-digit NEQ, federal corporation/BN number, or 20-char LEI (status, legal form, trade names, establishments, RBQ/OPC/RENA, GLEIF Level 2 accounting parents/exceptions/subsidiaries, and direct official REQ, Corporations Canada, ISC/PISC, and GLEIF links). Informational snapshot only — not an official certificate.",
     ],
     texte:
       "Retrieves an entity's full snapshot record by 10-digit NEQ (Québec registration status, legal " +
-      "form and governing statute, key dates, elected domicile or address exemption, current and " +
-      "former trade names, establishments, amalgamations/continuations, RBQ licences, OPC permits, " +
-      "and RENA listings) or by federal corporation number / 9-digit BN (Corporations Canada). " +
-      "Informational snapshot only — never an official certificate or attestation.",
+      "form and governing statute, key dates, elected domicile or LPLE address exemption, trade " +
+      "names, establishments, amalgamations/continuations, RBQ licences, OPC permits, and RENA " +
+      "listings), federal corporation number / 9-digit BN (Corporations Canada), or 20-char ISO 17442 " +
+      "LEI (GLEIF Level 1 and Level 2 accounting-consolidation parents including foreign parents, " +
+      "REPEX exceptions, and Canadian subsidiaries), alongside direct official portal links (REQ, " +
+      "Corporations Canada, federal ISC/PISC, and GLEIF) with zero natural-person data stored or " +
+      "returned. Informational snapshot only — never an official certificate or attestation.",
   },
   adresse_verify: {
     titre: "Québec address reference (RQA) — verification and normalization",
@@ -172,7 +176,7 @@ export const EN = {
     "Free public connector for Québec civil and commercial litigation (no account or key required). " +
       "It lets your AI assistant compute statutory holidays, C.C.P. deadlines, and art. 1619 C.C.Q. " +
       "interest accurately, and look up Québec court file numbers, courthouses, business registries " +
-      "(REQ, RBQ, OPC, RENA, Corporations Canada), civic addresses, and bilingual civil-law terminology.",
+      "(REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), civic addresses, and bilingual civil-law terminology.",
   ],
 
   avertissement: [
@@ -202,11 +206,13 @@ export const EN = {
       "calls and consult no court docket (plumitif).",
   ],
   familleRegistre:
-    "Business registries (QC / Canada) — REQ, RBQ, OPC, RENA and Corporations Canada",
+    "Business registries (QC / Canada / GLEIF) — REQ, RBQ, OPC, RENA, Corporations Canada, and LEIs",
   familleRegistreTexte: [
-    "Two tools backed by a read-only local snapshot of public corporate open data. Natural-person " +
-      "directors, officers, and shareholders are excluded from the REQ public dataset pursuant to " +
-      "the Act respecting the legal publicity of enterprises (CQLR, c. P-44.1).",
+    "Two tools backed by a read-only local snapshot of public corporate open data and GLEIF " +
+      "accounting-consolidation hierarchies (CC0 1.0). Natural-person directors, officers, and " +
+      "beneficial owners are excluded pursuant to the Act respecting the legal publicity of " +
+      "enterprises (CQLR, c. P-44.1) and the CBCA; direct official portal links (REQ, Corporations " +
+      "Canada, ISC/PISC, and GLEIF) are included with every profile.",
   ],
   familleAdresse: "Québec civic addresses — Référentiel québécois des adresses (RQA)",
   familleAdresseTexte: [
@@ -306,7 +312,7 @@ export const EN = {
     "Jason Poirier Lavoie, lawyer (Québec). Open-data sources: Revenu Québec (art. 28 T.A.A.), " +
       "ministère de la Justice du Québec, Registraire des entreprises (CC BY-NC-SA 4.0), RBQ / OPC / " +
       "AMP — RENA / MRNF — RQA (CC BY 4.0), Corporations Canada & TERMIUM Plus® (OGL-Canada), " +
-      "and Office québécois de la langue française (CC BY-NC-SA 4.0).",
+      "GLEIF Golden Copy L1/L2/REPEX (CC0 1.0), and Office québécois de la langue française (CC BY-NC-SA 4.0).",
     "No legal advice. This tool replaces neither verification at the source nor professional " +
       "judgment.",
   ],

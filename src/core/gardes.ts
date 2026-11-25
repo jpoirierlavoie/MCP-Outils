@@ -22,6 +22,7 @@ export const GARDE_CODES = [
   "REGISTRE_ABSENCE_PERSONNES_PHYSIQUES",
   "REGISTRE_FRAICHEUR_ET_OPPOSABILITE_LPLE",
   "REGISTRE_ABSENCE_NON_PROBANTE_ANCILLAIRES",
+  "REGISTRE_GLEIF_DECLARATIF_CONSOLIDATION",
   "LICENCE_DONNEES_OUVERTES_NC_SA",
   "ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE",
   "ADRESSE_LOT_ET_MATRICULE_SANS_VALEUR_LEGALE",
@@ -91,6 +92,8 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "Données issues d'instantanés périodiques (bimensuel pour le REQ, quotidien/mensuel pour les registres complémentaires) et non de l'état des informations en direct ayant valeur probante en vertu de l'art. 98 de la Loi sur la publicité légale des entreprises (RLRQ, c. P-44.1). Vérifier l'état des informations à jour avant toute désignation finale d'une partie (art. 99–100 C.p.c.) ou signification au siège/établissement (art. 125 C.p.c.).",
   REGISTRE_ABSENCE_NON_PROBANTE_ANCILLAIRES:
     "L'absence de correspondance jointe aux fichiers ouverts RBQ, OPC ou RENA (appariés sur le NEQ déclaré) ne constitue jamais une attestation officielle de conformité, d'absence de licence/permis ou d'admissibilité aux contrats publics.",
+  REGISTRE_GLEIF_DECLARATIF_CONSOLIDATION:
+    "Les données GLEIF (LEI, statuts d'enregistrement et relations mères/filiales Level 2) sont auto-déclaratives et reflètent uniquement la consolidation comptable (IFRS/PCGR) déclarée auprès d'un émetteur accrédité (LOU) : elles n'établissent NI le contrôle juridique, NI la détention d'actions votantes, NI les bénéficiaires ultimes au sens de la L.P.L.E. (RLRQ, c. P-44.1), de la L.C.S.A. (L.R.C. 1985, c. C-44) ou du Règlement sur la comptabilité et les normes d'exercice professionnel des avocats (RLRQ, c. B-1, r. 5, art. 20 et 23). Les entités sans LEI ('NO_LEI') ou contrôlées par des personnes physiques ('NATURAL_PERSONS') n'apparaissent pas comme sociétés mères consolidantes. Vérifier registration_status (p. ex. LAPSED), next_renewal_date et les registres corporatifs officiels avant d'alléguer un lien d'affiliation, de solidarité ou la levée du voile corporatif (art. 317 C.c.Q.).",
   LICENCE_DONNEES_OUVERTES_NC_SA:
     "Certaines sources intégrées (fichier ouvert du REQ ; données linguistiques de l'OQLF) sont diffusées sous licence CC BY-NC-SA 4.0 (Attribution – Pas d'utilisation commerciale – Partage dans les mêmes conditions) ; l'usage commercial ou en cabinet est assujetti aux conditions du diffuseur ou à son autorisation écrite.",
   ADRESSE_EXISTENCE_CIVIQUE_NON_DOMICILE:

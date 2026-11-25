@@ -197,6 +197,7 @@ describe("page publique GET / et fichiers de découverte", () => {
     expect(html).toContain("deadlines[].amount");
     expect(html).toContain("tranches[].principal_cents");
     expect(html).toContain("rate_overrides[].quarter");
+    expect(html).toContain("<code>lei</code>");
     expect(html).toContain("openWorldHint: false");
   });
 
