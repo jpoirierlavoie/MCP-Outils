@@ -10,7 +10,13 @@ import { MJQ_MAJ } from "../src/qc/lieux.js";
 import { listerDistricts } from "../src/qc/lookup.js";
 import { RELEVE_LE } from "../src/qc/palais.js";
 import { OUTILS_EN } from "../src/site.i18n.js";
-import { CHEMINS_DECOUVERTE_PUBLIQUE, esc, pagePubliqueHtml, SECTIONS } from "../src/site.js";
+import {
+  CHEMINS_DECOUVERTE_PUBLIQUE,
+  esc,
+  pagePubliqueHtml,
+  RESUME_OUTILS_FR,
+  SECTIONS,
+} from "../src/site.js";
 
 const dummyCtx = {
   waitUntil: () => {},
@@ -144,6 +150,11 @@ describe("page publique GET / et fichiers de découverte", () => {
     );
 
     expect(Object.keys(OUTILS_EN).sort()).toEqual(descripteurs.map((d) => d.name).sort());
+    expect(Object.keys(RESUME_OUTILS_FR).sort()).toEqual(descripteurs.map((d) => d.name).sort());
+    for (const [nom, frLines] of Object.entries(RESUME_OUTILS_FR)) {
+      expect(frLines.length, `${nom} resume FR`).toBeGreaterThanOrEqual(1);
+      expect(OUTILS_EN[nom]!.resume.length, `${nom} resume EN`).toBe(frLines.length);
+    }
 
     for (const s of SECTIONS) {
       expect(html).toContain(`href="#${s.id}"`);

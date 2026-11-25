@@ -52,11 +52,11 @@ export function biP(fr: readonly string[], en: readonly string[]): string {
 }
 
 export const SECTIONS = [
-  { id: "outils", fr: "Les outils", en: "The tools" },
-  { id: "schema", fr: "Les schémas", en: "The schemas" },
+  { id: "outils", fr: "Les 12 outils", en: "The 12 tools" },
   { id: "dossier", fr: "Numéro de dossier", en: "Court file numbers" },
   { id: "greffes", fr: "Greffes et palais", en: "Registries and courthouses" },
-  { id: "acces", fr: "Accès", en: "Access" },
+  { id: "acces", fr: "Accès et installation", en: "Access & setup" },
+  { id: "schema", fr: "Les schémas (technique)", en: "The schemas (technical)" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
@@ -103,7 +103,7 @@ body{margin:0;background:var(--bg);color:var(--f);font-family:system-ui,-apple-s
 .wrap{max-width:${LARGE};margin:0 auto;padding:2rem 1.25rem 4rem;display:grid;gap:1rem}
 main{min-width:0;max-width:60rem;width:100%;justify-self:center}
 section[id]{scroll-margin-top:1.5rem}
-#schema,#dossier,#greffes{content-visibility:auto;contain-intrinsic-size:auto 40rem}
+#dossier,#greffes,#schema{content-visibility:auto;contain-intrinsic-size:auto 40rem}
 h1{font-size:clamp(1.45rem,1.2rem + 1vw,1.85rem);line-height:1.25;letter-spacing:-.02em;margin:0;text-wrap:balance}
 h2{font-size:1.28rem;line-height:1.3;letter-spacing:-.015em;margin:2.75rem 0 .8rem;padding-bottom:.4rem;border-bottom:1px solid var(--b);text-wrap:balance}
 h3{font-size:1.08rem;line-height:1.35;letter-spacing:-.01em;margin:1.75rem 0 .45rem;text-wrap:balance}
@@ -349,26 +349,26 @@ ${barreSuite()}
 </div>
 ${biP(
   [
-    `Serveur MCP public en lecture seule (${SERVER_NAME} v${SERVER_VERSION}) conçu pour la ` +
-      "pratique du litige civil et commercial québécois. Il calcule les jours fériés, délais " +
-      "procéduraux et intérêts (art. 1619 C.c.Q.) et donne accès hors ligne aux numéros de " +
-      "dossier de cour, aux coordonnées des palais de justice, aux registres d'entreprises " +
-      "(REQ, RBQ, OPC, RENA, Corporations Canada), aux adresses civiques (RQA) et à la " +
-      "terminologie juridique bilingue.",
+    "Connecteur public gratuit pour la pratique du litige civil et commercial québécois (aucun " +
+      "compte ni aucune clé requis). Il permet à votre assistant IA de calculer avec exactitude " +
+      "les jours fériés, les délais de procédure et les intérêts (art. 1619 C.c.Q.) et de consulter " +
+      "hors ligne les numéros de dossier de cour, les palais de justice, les registres d'entreprises " +
+      "(REQ, RBQ, OPC, RENA, Corporations Canada), les adresses civiques (RQA) et la terminologie " +
+      "juridique bilingue.",
   ],
   EN.intro,
 )}
 <div class="avert">
 ${biP(
   [
-    "Chaque calcul et chaque consultation s'exécute localement sur des jeux de données publics en " +
-      "lecture seule, sans appel réseau externe ni journalisation des requêtes, noms de parties, " +
-      "adresses, extraits de projets d'actes, dates, montants ou numéros de dossier.",
-    "Cet outil applique des règles arithmétiques et lit des instantanés datés : il n'établit jamais " +
-      "l'existence d'un dossier, ne remplace ni le portail officiel du Registraire des entreprises ni " +
-      "le Registre foncier du Québec, n'établit pas le domicile d'une partie et n'effectue aucune " +
-      "qualification juridique automatique. Vérifier aux sources officielles avant toute signification " +
-      "ou tout dépôt.",
+    "Chaque calcul et chaque consultation s'exécute localement sur des jeux de données publics, " +
+      "sans appel externe ni journalisation des noms de parties, adresses, extraits de projets " +
+      "d'actes, dates, montants ou numéros de dossier.",
+    "Cet outil applique des règles de calendrier/calcul et lit des instantanés datés : il " +
+      "n'établit jamais qu'un dossier de cour existe, ne remplace ni le Registraire des " +
+      "entreprises ni le Registre foncier du Québec, ne prouve pas le domicile d'une partie et " +
+      "ne choisit pas automatiquement le délai applicable. Vérifiez aux sources officielles avant " +
+      "toute signification ou tout dépôt.",
   ],
   EN.avertissement,
 )}
@@ -381,6 +381,49 @@ ${biP(
 </header>`;
 }
 
+export const RESUME_OUTILS_FR: Readonly<Record<string, readonly string[]>> = {
+  calendrier_holidays: [
+    "Dresse la liste des jours fériés et non juridiques d'une année civile selon le Code de procédure civile, la prescription du Code civil ou les lois d'interprétation du Québec et du Canada.",
+  ],
+  calendrier_deadlines: [
+    "Calcule jusqu'à 25 délais de procédure ou légaux d'un seul coup (vers l'avant ou à rebours), en tenant compte du report après 17 h 00 lors d'une notification technologique, des fins de semaine/jours fériés et des périodes hors séance.",
+    "Effectue un calcul purement arithmétique sans déterminer quel délai légal s'applique à votre situation — vérifiez toujours la règle applicable.",
+  ],
+  interets_1619: [
+    "Calcule au cent près les intérêts légaux (5 %), l'indemnité additionnelle de l'art. 1619 C.c.Q. (à partir des taux trimestriels publiés par Revenu Québec sous l'art. 28 L.A.F.) ou un taux contractuel, jusqu'à 50 tranches.",
+    "N'extrapole jamais au-delà du dernier trimestre officiellement publié par Revenu Québec.",
+  ],
+  greffe_parse_number: [
+    "Décompose un numéro de dossier judiciaire québécois (ou un préfixe comme TAL-, TAQ-, C.F.-) pour indiquer le greffe, le palais de justice, le district judiciaire, le tribunal et sa compétence.",
+    "Lit uniquement des tables locales hors ligne : ne consulte aucun plumitif et ne prouve pas l'existence du dossier.",
+  ],
+  palais_list: [
+    "Répertorie les 44 palais de justice et 9 points de service du Québec avec leur adresse civique, les numéros de greffe qui y siègent et leur district judiciaire, filtrables par région ou par nom.",
+  ],
+  palais_get: [
+    "Affiche la fiche complète d'un palais de justice : adresse civique et postale, heures d'ouverture, télécopieur, numéros de téléphone et courriels par chambre ou service. Vérifiez sur le site du Ministère avant toute signification ou audience.",
+  ],
+  registre_search: [
+    "Recherche hors ligne dans les données ouvertes du Registraire des entreprises du Québec (REQ, enrichies des licences RBQ, permis OPC et inscriptions RENA) et de Corporations Canada par nom, nom d'emprunt, société à numéro ou NEQ.",
+    "La loi exclut les dirigeants et actionnaires personnes physiques du jeu ouvert du REQ : vérifiez l'état en direct avant de désigner ou signifier une partie.",
+  ],
+  registre_get_entity: [
+    "Obtient la fiche détaillée d'une entreprise par son NEQ à 10 chiffres ou numéro fédéral (statut, forme juridique, noms déclarés, établissements, licences RBQ, permis OPC, RENA). Instantané informatif seulement — ne vaut pas certificat officiel.",
+  ],
+  adresse_verify: [
+    "Vérifie l'existence municipale d'une adresse au Québec et en normalise l'orthographe, le code postal et le district judiciaire probable (en corrigeant fautes de frappe et anciens noms de rue). N'établit jamais le domicile d'une partie ni un titre foncier.",
+  ],
+  terminologie_lookup: [
+    "Recherche les équivalents français et anglais justes en droit civil québécois dans un glossaire spécialisé, les lois bilingues, TERMIUM Plus et l'OQLF, tout en signalant les faux amis de common law ou de droit français (p. ex. « mortgage » vs « hypothec »).",
+  ],
+  termino_attestations: [
+    "Vérifie combien de fois un terme juridique paraît dans les lois du Québec et du Canada et affiche côte à côte les extraits officiels en français et en anglais pour appuyer un choix de rédaction.",
+  ],
+  terminologie_scan: [
+    "Relit un extrait de projet d'acte, contrat ou lettre (en français ou en anglais) pour repérer les calques de common law (« mortgage », « consideration », « joint and several »), les francismes de France et les termes abrogés d'avant 2016 (« bref », « comparution »), sans jamais modifier votre texte.",
+  ],
+};
+
 function marqueurAppel(d: ToolDescriptor): string {
   return `<p class="m"><code>openWorldHint: ${d.annotations.openWorldHint}</code> · <code>readOnlyHint: ${d.annotations.readOnlyHint}</code> — ${bi(
     "aucun appel externe : calcul local ou consultation hors ligne en lecture seule.",
@@ -391,11 +434,17 @@ function marqueurAppel(d: ToolDescriptor): string {
 function outils(): string {
   const carte = (d: ToolDescriptor) => {
     const en = OUTILS_EN[d.name];
+    const resumeFr = RESUME_OUTILS_FR[d.name] ?? [d.description];
+    const resumeEn = en?.resume ?? [en?.texte ?? d.description];
     return `<article>
 <h4><code>${esc(d.name)}</code></h4>
 <p class="titre">${bi(d.title, en?.titre ?? d.title)}</p>
+${biP(resumeFr, resumeEn)}
+<details>
+<summary>${bi("Instruction exacte transmise à l'assistant IA", "Exact prompt sent to the AI assistant")}</summary>
 ${biP([d.description], [en?.texte ?? d.description])}
 ${marqueurAppel(d)}
+</details>
 </article>`;
   };
 
@@ -408,7 +457,13 @@ ${marqueurAppel(d)}
 
   return `<section id="outils">
 ${h2("outils")}
-<h3>${bi("Calculateurs déterministes (jours fériés, délais, intérêts art. 1619 C.c.Q.)", EN.familleCalcul)}</h3>
+${biP(
+  [
+    "Vous n'avez jamais à lancer ces fonctions vous-même : votre assistant IA les appelle automatiquement en arrière-plan pour calculer des délais ou intérêts, vérifier une entreprise ou une adresse, ou relire votre terminologie.",
+  ],
+  EN.outilsIntro,
+)}
+<h3>${bi("Calculateurs exacts (jours fériés, délais, intérêts art. 1619 C.c.Q.)", EN.familleCalcul)}</h3>
 ${biP(
   [
     "Trois calculateurs arithmétiques fondés sur le Code de procédure civile, les lois d'interprétation " +
@@ -545,14 +600,17 @@ function schemas(): string {
 ${h2("schema")}
 ${biP(
   [
-    "Chaque outil n'accepte que les paramètres listés ci-dessous : ces tableaux sont générés " +
-      "directement à partir des schémas de validation appliqués par le serveur.",
+    "Référence technique pour les développeurs et scripts : chaque outil n'accepte que les " +
+      "paramètres listés ci-dessous, générés directement à partir des règles de validation du serveur.",
     "La colonne Description reste en français dans les deux vues, car ces phrases sont le texte " +
       "exact reçu par l'assistant.",
   ],
   EN.schemaTexte,
 )}
+<details>
+<summary>${bi("Afficher les tables de paramètres des 12 outils (référence technique)", EN.schemaResume)}</summary>
 ${listToolDescriptors().map(bloc).join("\n")}
+</details>
 </section>`;
 }
 
@@ -612,12 +670,10 @@ ${biP(
   ],
   EN.dossierTexte,
 )}
-<h3 id="h-dossier-ex">${bi("Les issues, rendues par le vrai parseur", EN.dossierExemples)}</h3>
+<h3 id="h-dossier-ex">${bi("Exemples de lecture d'un numéro de dossier", EN.dossierExemples)}</h3>
 ${biP(
   [
-    "Les exemples ci-dessous ne sont pas transcrits : la page exécute le parseur au moment du " +
-      "rendu et affiche ce qu'il renvoie. Cette documentation ne peut donc pas diverger du " +
-      "comportement.",
+    "Les exemples ci-dessous montrent directement comment l'outil décompose différents formats de numéros de dossier :",
   ],
   EN.dossierExemplesTexte,
 )}
@@ -628,8 +684,8 @@ ${biP(
 <h3 id="h-dossier-jur">${bi("Codes de juridiction", EN.juridictionsTitre)}</h3>
 ${biP(
   [
-    "Le code à deux chiffres des positions 5 et 6. Le tiret cadratin des codes 46, 72 et 73 est " +
-      "une valeur RÉELLE : ces séries ne relèvent d'aucun tribunal nommé.",
+    "Le code à deux chiffres des positions 5 et 6. Le tiret (—) aux codes 46, 72 et 73 est normal : " +
+      "ces séries administratives ne relèvent d'aucun tribunal particulier.",
   ],
   EN.juridictionsTexte,
 )}
@@ -740,22 +796,30 @@ function acces(): string {
 ${h2("acces")}
 ${biP(
   [
-    "Point d'accès public sans compte ni jeton : https://outils.poirierlavoie.ca/mcp — utilisable " +
-      "directement dans claude.ai, Claude Desktop, Claude Code, ChatGPT, Google Antigravity, " +
-      "Gemini et les modes de recherche approfondie (Claude Research, Gemini Deep Research), seul " +
-      "ou avec le greffon « droit-civil-quebecois » et les connecteurs réservés aux membres du " +
-      "Barreau du Québec (https://acces.poirierlavoie.ca).",
-    "La fiche publique de découverte MCP est publiée sur " +
+    "Connecteur public — aucun compte du Barreau, aucune connexion ni clé API requis.",
+    "Si vous installez le greffon droit-civil-quebecois, ce connecteur est inclus automatiquement. " +
+      "Vous pouvez aussi ajouter l'adresse https://outils.poirierlavoie.ca/mcp directement dans " +
+      "claude.ai, ChatGPT ou Gemini en choisissant « Aucune authentification ».",
+  ],
+  EN.acces,
+)}
+<details>
+<summary>${bi("Détails techniques (découverte MCP, limites d'appels et licences)", EN.accesTechniqueTitre)}</summary>
+${biP(
+  [
+    `Service ${SERVER_NAME} v${SERVER_VERSION} — point d'accès : https://outils.poirierlavoie.ca/mcp. ` +
+      "La fiche publique de découverte MCP est publiée sur " +
       "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut aussi les manifestes " +
       "autonomes pour Google Antigravity et Gemini CLI. Vérification de santé sans journalisation : " +
       "https://outils.poirierlavoie.ca/healthz (limite de 240 requêtes par minute et par adresse IP).",
     "Le code source et le glossaire de droit civil sont libres et gratuits sous licence Apache-2.0 " +
       "(voir LICENSE), tandis que les jeux de données publics intégrés demeurent soumis aux " +
       "licences de leurs éditeurs respectifs décrites dans NOTICE (dont CC BY-NC-SA 4.0 pour " +
-      "le REQ et l'OQLF) ; l'ensemble des tests s'exécute localement hors ligne.",
+      "le REQ et l'OQLF).",
   ],
-  EN.acces,
+  EN.accesTechnique,
 )}
+</details>
 <p><a href="https://acces.poirierlavoie.ca/">acces.poirierlavoie.ca</a>
  · <a href="https://legislation.poirierlavoie.ca/">${bi("Législation", "Legislation")}</a>
  · <a href="https://jurisprudence.poirierlavoie.ca/">${bi("Jurisprudence", "Case Law")}</a>
@@ -831,7 +895,7 @@ function construireJsonLd(): string {
 }
 
 export function renderSite(): string {
-  const corps = [entete(), outils(), schemas(), dossier(), greffes(), acces(), pied()].join("\n");
+  const corps = [entete(), outils(), dossier(), greffes(), acces(), schemas(), pied()].join("\n");
   const titrePage = "MCP Outils — Délais, intérêts, greffes, registres et adresses";
   const titrePageEn = "MCP Tools — Deadlines, Interest, Registries & Legal Terms";
   const descMeta =
