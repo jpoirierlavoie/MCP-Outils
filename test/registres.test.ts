@@ -169,6 +169,28 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         '549300BELANGERDA1007'
       );
 
+      -- 12) Société fédérale stockée avec zéro initial (7 chiffres) liée à GLEIF sans zéro initial
+      INSERT INTO entites VALUES (
+        12, 'ca', '0463116', NULL, 1,
+        'ATELIER ZÉRO-PAD TEST INC.',
+        'atelier zero pad test',
+        NULL,
+        'LCSA', 'Actif', '2019-03-15', 'Sherbrooke', 0,
+        '{"rl":"Loi canadienne sur les sociétés par actions","pr":"QC","py":"CA"}',
+        NULL
+      );
+
+      -- 13) Société fédérale stockée sans zéro initial (6 chiffres) pour tester la requête à 7 chiffres
+      INSERT INTO entites VALUES (
+        13, 'ca', '463117', NULL, 1,
+        'SOCIÉTÉ SIX CHIFFRES TEST INC.',
+        'societe six chiffres test',
+        NULL,
+        'LCSA', 'Actif', '2020-07-01', 'Laval', 0,
+        '{"rl":"Loi canadienne sur les sociétés par actions","pr":"QC","py":"CA"}',
+        NULL
+      );
+
       INSERT INTO rbq_licences VALUES (
         '1170123456', '5789-1234-01',
         '{"statut":"Active","type_licence":"Entrepreneur","categorie":"Generale","sous_categories":["1.2","1.3","16"],"restriction":false,"date_delivrance":"2019-03-01","date_paiement_annuel":"2027-03-01","cautionnement_montant":"40000"}'
@@ -193,7 +215,8 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         ('549300USULTIMATE0004', 0, 'NORDIC GLOBAL HOLDINGS LLC', 'US-DE', 'GENERAL', 'ACTIVE', 'H435', 'ISSUED', '2015-03-01T00:00:00Z', '2027-03-01T00:00:00Z', '2026-03-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000602', 'DE-5511990', NULL, NULL, 'US', 'US-DE', 'Wilmington', '19801', NULL),
         ('549300CASUBSIDIARY05', 1, 'FILIALE QUÉBEC NORDIQUE INC.', 'CA-QC', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', '2021-06-10T00:00:00Z', '2027-06-10T00:00:00Z', '2026-06-10T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000081', '1179998888', NULL, NULL, 'CA', 'CA-QC', 'Québec', 'G1R 4P5', NULL),
         ('549300CABANKROYALE06', 1, 'BANQUE ROYALE DU NORD TEST', 'CA', 'GENERAL', 'ACTIVE', 'T15C', 'LAPSED', '2014-06-01T00:00:00Z', '2025-06-01T00:00:00Z', '2024-06-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'ENTITY_SUPPLIED_ONLY', 'RA000831', 'BS-0012', NULL, NULL, 'CA', 'CA-QC', 'Montréal', 'H3B 5G2', '{"autres_noms":["Royal Bank of North Test"]}'),
-        ('549300BELANGERDA1007', 1, 'CABINET BÉLANGER & ASSOCIÉS S.E.N.C.R.L.', 'CA-QC', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', '2016-05-01T00:00:00Z', '2027-05-01T00:00:00Z', '2026-05-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000081', '3340987654', '3340987654', '9990001', 'CA', 'CA-QC', 'Québec Confidentiel', 'G1R 0A0', NULL);
+        ('549300BELANGERDA1007', 1, 'CABINET BÉLANGER & ASSOCIÉS S.E.N.C.R.L.', 'CA-QC', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', '2016-05-01T00:00:00Z', '2027-05-01T00:00:00Z', '2026-05-01T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000081', '3340987654', '3340987654', '9990001', 'CA', 'CA-QC', 'Québec Confidentiel', 'G1R 0A0', NULL),
+        ('549300ZEROPAD0000008', 1, 'ATELIER ZÉRO-PAD TEST INC.', 'CA', 'GENERAL', 'ACTIVE', 'T15C', 'ISSUED', '2021-03-15T00:00:00Z', '2027-03-15T00:00:00Z', '2026-03-15T00:00:00Z', '5493001KJTIIGC8Y1R12', 'FULLY_CORROBORATED', 'RA000072', '463116', NULL, '463116', 'CA', 'CA-QC', 'Sherbrooke', 'J1H 1Z1', NULL);
 
       INSERT INTO gleif_liens VALUES
         (1, '549300CA828408300002', '549300CAPARENT000003', 'IS_DIRECTLY_CONSOLIDATED_BY', 'ACTIVE', 'IFRS', 100.0, 'PERCENTAGE', '2025-01-01', '2025-12-31', 'FULLY_CORROBORATED'),
@@ -607,6 +630,56 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
         expect(dumped).not.toContain("G1R 0A0");
         expect(dumped).not.toContain("G1R 9Z9");
       }
+    }
+  });
+
+  it("GLEIF PR 2 : masque ville sur les fiches fédérales liées à une dispense LPLE da=1 dans registre_search et normalise les zéros initiaux à 7 chiffres", async () => {
+    // 1) Recherche par LEI partagé (jurisdiction: 'gleif') : qc (3340987654) ET ca (9990001) ont ville=null sans fuite dans content[0].text
+    const byLei = await registreSearchEntities(harness.d1, {
+      query: "549300BELANGERDA1007",
+      jurisdiction: "gleif",
+    });
+    const parsedByLei = RegistreSearchEntitiesOutputSchema.parse(byLei.structured);
+    expect(parsedByLei.count).toBe(2);
+    expect(parsedByLei.entities.find((e) => e.neq === "3340987654")?.ville).toBeNull();
+    expect(parsedByLei.entities.find((e) => e.corporation_number === "9990001")?.ville).toBeNull();
+    const byLeiBody = byLei.text.split("\n\nDates d'instantanés :")[0] ?? "";
+    expect(byLeiBody).not.toContain("Québec");
+
+    // 2) Recherche par dénomination fédérale (jurisdiction: 'all' et 'ca') : ville=null sur la fiche ca liée
+    for (const jur of ["all", "ca"] as const) {
+      const caSearch = await registreSearchEntities(harness.d1, {
+        query: "9990001 CANADA",
+        jurisdiction: jur,
+      });
+      const parsedCa = RegistreSearchEntitiesOutputSchema.parse(caSearch.structured);
+      expect(parsedCa.count).toBe(1);
+      expect(parsedCa.entities[0]?.corporation_number).toBe("9990001");
+      expect(parsedCa.entities[0]?.ville).toBeNull();
+      const caResultLines = caSearch.text.split("\n").filter((line) => line.startsWith("- [CA ·"));
+      expect(caResultLines).toHaveLength(1);
+      expect(caResultLines[0]).not.toContain("Québec");
+      expect(caSearch.text).not.toContain("(LCSA), Québec");
+    }
+
+    // 3) Repli à 7 chiffres avec zéro initial dans registre_get_entity (463116 <-> 0463116 et 0463117 <-> 463117)
+    const unpaddedOnPadded = await registreGetEntity(harness.d1, {
+      corporation_number: "463116",
+    });
+    expect(unpaddedOnPadded.ok).toBe(true);
+    if (unpaddedOnPadded.ok) {
+      const parsed = RegistreGetEntityOutputSchema.parse(unpaddedOnPadded.structured);
+      expect(parsed.federal?.corporation_number).toBe("0463116");
+      expect(parsed.gleif?.lei).toBe("549300ZEROPAD0000008");
+    }
+
+    const paddedOnUnpadded = await registreGetEntity(harness.d1, {
+      corporation_number: "0463117",
+    });
+    expect(paddedOnUnpadded.ok).toBe(true);
+    if (paddedOnUnpadded.ok) {
+      const parsed = RegistreGetEntityOutputSchema.parse(paddedOnUnpadded.structured);
+      expect(parsed.federal?.corporation_number).toBe("463117");
     }
   });
 });

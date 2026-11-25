@@ -1247,10 +1247,15 @@ def _match_gleif_to_entites(
             continue
         stripped = re.sub(r"[\s-]+", "", raw_trim)
         no_zero = re.sub(r"^0+(?=\d)", "", stripped)
+        candidates = [raw_trim, stripped, no_zero]
+        if no_zero.isascii() and no_zero.isdigit() and len(no_zero) < 7:
+            candidates.append(no_zero.zfill(7))
+        unique_candidates = list(dict.fromkeys(c for c in candidates if c))
+        placeholders = ",".join("?" for _ in unique_candidates)
         row = conn.execute(
-            "SELECT id, identifiant_principal FROM entites "
-            "WHERE juridiction = 'ca' AND identifiant_principal IN (?, ?, ?) LIMIT 1",
-            (raw_trim, stripped, no_zero),
+            f"SELECT id, identifiant_principal FROM entites "
+            f"WHERE juridiction = 'ca' AND identifiant_principal IN ({placeholders}) LIMIT 1",
+            tuple(unique_candidates),
         ).fetchone()
         if row is not None:
             ca_id = int(row[0])
@@ -1647,8 +1652,8 @@ def _ingest_gleif(
         ]
 
         for row in reader:
-            start_lei = row[i_start].strip() if i_start < len(row) else ""
-            end_lei = row[i_end].strip() if i_end < len(row) else ""
+            start_lei = row[i_start].strip().upper() if i_start < len(row) else ""
+            end_lei = row[i_end].strip().upper() if i_end < len(row) else ""
             if not start_lei or not end_lei:
                 continue
             all_rr_ends.add(end_lei)

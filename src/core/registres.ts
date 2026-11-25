@@ -767,6 +767,17 @@ function makeRegistreGardes(includeNcSa: boolean, includeGleif: boolean): Garde[
   return gardes;
 }
 
+function corpNumberCandidates(rawVal: string): string[] {
+  const rawTrim = rawVal.trim();
+  const stripped = rawTrim.replace(/[\s-]+/g, "");
+  const cleanCorp = stripped.replace(/^0+(?=\d)/, "");
+  const out = [rawTrim, stripped, cleanCorp];
+  if (/^[0-9]+$/.test(cleanCorp) && cleanCorp.length < 7) {
+    out.push(cleanCorp.padStart(7, "0"));
+  }
+  return Array.from(new Set(out.filter((v) => v.length > 0)));
+}
+
 function appendJurisdictionFilter(
   jurisdiction: "qc" | "ca" | "gleif" | "all",
   alias: string,
@@ -885,7 +896,8 @@ export async function registreSearchEntities(
 
   const dvPairs: Array<[string, string | null | undefined]> = [];
   const unresolvedNeqs: string[] = [];
-  const unresolvedCorps: string[] = [];
+  const corpLookupSet = new Set<string>();
+  const caOrLeiLeisSet = new Set<string>();
   for (const { row } of sorted) {
     if (row.juridiction === "qc") {
       dvPairs.push(["FORM_JURI", row.forme_code], ["STAT_IMMAT", row.statut_code]);
@@ -893,8 +905,17 @@ export async function registreSearchEntities(
         unresolvedNeqs.push(row.identifiant_principal);
       }
     } else if (row.juridiction === "ca") {
-      if (!row.lei && caps.hasGleifEntites) {
-        unresolvedCorps.push(row.identifiant_principal);
+      if (caps.hasGleifEntites) {
+        for (const variant of corpNumberCandidates(row.identifiant_principal)) {
+          corpLookupSet.add(variant);
+        }
+        if (row.lei) {
+          caOrLeiLeisSet.add(row.lei);
+        }
+      }
+    } else if (row.juridiction === "lei") {
+      if (caps.hasGleifEntites) {
+        caOrLeiLeisSet.add(row.lei ?? row.identifiant_principal);
       }
     }
   }
@@ -902,16 +923,28 @@ export async function registreSearchEntities(
 
   const leiByNeq = new Map<string, string>();
   const leiByCorp = new Map<string, string>();
-  if (caps.hasGleifEntites && (unresolvedNeqs.length > 0 || unresolvedCorps.length > 0)) {
+  const neqsByLei = new Map<string, Set<string>>();
+  const neqsByCorp = new Map<string, Set<string>>();
+  const uniqueUnresolvedNeqs = Array.from(new Set(unresolvedNeqs));
+  const corpLookup = Array.from(corpLookupSet);
+  const caOrLeiLeis = Array.from(caOrLeiLeisSet);
+  if (
+    caps.hasGleifEntites &&
+    (uniqueUnresolvedNeqs.length > 0 || corpLookup.length > 0 || caOrLeiLeis.length > 0)
+  ) {
     const clauses: string[] = [];
     const params: string[] = [];
-    if (unresolvedNeqs.length > 0) {
-      clauses.push(`matched_neq IN (${unresolvedNeqs.map(() => "?").join(",")})`);
-      params.push(...unresolvedNeqs);
+    if (uniqueUnresolvedNeqs.length > 0) {
+      clauses.push(`matched_neq IN (${uniqueUnresolvedNeqs.map(() => "?").join(",")})`);
+      params.push(...uniqueUnresolvedNeqs);
     }
-    if (unresolvedCorps.length > 0) {
-      clauses.push(`matched_corp_no IN (${unresolvedCorps.map(() => "?").join(",")})`);
-      params.push(...unresolvedCorps);
+    if (corpLookup.length > 0) {
+      clauses.push(`matched_corp_no IN (${corpLookup.map(() => "?").join(",")})`);
+      params.push(...corpLookup);
+    }
+    if (caOrLeiLeis.length > 0) {
+      clauses.push(`lei IN (${caOrLeiLeis.map(() => "?").join(",")})`);
+      params.push(...caOrLeiLeis);
     }
     const gRes = await db
       .prepare(
@@ -926,8 +959,102 @@ export async function registreSearchEntities(
       if (g.matched_neq && !leiByNeq.has(g.matched_neq)) {
         leiByNeq.set(g.matched_neq, g.lei);
       }
-      if (g.matched_corp_no && !leiByCorp.has(g.matched_corp_no)) {
-        leiByCorp.set(g.matched_corp_no, g.lei);
+      if (g.matched_corp_no) {
+        for (const variant of corpNumberCandidates(g.matched_corp_no)) {
+          if (!leiByCorp.has(variant)) {
+            leiByCorp.set(variant, g.lei);
+          }
+        }
+      }
+      if (g.matched_neq) {
+        let sLei = neqsByLei.get(g.lei);
+        if (!sLei) {
+          sLei = new Set();
+          neqsByLei.set(g.lei, sLei);
+        }
+        sLei.add(g.matched_neq);
+        if (g.matched_corp_no) {
+          for (const variant of corpNumberCandidates(g.matched_corp_no)) {
+            let sCorp = neqsByCorp.get(variant);
+            if (!sCorp) {
+              sCorp = new Set();
+              neqsByCorp.set(variant, sCorp);
+            }
+            sCorp.add(g.matched_neq);
+          }
+        }
+      }
+    }
+  }
+
+  // Résolution transversale de la dispense d'adresse LPLE (da=1) pour les lignes fédérales/LEI liées à une fiche QC
+  const daMaskedLeis = new Set<string>();
+  const daMaskedNeqs = new Set<string>();
+  const checkLeisSet = new Set<string>();
+  const checkNeqsSet = new Set<string>();
+
+  for (const { row } of sorted) {
+    if (row.juridiction === "qc") {
+      const qcFiche = parseJsonSafe<QcFicheCompact>(row.fiche_json, {});
+      if (qcFiche.da === 1) {
+        daMaskedNeqs.add(row.identifiant_principal);
+        const qcLei = row.lei ?? leiByNeq.get(row.identifiant_principal) ?? null;
+        if (qcLei) {
+          daMaskedLeis.add(qcLei);
+        }
+      }
+    } else {
+      const candLei =
+        row.juridiction === "ca"
+          ? (row.lei ?? leiByCorp.get(row.identifiant_principal) ?? null)
+          : (row.lei ?? row.identifiant_principal);
+      if (candLei) {
+        checkLeisSet.add(candLei);
+        for (const neq of neqsByLei.get(candLei) ?? []) {
+          checkNeqsSet.add(neq);
+        }
+      }
+      if (row.juridiction === "ca") {
+        for (const neq of neqsByCorp.get(row.identifiant_principal) ?? []) {
+          checkNeqsSet.add(neq);
+        }
+      }
+    }
+  }
+
+  const qcDaClauses: string[] = [];
+  const qcDaParams: string[] = [];
+  if (caps.hasEntitesLeiCol && checkLeisSet.size > 0) {
+    const leis = Array.from(checkLeisSet);
+    qcDaClauses.push(`lei IN (${leis.map(() => "?").join(",")})`);
+    qcDaParams.push(...leis);
+  }
+  if (checkNeqsSet.size > 0) {
+    const neqs = Array.from(checkNeqsSet);
+    qcDaClauses.push(`identifiant_principal IN (${neqs.map(() => "?").join(",")})`);
+    qcDaParams.push(...neqs);
+  }
+  if (qcDaClauses.length > 0) {
+    const qcLinkedRes = await db
+      .prepare(
+        `SELECT identifiant_principal, ${leiColExpr}, fiche_json
+           FROM entites
+          WHERE juridiction = 'qc'
+            AND (${qcDaClauses.join(" OR ")})`,
+      )
+      .bind(...qcDaParams)
+      .all<{ identifiant_principal: string; lei: string | null; fiche_json: string }>();
+    for (const q of qcLinkedRes.results) {
+      const qFiche = parseJsonSafe<QcFicheCompact>(q.fiche_json, {});
+      if (qFiche.da === 1) {
+        daMaskedNeqs.add(q.identifiant_principal);
+        if (q.lei) {
+          daMaskedLeis.add(q.lei);
+        }
+        const mappedLei = leiByNeq.get(q.identifiant_principal);
+        if (mappedLei) {
+          daMaskedLeis.add(mappedLei);
+        }
       }
     }
   }
@@ -943,8 +1070,6 @@ export async function registreSearchEntities(
     const autresNoms = parseJsonSafe<string[]>(row.autres_noms_appercu, []);
     const flags = Number(row.flags);
     const qcFiche = isQc ? parseJsonSafe<QcFicheCompact>(row.fiche_json, {}) : null;
-    const effectiveVille =
-      isQc && qcFiche ? resolveQcVille(row.ville, qcFiche) : (row.ville ?? null);
     const effectiveLei =
       row.lei ??
       (isQc
@@ -952,6 +1077,21 @@ export async function registreSearchEntities(
         : isCa
           ? (leiByCorp.get(row.identifiant_principal) ?? null)
           : row.identifiant_principal);
+    const isLinkedDaMasked =
+      !isQc &&
+      ((effectiveLei !== null && daMaskedLeis.has(effectiveLei)) ||
+        (effectiveLei !== null &&
+          Array.from(neqsByLei.get(effectiveLei) ?? []).some((n) => daMaskedNeqs.has(n))) ||
+        (isCa &&
+          Array.from(neqsByCorp.get(row.identifiant_principal) ?? []).some((n) =>
+            daMaskedNeqs.has(n),
+          )));
+    const effectiveVille =
+      isQc && qcFiche
+        ? resolveQcVille(row.ville, qcFiche)
+        : isLinkedDaMasked
+          ? null
+          : (row.ville ?? null);
 
     return {
       jurisdiction: (isLei ? "gleif" : row.juridiction) as "qc" | "ca" | "gleif",
@@ -1150,16 +1290,16 @@ export async function registreGetEntity(
       .bind(cleanDigits)
       .first<RawEntiteRow>();
   } else if (lookupBy === "corporation_number") {
-    const rawTrim = rawVal.trim();
-    const stripped = rawTrim.replace(/[\s-]+/g, "");
-    const cleanCorp = stripped.replace(/^0+(?=\d)/, "");
-    caRow =
-      (await db
-        .prepare(
-          `${selectEntiteCols} WHERE juridiction = 'ca' AND identifiant_principal IN (?, ?, ?) LIMIT 1`,
-        )
-        .bind(rawTrim, stripped, cleanCorp)
-        .first<RawEntiteRow>()) ?? null;
+    const corpCandidates = corpNumberCandidates(rawVal);
+    if (corpCandidates.length > 0) {
+      caRow =
+        (await db
+          .prepare(
+            `${selectEntiteCols} WHERE juridiction = 'ca' AND identifiant_principal IN (${corpCandidates.map(() => "?").join(", ")}) LIMIT 1`,
+          )
+          .bind(...corpCandidates)
+          .first<RawEntiteRow>()) ?? null;
+    }
   } else if (lookupBy === "bn_ne") {
     caRow = await db
       .prepare(
@@ -1198,16 +1338,19 @@ export async function registreGetEntity(
         .bind(cleanDigits)
         .first<RawGleifEntiteRow>();
     } else if (caRow) {
-      gleifRow = await db
-        .prepare(
-          `SELECT * FROM gleif_entites
-            WHERE matched_corp_no = ?
-            ORDER BY CASE registration_status WHEN 'ISSUED' THEN 0 WHEN 'LAPSED' THEN 1 ELSE 2 END,
-                     next_renewal_date DESC, lei ASC
-            LIMIT 1`,
-        )
-        .bind(caRow.identifiant_principal)
-        .first<RawGleifEntiteRow>();
+      const corpCandidates = corpNumberCandidates(caRow.identifiant_principal);
+      if (corpCandidates.length > 0) {
+        gleifRow = await db
+          .prepare(
+            `SELECT * FROM gleif_entites
+              WHERE matched_corp_no IN (${corpCandidates.map(() => "?").join(", ")})
+              ORDER BY CASE registration_status WHEN 'ISSUED' THEN 0 WHEN 'LAPSED' THEN 1 ELSE 2 END,
+                       next_renewal_date DESC, lei ASC
+              LIMIT 1`,
+          )
+          .bind(...corpCandidates)
+          .first<RawGleifEntiteRow>();
+      }
     }
   }
 
@@ -1229,12 +1372,15 @@ export async function registreGetEntity(
     }
     if (!caRow && (gleifRow.matched_corp_no || caps.hasEntitesLeiCol)) {
       if (gleifRow.matched_corp_no) {
-        caRow = await db
-          .prepare(
-            `${selectEntiteCols} WHERE juridiction = 'ca' AND identifiant_principal = ? LIMIT 1`,
-          )
-          .bind(gleifRow.matched_corp_no)
-          .first<RawEntiteRow>();
+        const corpCandidates = corpNumberCandidates(gleifRow.matched_corp_no);
+        if (corpCandidates.length > 0) {
+          caRow = await db
+            .prepare(
+              `${selectEntiteCols} WHERE juridiction = 'ca' AND identifiant_principal IN (${corpCandidates.map(() => "?").join(", ")}) LIMIT 1`,
+            )
+            .bind(...corpCandidates)
+            .first<RawEntiteRow>();
+        }
       } else if (caps.hasEntitesLeiCol) {
         caRow = await db
           .prepare(`${selectEntiteCols} WHERE juridiction = 'ca' AND lei = ? LIMIT 1`)
