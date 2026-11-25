@@ -1050,9 +1050,9 @@ export async function loyerTal(
   const rawRpaBps = BigInt(regimeEntry.rpa_personal_services_bps);
   const effectiveRpaBps = rawRpaBps > 0n ? rawRpaBps : 0n;
 
-  let adjBaseNormalCents = 0n;
+  let adjBaseNormalCents: bigint;
   let adjBaseRpaCents = 0n;
-  let adjBaseCents = 0n;
+  let adjBaseCents: bigint;
   if (input.is_rpa) {
     const normalRent = currentRent - rpaServices;
     adjBaseNormalCents = roundHalfUpSigned(normalRent * effectiveBaseBps, 10_000n);
