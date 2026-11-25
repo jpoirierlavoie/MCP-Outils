@@ -8,13 +8,12 @@ Directives de développement, architecture et règles anti-dérive pour le serve
 
 `MCP-Outils` est un serveur MCP public, sans état applicatif, sans écriture au fil de l'eau, sans appel HTTP sortant, sans journalisation et sans secret, déployé comme Cloudflare Worker (`outils`) sur `https://outils.poirierlavoie.ca/mcp` avec quatre bases D1 strictement en lecture seule à la requête (`ENAM`).
 
-Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`droit-civil-quebecois`, 35 outils MCP au total), aux côtés du portail d'accès et serveur OAuth 2.1 `MCP-Acces` (`acces.poirierlavoie.ca`) qui gouverne les deux serveurs authentifiés :
+Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québécois (`droit-civil-quebecois`, 37 outils MCP au total), aux côtés du portail d'accès et serveur OAuth 2.1 `MCP-Acces` (`acces.poirierlavoie.ca`) qui gouverne les deux serveurs authentifiés :
 
 ```
              ┌────────────────────────────────────────────────────────┐
-             │           droit-civil-quebecois (Plugin Cadre)         │
-             │ 5 compétences : recherche-juridique, analyse-juridique,│
-             │ redaction-juridique, administration-litige, déontologie│
+             │      droit-civil-quebecois (Plugin Cadre v3.1.1)       │
+             │   10 compétences · 59 feuilles · 4 scripts stdlib      │
              └──────┬───────────────────────┬──────────────────┬──────┘
                     │ /mcp + /mcp/oauth     │ /mcp + /mcp/oauth│ (public)
                     ▼                       ▼                  ▼
@@ -26,7 +25,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
          └──────────┬──────────┘ └──────────┬──────────┘ └──────────────────────────┘
                     │                       │
                     ├───────────┬───────────┴────┐
-                    │           ▼ (`#v0.8.0` dev)▼ (`DB_IDENTITE` `mcp-identite`)
+                    │           ▼ (`#v0.8.4` dev)▼ (`DB_IDENTITE` `mcp-identite`)
                     │  ┌──────────────────┐  ┌──────────────────────────────────────┐
                     │  │    MCP-Socle     │  │              MCP-Acces               │
                     │  │ Transport 2026   │  │     https://acces.poirierlavoie.ca   │
@@ -36,10 +35,10 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 ```
 
 ### Intégration avec les compétences du plugin (`droit-civil-quebecois`)
-- **`skills/administration-litige`** : Consomme `calendrier_deadlines` et `calendrier_holidays` (avec repli local `scripts/calcul_delai.py`) pour calculer de 1 à 25 échéances de procédure civile (art. 83 C.p.c., report de fin de semaine, notification technologique après 17h00 selon l'art. 111 al. 2 C.p.c., délais à rebours, périodes de non-séance de l'art. 82 al. 2 C.p.c.), `interets_1619` (y compris `prime_plus_margin`), `greffe_parse_number`, `taux_boc_rates`, `indice_ipc` et `loyer_tal`.
+- **`skills/gestion-du-mandat` & `skills/production-et-conformite`** : Consomment `calendrier_deadlines` et `calendrier_holidays` (avec repli local `scripts/calcul_delai.py`) pour calculer de 1 à 25 échéances de procédure civile (art. 83 C.p.c., report de fin de semaine, notification technologique après 17h00 selon l'art. 111 al. 2 C.p.c., délais à rebours, périodes de non-séance de l'art. 82 al. 2 C.p.c.), `interets_1619` (y compris `prime_plus_margin`), `greffe_parse_number`, `palais_list`, `palais_get`, `taux_boc_rates`, `indice_ipc` et `loyer_tal`.
 - **`skills/redaction-juridique`** : Consomme `interets_1619`, `calendrier_deadlines`, `taux_boc_rates`, `indice_ipc` et `loyer_tal` (chiffrage, indexation et fixation de loyer), `registre_search`, `registre_get_entity` et `adresse_verify` (désignation des parties morales et vérification d'adresse civique / lots RQA en en-tête d'acte ou mise en demeure, sous réserve des gardes LPLE / RQA / Registre foncier), ainsi que `terminologie_lookup`, `termino_attestations` et `terminologie_scan`.
 - **`skills/recherche-juridique`** : Consomme `greffe_parse_number`, `palais_list`, `palais_get`, `registre_search`, `registre_get_entity`, `adresse_verify`, `terminologie_lookup`, `termino_attestations`, `taux_boc_rates`, `indice_ipc` et `loyer_tal` en appui aux connecteurs `lois` et `juris`.
-- **`skills/analyse-juridique`** & **`skills/deontologie-et-pratique`** : Consomment au besoin les connecteurs selon le noyau `SAFETY-KERNEL`, sans dérogation de confidentialité.
+- **`skills/analyse-et-strategie`** & orchestrateurs `skills/phase-*` : Consomment au besoin les connecteurs selon le noyau `SAFETY-KERNEL`, sans dérogation de confidentialité.
 
 ### Relations inter-dépôts et séparation des responsabilités
 - **Découplage de `MCP-Jurisprudence`** : Depuis `v0.2.0`, les outils `greffe_*` et `palais_*` ainsi que `src/qc/` résident ici afin de séparer l'interrogation distante de CanLII (avec secret Bearer) des outils locaux déterministes.
