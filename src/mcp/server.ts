@@ -14,6 +14,11 @@ import {
   ComputeDeadlinesOutputSchema,
   computeDeadlines,
 } from "../core/deadlines.js";
+import {
+  TauxBocRatesInputSchema,
+  TauxBocRatesOutputSchema,
+  tauxBocRates,
+} from "../core/economie.js";
 import type { Garde } from "../core/gardes.js";
 import {
   ListHolidaysInputSchema,
@@ -65,12 +70,13 @@ export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F.), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada), adresses civiques (RQA) et terminologie juridique bilingue et bijuridique.";
 
 export const INSTRUCTIONS =
-  "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de trois bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
-  "1) Calculs — calendrier_holidays, calendrier_deadlines et interets_1619 appliquent des règles arithmétiques exactes sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre publié de l'art. 28 L.A.F. " +
+  "Serveur MCP public sans état applicatif ni journalisation des charges utiles, s'exécutant exclusivement à partir de règles arithmétiques, de tables statiques et de quatre bases D1 en lecture seule à la requête (aucun appel HTTP sortant, openWorldHint: false, readOnlyHint: true) : " +
+  "1) Calculs — calendrier_holidays, calendrier_deadlines et interets_1619 appliquent des règles arithmétiques exactes (y compris le mode 'prime_plus_margin' fondé sur la série BDC V80691311) sans effectuer de qualification juridique ni d'extrapolation au-delà du dernier trimestre L.A.F. publié ou de la dernière date préférentielle vérifiée. " +
   "2) Greffes et palais du Québec — greffe_parse_number, palais_list et palais_get lisent un relevé local du ministère de la Justice du Québec (adresses et coordonnées relevées le 2026-11-17, table des lieux 2026-07-22) sans consulter aucun plumitif ; quatre greffes itinérants demeurent sans adresse civique fixe. " +
   "3) Registres d'entreprises — registre_search et registre_get_entity interrogent des instantanés locaux de données ouvertes (REQ, RBQ, OPC, RENA, Corporations Canada et GLEIF Golden Copy CC0 1.0 pour les LEI et hiérarchies corporatives Level 2). Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus des jeux ouverts (Loi sur la publicité légale des entreprises, RLRQ, c. P-44.1 ; L.C.S.A.) : consulter les portails officiels (REQ, Corporations Canada, PCI/ISC et GLEIF) retournés dans portails_officiels avant toute signification ou désignation finale d'une partie. " +
   "4) Adresses civiques — adresse_verify vérifie et normalise une adresse québécoise selon le Référentiel québécois des adresses (RQA, MRNF). La présence au RQA atteste l'existence municipale d'une adresse civique, jamais le domicile ou l'établissement d'une partie ; les lots cadastraux et matricules n'ont qu'une valeur indicative (seul le Registre foncier du Québec fait foi). " +
-  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « lois » ; pour la jurisprudence, employer « juris »).";
+  "5) Terminologie juridique bilingue et bijuridique — terminologie_lookup, termino_attestations et terminologie_scan assistent le choix terminologique FR/EN et détectent les calques et faux amis de common law ou de droit français sans jamais réécrire le texte ni remplacer l'interprétation des textes officiels (pour le texte intégral des lois et règlements, employer « lois » ; pour la jurisprudence, employer « juris »). " +
+  "6) Économie et taux (Banque du Canada) — taux_boc_rates consulte hors ligne les taux de change historiques et quotidiens (taux au comptant de midi HE avant le 2017-05-01 et moyenne quotidienne 16 h 30 HE à compter du 2017-05-01), les séries V39079/V122530/V80691311 et convertit exactement en BigInt selon l'art. 12 de la Loi sur la monnaie sans jamais extrapoler au-delà de l'instantané.";
 
 const READ_ONLY_LOCAL_ANNOTATIONS = {
   readOnlyHint: true,
@@ -79,12 +85,13 @@ const READ_ONLY_LOCAL_ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 
-export type ToolFamily = "calcul" | "greffe" | "registre" | "adresse" | "terminologie";
+export type ToolFamily = "calcul" | "greffe" | "registre" | "adresse" | "terminologie" | "economie";
 
 export interface OutilsBindings {
   DB_TERMINOLOGIE?: D1Database;
   DB_REGISTRES?: D1Database;
   DB_ADRESSES?: D1Database;
+  DB_ECONOMIE?: D1Database;
 }
 
 export interface ToolDescriptor {
@@ -123,7 +130,7 @@ const TOOL_SPECS: ReadonlyArray<{
     name: "interets_1619",
     title: "Calculateur d'intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q.)",
     description:
-      "Calcule en arithmétique exacte (intérêt simple art. 1620 C.c.Q., convention Exact/Exact 365/366, date de départ exclue / date de fin incluse, accumulation rationnelle BigInt arrondie une fois par tranche) les intérêts légaux (5 %) et l'indemnité additionnelle de l'art. 1619 C.c.Q. selon la table embarquée de l'art. 28 L.A.F. (Revenu Québec). Supporte 1 à 50 tranches datées et 3 modes ('legal_plus_1619', 'legal_only', 'contractual'). Ne fait jamais d'extrapolation au-delà du dernier trimestre publié.",
+      "Calcule en arithmétique exacte (intérêt simple art. 1620 C.c.Q., convention Exact/Exact 365/366, date de départ exclue / date de fin incluse, accumulation rationnelle BigInt arrondie une fois par tranche) les intérêts légaux (5 %) et l'indemnité additionnelle de l'art. 1619 C.c.Q. selon la table embarquée de l'art. 28 L.A.F. (Revenu Québec), un taux contractuel fixe ou le taux préférentiel BDC V80691311 + marge (spread_bps). Supporte 1 à 50 tranches datées et 4 modes ('legal_plus_1619', 'legal_only', 'contractual', 'prime_plus_margin'). Ne fait jamais d'extrapolation au-delà de la dernière période vérifiée.",
     family: "calcul",
     inputSchema: ComputeInterest1619InputSchema,
   },
@@ -198,6 +205,14 @@ const TOOL_SPECS: ReadonlyArray<{
       "Analyse en lecture seule un extrait de projet d'acte, contrat, correspondance ou note (jusqu'à 32 000 caractères, FR ou EN) pour repérer les francismes de droit français ('assignation' au sens d'acte introductif, 'référé', 'garde à vue'), les anglicismes et faux amis de common law en droit civil québécois ('mortgage', 'statute of limitations', 'joint and several', 'consideration', 'easement') et les archaïsmes procéduraux d'avant 2016 ('bref', 'comparution', 'défense et demande reconventionnelle'). Signale chaque occurrence avec motif, remplacement suggéré et base légale sans jamais réécrire le texte.",
     family: "terminologie",
     inputSchema: TerminologieScanTextInputSchema,
+  },
+  {
+    name: "taux_boc_rates",
+    title: "Taux de change et taux directeurs (Banque du Canada — hors ligne)",
+    description:
+      "Consulte hors ligne dans DB_ECONOMIE les taux de change historiques et quotidiens face au dollar canadien (Banque du Canada FX_RATES_DAILY depuis le 2017-05-01 en moyenne quotidienne 16 h 30 HE, LEGACY_NOON_RATES 2007–2017 et Statistique Canada 10-10-0008-01 2001–2007 en taux au comptant de midi HE), ainsi que le taux directeur (V39079), le taux d'escompte (V122530) et le taux préférentiel (V80691311). Effectue la conversion exacte en BigInt devise étrangère <-> CAD selon l'art. 12 de la Loi sur la monnaie en signalant tout report au jour ouvrable précédent et le régime méthodologique.",
+    family: "economie",
+    inputSchema: TauxBocRatesInputSchema,
   },
 ];
 
@@ -307,7 +322,9 @@ function formatInterestText(out: ComputeInterest1619Output): string {
   const truncEndDate =
     truncatedEndDates[truncatedEndDates.length - 1] ?? out.tranches[0]?.effective_end_date ?? "";
   const truncBanner = out.truncated_any
-    ? `[CALCUL TRONQUÉ AU ${truncEndDate} — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]`
+    ? out.mode === "prime_plus_margin"
+      ? `[CALCUL TRONQUÉ AU ${truncEndDate} — TAUX PRÉFÉRENTIEL BDC NON VÉRIFIÉ AU-DELÀ]`
+      : `[CALCUL TRONQUÉ AU ${truncEndDate} — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]`
     : "";
   const anyOverridden = out.tranches.some((t) => t.periods.some((p) => p.overridden));
   const overrideBanner = anyOverridden
@@ -317,7 +334,7 @@ function formatInterestText(out: ComputeInterest1619Output): string {
 
   const trancheBlocks = out.tranches.flatMap((t) => {
     const truncNote = t.truncated
-      ? ` [TRONQUÉ au ${t.effective_end_date}, trimestre manquant : ${t.missing_quarter}]`
+      ? ` [TRONQUÉ au ${t.effective_end_date}${t.missing_quarter ? `, trimestre manquant : ${t.missing_quarter}` : ""}]`
       : "";
     const summaryLine = `- ${t.label} : capital ${t.principal_cad} $ (${t.start_date_excluded} exclu → ${t.effective_end_date} inclus, ${t.accrued_days} j) → intérêt total ${t.total_interest_cad} $ (légal ${t.legal_interest_cad} $, ind. add. ${t.additional_indemnity_cad} $, conv. ${t.contractual_interest_cad} $)${truncNote}`;
     if (t.periods.length === 0) {
@@ -340,6 +357,9 @@ function formatInterestText(out: ComputeInterest1619Output): string {
           p.laf_rate_bps < p.legal_rate_bps
             ? `${formatBpsPercent(p.effective_rate_bps)} (taux légal min. 5,00 % ; L.A.F. ${formatBpsPercent(p.laf_rate_bps)} < 5,00 % ⇒ ind. add. 0,00 %)${ovTag}`
             : `${formatBpsPercent(p.effective_rate_bps)} (L.A.F. ${formatBpsPercent(p.laf_rate_bps)} = 5,00 % + ${formatBpsPercent(p.additional_rate_bps)})${ovTag}`;
+      } else if (p.prime_rate_bps !== null) {
+        const spreadSign = (p.spread_bps ?? 0) >= 0 ? "+" : "-";
+        rateDetail = `${formatBpsPercent(p.effective_rate_bps)} (préf. ${formatBpsPercent(p.prime_rate_bps)} ${spreadSign} ${formatBpsPercent(Math.abs(p.spread_bps ?? 0))})`;
       } else if (p.contractual_rate_bps > 0) {
         rateDetail = `${formatBpsPercent(p.effective_rate_bps)} (contractuel)`;
       } else {
@@ -694,6 +714,41 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
         return {
           isError: true,
           content: [{ type: "text", text: `Erreur d'analyse terminologique : ${msg}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "taux_boc_rates",
+    {
+      ...toolConfig("taux_boc_rates", TauxBocRatesOutputSchema),
+      inputSchema: TauxBocRatesInputSchema,
+    },
+    async (args) => {
+      if (!env.DB_ECONOMIE) {
+        return missingDatabaseError(
+          "DB_ECONOMIE",
+          "taux de change et taux directeurs (Banque du Canada)",
+        );
+      }
+      try {
+        const result = await tauxBocRates(env.DB_ECONOMIE, args);
+        if (!result.ok) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: result.text }],
+          };
+        }
+        return {
+          structuredContent: result.structured,
+          content: [{ type: "text", text: result.text }],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Erreur de consultation des taux BoC : ${msg}` }],
         };
       }
     },

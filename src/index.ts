@@ -3,6 +3,7 @@ import {
   SUPPORTED_PROTOCOL_VERSIONS,
 } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
+import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
   createOutilsMcpServer,
@@ -162,10 +163,12 @@ function healthzResponse(env: Env): Response {
       stateless: true,
       request_payload_logging: false,
       laf_table_last_quarter: lafRatesJson.metadata.last_quarter,
+      prime_table_last_verified_date: bocPrimeRatesJson.metadata.last_verified_date,
       databases: {
         terminologie: Boolean(env.DB_TERMINOLOGIE),
         registres: Boolean(env.DB_REGISTRES),
         adresses: Boolean(env.DB_ADRESSES),
+        economie: Boolean(env.DB_ECONOMIE),
       },
       tools: listToolDescriptors().map((t) => t.name),
     },

@@ -1,0 +1,137 @@
+name: Vérification hebdomadaire des taux Banque du Canada (V80691311 / V39079 / V122530)
+
+on:
+  schedule:
+    - cron: "25 14 * * 4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: check-boc-rates
+  cancel-in-progress: true
+
+jobs:
+  check-boc-rates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Durcir l'environnement du runner (egress audit)
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Vérifier les taux Valet Banque du Canada (V80691311 / V39079 / V122530)
+        id: check
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            async function main() {
+              const data = JSON.parse(fs.readFileSync("src/data/boc_prime_rates.json", "utf8"));
+              const ids = ["V80691311", "V39079", "V122530"];
+              const changesDetected = [];
+              let latestPrimeDate = data.series.V80691311.last_date;
+              let latestPrimeBps = data.series.V80691311.changes.at(-1).rate_bps;
+
+              for (const id of ids) {
+                const url = `https://www.bankofcanada.ca/valet/observations/${id}/json?recent=4`;
+                const res = await fetch(url, { headers: { Accept: "application/json" } });
+                if (!res.ok) throw new Error(`Valet HTTP ${res.status} pour ${id}`);
+                const payload = await res.json();
+                const obs = (payload.observations ?? []).filter((o) => o[id] && o[id].v !== "");
+                obs.sort((a, b) => a.d.localeCompare(b.d));
+                const latest = obs.at(-1);
+                if (!latest) continue;
+                const liveBps = Math.round(Number(latest[id].v) * 100);
+                const localLast = data.series[id].changes.at(-1);
+                if (id === "V80691311") {
+                  latestPrimeDate = latest.d;
+                  latestPrimeBps = liveBps;
+                }
+                if (liveBps !== localLast.rate_bps) {
+                  changesDetected.push(`${id}: ${localLast.rate_bps} bps -> ${liveBps} bps (${latest.d})`);
+                }
+              }
+
+              const localPrimeDate = new Date(`${data.metadata.last_verified_date}T00:00:00Z`);
+              const livePrimeDateObj = new Date(`${latestPrimeDate}T00:00:00Z`);
+              const lagDays = Math.round((livePrimeDateObj - localPrimeDate) / 86_400_000);
+              const stale = lagDays >= 28;
+              const needsUpdate = changesDetected.length > 0 || stale;
+              const reason = changesDetected.length > 0
+                ? `Variation de taux détectée (${changesDetected.join("; ")})`
+                : stale
+                  ? `Table vieille de ${lagDays} jours (V80691311 publié au ${latestPrimeDate})`
+                  : "À jour";
+
+              const out = process.env.GITHUB_OUTPUT;
+              fs.appendFileSync(out, `needs_update=${needsUpdate}\n`);
+              fs.appendFileSync(out, `reason=${reason}\n`);
+              fs.appendFileSync(out, `latest_prime_date=${latestPrimeDate}\n`);
+              fs.appendFileSync(out, `latest_prime_bps=${latestPrimeBps}\n`);
+              fs.appendFileSync(out, `local_verified_date=${data.metadata.last_verified_date}\n`);
+              console.log({ needsUpdate, reason, latestPrimeDate, latestPrimeBps, lagDays });
+            }
+            main().catch((err) => { console.error(err); process.exit(1); });
+          '
+      - name: Ouvrir ou mettre à jour un billet de rappel [Taux BdC]
+        if: steps.check.outputs.needs_update == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REASON: ${{ steps.check.outputs.reason }}
+          LATEST_PRIME_DATE: ${{ steps.check.outputs.latest_prime_date }}
+          LATEST_PRIME_BPS: ${{ steps.check.outputs.latest_prime_bps }}
+          LOCAL_VERIFIED_DATE: ${{ steps.check.outputs.local_verified_date }}
+        with:
+          script: |
+            const reason = process.env.REASON ?? "";
+            const latestPrimeDate = process.env.LATEST_PRIME_DATE ?? "";
+            const latestPrimeBps = process.env.LATEST_PRIME_BPS ?? "";
+            const localVerifiedDate = process.env.LOCAL_VERIFIED_DATE ?? "";
+            const title = `[Taux BdC] Mettre à jour boc_prime_rates.json (${latestPrimeDate})`;
+            const body = [
+              `La table embarquée [\`src/data/boc_prime_rates.json\`](src/data/boc_prime_rates.json) est vérifiée jusqu'au **${localVerifiedDate}**.`,
+              "",
+              `- **Motif** : ${reason}`,
+              `- **Dernier taux préférentiel (V80691311)** : **${latestPrimeBps} bps** au **${latestPrimeDate}**`,
+              "",
+              "Mettre à jour `src/data/boc_prime_rates.json` depuis l'API Valet de la Banque du Canada, puis exécuter :",
+              "```bash",
+              "npm run typecheck && npm run lint && npm test && npm run build",
+              "```",
+            ].join("\n");
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 50,
+            });
+            const openBoc = existing.data.find((issue) => issue.title.startsWith("[Taux BdC]"));
+            if (openBoc) {
+              if (openBoc.title === title) {
+                core.info(`Issue already open with identical title: #${openBoc.number}`);
+                return;
+              }
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: openBoc.number,
+                title,
+                body,
+              });
+              core.info(`Updated existing issue #${openBoc.number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });

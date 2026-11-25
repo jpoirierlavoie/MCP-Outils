@@ -81,8 +81,17 @@ def export_table_batches(
     order_by: str | None = None,
     max_file_bytes: int = MAX_FILE_BYTES,
     max_stmt_bytes: int = MAX_STMT_BYTES,
+    insert_mode: str = "INSERT INTO",
 ) -> tuple[list[Path], int]:
     """Exporte une table SQLite locale en fichiers `.sql` compacts multi-lignes."""
+    if insert_mode == "INSERT OR REPLACE":
+        insert_prefix = "INSERT OR REPLACE INTO"
+    elif insert_mode == "INSERT OR IGNORE":
+        insert_prefix = "INSERT OR IGNORE INTO"
+    elif insert_mode in {"INSERT INTO", "INSERT OR REPLACE INTO", "INSERT OR IGNORE INTO"}:
+        insert_prefix = insert_mode
+    else:
+        raise ValueError(f"Mode d'insertion non autorisé : {insert_mode}")
     out_dir.mkdir(parents=True, exist_ok=True)
     cols_sql = ", ".join(columns)
     order_clause = f" ORDER BY {order_by}" if order_by else ""
@@ -93,7 +102,7 @@ def export_table_batches(
     current_stmts: list[str] = []
     current_file_bytes = 0
 
-    stmt_header = f"INSERT INTO {table} ({cols_sql}) VALUES\n"
+    stmt_header = f"{insert_prefix} {table} ({cols_sql}) VALUES\n"
     stmt_rows: list[str] = []
     stmt_bytes = len(stmt_header.encode("utf-8"))
     total_rows = 0

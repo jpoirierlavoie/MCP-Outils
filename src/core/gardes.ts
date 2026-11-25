@@ -13,6 +13,12 @@ export const GARDE_CODES = [
   "DEPOT_GREFFE_HEURES_OUVERTURE",
   "TAUX_LAF_TRIMESTRE_MANQUANT",
   "TAUX_LAF_SURCHARGE_APPELANT",
+  "TAUX_BOC_PRIME_DATE_MANQUANTE",
+  "TAUX_BOC_PRIME_INDICATIF_BANCAIRE",
+  "TAUX_BOC_INSTANTANE_HORS_LIGNE",
+  "TAUX_BOC_NOON_HISTORIQUE_PRE_2017",
+  "TAUX_BOC_REPORT_JOUR_OUVRABLE_PRECEDENT",
+  "TAUX_BOC_CONVERSION_LOI_MONNAIE",
   "INTERET_SIMPLE_ART_1620_CCQ",
   "DOSSIER_NOMENCLATURE_SEULEMENT",
   "GREFFE_SANS_PLUMITIF",
@@ -78,6 +84,18 @@ export const GARDE_MESSAGES: Record<GardeCode, string> = {
     "La période demandée dépasse les trimestres publiés et vérifiés dans la table embarquée de l'art. 28 L.A.F. Aucune extrapolation n'est effectuée : le calcul a été arrêté à la fin du dernier trimestre couvert (sauf fourniture explicite de rate_overrides).",
   TAUX_LAF_SURCHARGE_APPELANT:
     "Des surcharges de taux art. 28 L.A.F. (rate_overrides) fournies par l'appelant ont été utilisées pour des trimestres postérieurs à la table embarquée ; ces taux n'ont pas été vérifiés par le serveur et doivent être confirmés sur la publication officielle de Revenu Québec.",
+  TAUX_BOC_PRIME_DATE_MANQUANTE:
+    "La période demandée dépasse la dernière date vérifiée dans la table embarquée des taux préférentiels de la Banque du Canada (série V80691311). Aucune extrapolation n'est effectuée : le calcul a été arrêté à la dernière date couverte.",
+  TAUX_BOC_PRIME_INDICATIF_BANCAIRE:
+    "La série V80691311 de la Banque du Canada reflète le taux préférentiel hebdomadaire (mercredis) affiché par les principales banques à charte à titre indicatif : vérifier au contrat ou à l'acte de prêt le prêteur de référence, la date exacte d'effet des variations en cours de semaine, le plancher éventuel, la base de calcul (p. ex. Exact/365 vs Exact/Exact) et le mode de capitalisation.",
+  TAUX_BOC_INSTANTANE_HORS_LIGNE:
+    "Données issues d'un instantané local en lecture seule de la Banque du Canada (et de Statistique Canada 10-10-0008-01 pour les taux au comptant de midi 2001–2007), sans requête réseau au moment de l'appel. Les séries de la Banque du Canada constituent des indicateurs statistiques publiés à titre informatif et ne lient pas une institution financière ou un contrat particulier.",
+  TAUX_BOC_NOON_HISTORIQUE_PRE_2017:
+    "Régime historique antérieur au 1er mai 2017 : avant le 1er mai 2017, les taux de change affichés correspondent aux taux indicatifs au comptant de midi (Noon Spot, HE) plutôt qu'aux taux moyens quotidiens publiés à 16 h 30 HE à compter du 1er mai 2017.",
+  TAUX_BOC_REPORT_JOUR_OUVRABLE_PRECEDENT:
+    "Aucune observation n'ayant été publiée à la date demandée (fin de semaine, jour férié ou date sans cotation), le taux du jour ouvrable ou de cotation précédent disponible a été retenu ; vérifier si le contrat, le jugement ou la loi applicable prescrit plutôt le jour ouvrable suivant.",
+  TAUX_BOC_CONVERSION_LOI_MONNAIE:
+    "La conversion en monnaie canadienne utilise le taux indicatif de la Banque du Canada à la date retenue ; en vertu de l'art. 12 de la Loi sur la monnaie (L.R.C. 1985, c. C-52) et des art. 1561 et 3161 C.c.Q., les jugements canadiens sont rendus en monnaie canadienne et la date de conversion juridique (exigibilité, jugement ou paiement) relève de l'analyse juridique ou du jugement.",
   INTERET_SIMPLE_ART_1620_CCQ:
     "En vertu de l'art. 1620 C.c.Q., les intérêts légaux et l'indemnité additionnelle de l'art. 1619 C.c.Q. sont des intérêts simples (sans capitalisation), sauf disposition législative particulière, convention écrite valable ou ordonnance judiciaire contraire.",
   DOSSIER_NOMENCLATURE_SEULEMENT: GARDE_DOSSIER,

@@ -57,18 +57,18 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
   const wranglerCfg = JSON.parse(wranglerRaw) as { name: string };
   const card = carteServeur();
 
-  it("le registre des 12 outils concorde 1:1 avec le tableau du README", () => {
+  it("le registre des 13 outils concorde 1:1 avec le tableau du README", () => {
     const nomsRegistre = listToolDescriptors()
       .map((d) => d.name)
       .sort();
-    expect(nomsRegistre).toHaveLength(12);
+    expect(nomsRegistre).toHaveLength(13);
 
     const cites = [
       ...readme.matchAll(
-        /^\| `(?:calcul|greffe|registre|adresse|terminologie)` \| `([a-z0-9_]+)` \|/gm,
+        /^\| `(?:calcul|greffe|registre|adresse|terminologie|economie)` \| `([a-z0-9_]+)` \|/gm,
       ),
     ].map((m) => m[1]!);
-    expect(cites).toHaveLength(12);
+    expect(cites).toHaveLength(13);
     expect([...new Set(cites)].sort()).toEqual(nomsRegistre);
   });
 
