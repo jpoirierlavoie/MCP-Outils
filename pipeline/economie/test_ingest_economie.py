@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import datetime as dt
+import json
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from pipeline.common.blue_green import swap_wrangler_binding
+from pipeline.economie import ingest_economie
 from pipeline.economie.ingest_economie import (
+    CURRENCY_NAMES_FR,
     _parse_statcan_fx,
+    _resolve_economie_binding_from_wrangler,
     build_local_sqlite,
     export_local_batches,
     incremental_fx_sync,
@@ -129,6 +136,143 @@ class IngestEconomieTest(unittest.TestCase):
                 self.assertEqual(new_usd, (1_399_100,))
             finally:
                 rconn.close()
+
+    def test_currency_names_fr_includes_ang_and_skk(self) -> None:
+        self.assertEqual(CURRENCY_NAMES_FR.get("ANG"), "Florin des Antilles néerlandaises")
+        self.assertEqual(CURRENCY_NAMES_FR.get("SKK"), "Couronne slovaque")
+
+    def test_resolve_economie_binding_blue_green_and_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrangler_copy = Path(tmp) / "wrangler.jsonc"
+            wrangler_copy.write_text(
+                json.dumps(
+                    {
+                        "d1_databases": [
+                            {
+                                "binding": "DB_ECONOMIE",
+                                "database_name": "outils-economie",
+                                "database_id": "00000000-0000-0000-0000-000000000000",
+                            }
+                        ]
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                _resolve_economie_binding_from_wrangler(None, wrangler_path=wrangler_copy),
+                ("outils-economie", None),
+            )
+
+            swapped_uuid = "11111111-2222-3333-4444-555555555555"
+            swap_wrangler_binding(
+                "DB_ECONOMIE",
+                "outils-economie-20261125",
+                swapped_uuid,
+                wrangler_path=wrangler_copy,
+            )
+
+            # Sans --db-name (None), la cible suit la bascule bleu-vert de wrangler.jsonc
+            self.assertEqual(
+                _resolve_economie_binding_from_wrangler(None, wrangler_path=wrangler_copy),
+                ("outils-economie-20261125", swapped_uuid),
+            )
+            # Un --db-name différent ne doit jamais hériter du UUID de l'entrée basculée
+            self.assertEqual(
+                _resolve_economie_binding_from_wrangler(
+                    "outils-economie", wrangler_path=wrangler_copy
+                ),
+                ("outils-economie", None),
+            )
+            # Un --db-name explicite identique conserve son UUID
+            self.assertEqual(
+                _resolve_economie_binding_from_wrangler(
+                    "outils-economie-20261125", wrangler_path=wrangler_copy
+                ),
+                ("outils-economie-20261125", swapped_uuid),
+            )
+
+    def test_incremental_fx_sync_short_circuits_when_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            wrangler_copy = tmp_path / "wrangler.jsonc"
+            swapped_uuid = "11111111-2222-3333-4444-555555555555"
+            wrangler_copy.write_text(
+                json.dumps(
+                    {
+                        "d1_databases": [
+                            {
+                                "binding": "DB_ECONOMIE",
+                                "database_name": "outils-economie-20261125",
+                                "database_id": swapped_uuid,
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            batch_dir = tmp_path / "batches"
+            empty_payload = json.dumps({"seriesDetail": {}, "observations": []}).encode("utf-8")
+
+            with (
+                mock.patch.object(
+                    ingest_economie, "_http_get_bytes", return_value=empty_payload
+                ),
+                mock.patch.object(ingest_economie, "d1_query_remote", return_value=[]),
+                mock.patch.object(
+                    ingest_economie, "execute_sql_files_remote"
+                ) as mock_exec,
+                mock.patch.object(
+                    ingest_economie, "provision_or_get_d1"
+                ) as mock_provision,
+            ):
+                res = incremental_fx_sync(
+                    sample_only=False,
+                    push_remote=True,
+                    db_name=None,
+                    batch_dir=batch_dir,
+                    wrangler_path=wrangler_copy,
+                )
+
+            self.assertIsNone(res)
+            mock_provision.assert_not_called()
+            mock_exec.assert_not_called()
+            tag = dt.date.today().strftime("%Y%m%d")
+            self.assertFalse((batch_dir / f"incr_fx_{tag}.sql").exists())
+
+            # Si --db-name diffère de wrangler.jsonc, provision_or_get_d1 résout l'UUID cible
+            override_uuid = "99999999-8888-7777-6666-555555555555"
+            with (
+                mock.patch.object(
+                    ingest_economie, "_http_get_bytes", return_value=empty_payload
+                ),
+                mock.patch.object(
+                    ingest_economie,
+                    "provision_or_get_d1",
+                    return_value={"uuid": override_uuid},
+                ) as mock_provision,
+                mock.patch.object(
+                    ingest_economie, "d1_query_remote", return_value=[]
+                ) as mock_query,
+                mock.patch.object(
+                    ingest_economie, "execute_sql_files_remote"
+                ) as mock_exec,
+            ):
+                res_override = incremental_fx_sync(
+                    sample_only=False,
+                    push_remote=True,
+                    db_name="outils-economie",
+                    batch_dir=batch_dir,
+                    wrangler_path=wrangler_copy,
+                )
+
+            self.assertIsNone(res_override)
+            mock_provision.assert_called_once_with("outils-economie", location="enam")
+            self.assertTrue(
+                all(call.args[0] == override_uuid for call in mock_query.call_args_list)
+            )
+            mock_exec.assert_not_called()
 
 
 if __name__ == "__main__":

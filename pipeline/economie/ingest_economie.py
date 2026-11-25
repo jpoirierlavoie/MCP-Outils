@@ -90,6 +90,7 @@ STATCAN_COORD_TO_CCY: dict[str, tuple[str, str]] = {
 
 CURRENCY_NAMES_FR: dict[str, str] = {
     "AED": "Dirham des Émirats arabes unis",
+    "ANG": "Florin des Antilles néerlandaises",
     "ARS": "Peso argentin",
     "ATS": "Schilling autrichien (pré-euro)",
     "AUD": "Dollar australien",
@@ -144,6 +145,7 @@ CURRENCY_NAMES_FR: dict[str, str] = {
     "SAR": "Riyal saoudien",
     "SEK": "Couronne suédoise",
     "SGD": "Dollar de Singapour",
+    "SKK": "Couronne slovaque",
     "THB": "Baht thaïlandais",
     "TND": "Dinar tunisien",
     "TRY": "Livre turque",
@@ -753,13 +755,25 @@ def push_to_remote_d1(
     return db_id
 
 
-def _resolve_economie_binding_from_wrangler(db_name_override: str | None) -> tuple[str, str | None]:
-    cfg = json.loads(WRANGLER_JSONC.read_text(encoding="utf-8"))
+def _resolve_economie_binding_from_wrangler(
+    db_name_override: str | None,
+    wrangler_path: Path = WRANGLER_JSONC,
+) -> tuple[str, str | None]:
+    cfg = json.loads(wrangler_path.read_text(encoding="utf-8"))
     for entry in cfg.get("d1_databases", []):
         if entry.get("binding") == "DB_ECONOMIE":
-            name = db_name_override or str(entry.get("database_name") or "outils-economie")
+            entry_name = str(entry.get("database_name") or "outils-economie")
             db_id = str(entry.get("database_id") or "")
-            return name, (db_id if db_id and db_id != "00000000-0000-0000-0000-000000000000" else None)
+            valid_id = (
+                db_id
+                if db_id and db_id != "00000000-0000-0000-0000-000000000000"
+                else None
+            )
+            if db_name_override:
+                if db_name_override != entry_name:
+                    return db_name_override, None
+                return db_name_override, valid_id
+            return entry_name, valid_id
     return (db_name_override or "outils-economie"), None
 
 
@@ -770,10 +784,13 @@ def incremental_fx_sync(
     db_name: str | None = None,
     db_path: Path = LOCAL_DB_PATH,
     batch_dir: Path = BATCH_DIR,
-) -> Path:
+    wrangler_path: Path = WRANGLER_JSONC,
+) -> Path | None:
     """Génère un lot SQL idempotent incrémental (zéro commit Git) pour FX_RATES_DAILY et taux BoC."""
     batch_dir.mkdir(parents=True, exist_ok=True)
-    target_name, configured_id = _resolve_economie_binding_from_wrangler(db_name)
+    target_name, configured_id = _resolve_economie_binding_from_wrangler(
+        db_name, wrangler_path=wrangler_path
+    )
 
     ccy_rows: list[dict] = []
     max_fx_int = 20170103
@@ -909,6 +926,9 @@ def incremental_fx_sync(
 
     tag = dt.date.today().strftime("%Y%m%d")
     out_file = batch_dir / f"incr_fx_{tag}.sql"
+    if not stmts:
+        print("[INCR] Aucune nouvelle observation à pousser", flush=True)
+        return None
     out_file.write_text("\n".join(stmts) + "\n", encoding="utf-8", newline="\n")
     print(
         f"[INCR] {out_file} généré ({len(fx_tuples)} taux FX, {len(boc_tuples)} taux BoC)",
@@ -932,7 +952,7 @@ def main() -> None:
     parser.add_argument("--incremental-fx", action="store_true")
     parser.add_argument("--lookback-days", type=int, default=10)
     parser.add_argument("--push-remote", action="store_true")
-    parser.add_argument("--db-name", default="outils-economie")
+    parser.add_argument("--db-name", default=None)
     parser.add_argument("--blue-green", action="store_true")
     parser.add_argument("--swap", action="store_true")
     parser.add_argument("--location", default="enam")
@@ -960,7 +980,11 @@ def main() -> None:
             batch_dir=args.batch_dir,
         )
     elif args.push_remote:
-        target_name = dated_db_name("DB_ECONOMIE") if args.blue_green else args.db_name
+        target_name = (
+            dated_db_name("DB_ECONOMIE")
+            if args.blue_green
+            else (args.db_name or "outils-economie")
+        )
         db_id = push_to_remote_d1(
             target_name,
             location=args.location,

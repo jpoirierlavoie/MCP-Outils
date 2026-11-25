@@ -6,6 +6,9 @@
  * modèle. Ce fichier ne porte QUE les traductions anglaises de la page publique.
  */
 
+import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
+import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
+
 export interface OutilEn {
   readonly titre: string;
   readonly resume: readonly string[];
@@ -209,8 +212,9 @@ export const EN = {
   familleCalcul: "Exact calculators (holidays, deadlines, art. 1619 C.C.Q. interest)",
   familleCalculTexte: [
     "Three arithmetic calculators based on the Code of Civil Procedure, Québec and federal " +
-      "Interpretation Acts, and the Civil Code of Québec (art. 1618–1620 C.C.Q., embedded art. 28 " +
-      "T.A.A. quarterly table).",
+      "Interpretation Acts, and the Civil Code of Québec (art. 1618–1620 C.C.Q., art. 28 T.A.A. " +
+      `rates through quarter ${lafRatesJson.metadata.last_quarter} and Bank of Canada chartered ` +
+      `bank Prime rate V80691311 verified through ${bocPrimeRatesJson.metadata.last_verified_date}).`,
   ],
   familleGreffe: "Local Québec tables — court file numbers and courthouses",
   familleGreffeTexte: [
