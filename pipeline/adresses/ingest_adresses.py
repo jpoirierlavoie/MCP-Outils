@@ -174,7 +174,7 @@ def _extract_lot_numbers(raw: str | None) -> tuple[list[int], int]:
         token = re.sub(r"\s+", "", part)
         if not token:
             continue
-        if token.isdigit():
+        if token.isascii() and token.isdigit():
             val = int(token)
             if 1 <= val <= 999_999_999:
                 if val not in seen:

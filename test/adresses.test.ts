@@ -422,6 +422,8 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         expect(gaspe.structured.adresse_normalisee).toBe(
           "11, rue de la Cathédrale, bureau 101, Gaspé (Québec) G4X 2V9",
         );
+        expect(gaspe.structured.candidates[0]?.lot_source).toBe("rqa_unite");
+        expect(gaspe.structured.candidates[0]?.lots_cadastraux).toEqual(["1000006"]);
       }
 
       const frac = await adresseVerify(subHarness.d1, {
@@ -861,5 +863,174 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     const matPlanText = matPlan.map((r) => r.detail).join(" | ");
     expect(matPlanText).toContain("idx_civ_matricule");
     expect(matPlanText).not.toContain("SCAN adresses_civiques");
+  });
+
+  it("protège contre l'attribution d'un lot d'unité sur immeuble sans fiche parent, gère la saturation LIMIT 80 et normalise 'Montréal, QC' en recherche inversée", async () => {
+    const schemaSql = readFileSync(resolve(process.cwd(), "pipeline/adresses/schema.sql"), "utf-8");
+    const indexesSql = readFileSync(
+      resolve(process.cwd(), "pipeline/adresses/indexes.sql"),
+      "utf-8",
+    );
+
+    const saturationOdos = Array.from({ length: 20 }, (_, i) => {
+      const id = 10 + i;
+      return `(${id}, '66023', '9${String(i).padStart(3, "0")}', 'rue', NULL, 'Saturation', NULL, 'rue Saturation', 'rue Saturation', 'saturation', '${computeConsonantKey("Saturation")}', '')`;
+    }).join(",\n        ");
+
+    const saturationUnits: string[] = [];
+    let cid = 100;
+    for (let odo = 10; odo < 30; odo++) {
+      for (const suf of ["A", "B", "C", "D"]) {
+        saturationUnits.push(
+          `(${cid++}, ${odo}, 60, '${suf}', 'U2', 'Appartement', 'H3B4W9', 'C', 'Subdivision', '8800100', '6666-00-0001', 45.498, -73.572)`,
+        );
+      }
+    }
+    // Fiche parent pour l'odonyme 10 (poussée au-delà de LIMIT 80 par les 80 lignes rank 0)
+    const saturationParent = `(${cid++}, 10, 60, 'A', '', NULL, 'H3B4W9', 'C', 'Principal', '8800100', '6666-00-0001', 45.498, -73.572)`;
+
+    const regHarness = createSqliteD1Harness({
+      seedSql: [
+        schemaSql,
+        indexesSql,
+        `
+        INSERT INTO meta_sources VALUES ('rqa', 'RQA', 'CC-BY-4.0', '2026-09-01', 5);
+        INSERT INTO municipalites VALUES
+          ('66023', 'Montréal', 'montreal', 'mtl', 'Montréal', 'Montréal'),
+          ('23027', 'Québec', 'quebec', 'qc', 'Québec', 'Capitale-Nationale');
+        INSERT INTO odonymes VALUES
+          (1, '66023', '1002', 'boulevard', NULL, 'René-Lévesque', 'Ouest', 'boul. René-Lévesque Ouest', 'boulevard René-Lévesque Ouest', 'rene levesque', '${computeConsonantKey("René-Lévesque")}', ''),
+          (2, '66023', '1001', 'rue', NULL, 'Notre-Dame', 'Est', 'rue Notre-Dame Est', 'rue Notre-Dame Est', 'notre dame', '${computeConsonantKey("Notre-Dame")}', ''),
+          (3, '23027', '2001', 'boulevard', NULL, 'Jean-Lesage', NULL, 'boul. Jean-Lesage', 'boulevard Jean-Lesage', 'jean lesage', '${computeConsonantKey("Jean-Lesage")}', ''),
+          ${saturationOdos};
+        INSERT INTO adresses_civiques VALUES
+          -- Immeuble uniquement composé d'unités (aucune ligne numero_unite = '')
+          (1, 1, 1400, '', '601', 'Appartement', 'H3B4W0', 'C', 'Subdivision', '1850601', '9888-30-0601', 45.497, -73.571),
+          (2, 1, 1400, '', '602', 'Appartement', 'H3B4W0', 'C', 'Subdivision', '1850602', '9888-30-0602', 45.497, -73.571),
+          -- Adresses pour test de recherche inversée avec ', QC'
+          (3, 2, 1, '', '', NULL, 'H2Y1B6', 'C', 'Principal', '2359285', '9891-44-1234', 45.508, -73.554),
+          (4, 3, 300, '', '', NULL, 'G1K8K6', 'C', 'Principal', '1214555', '4851-82-9911', 46.817, -71.213),
+          ${saturationUnits.join(",\n          ")},
+          ${saturationParent};
+        INSERT INTO lots_cadastraux_index (lot_num, civ_id) VALUES
+          (1850601, 1),
+          (1850602, 2),
+          (2359285, 3),
+          (1214555, 4);
+        INSERT INTO odonymes_fts(rowid, specifique, odonyme_normal, renvois_recherche)
+          SELECT id, specifique, odonyme_normal, renvois_recherche FROM odonymes;
+        INSERT INTO odonymes_trigram(rowid, specifique_norm)
+          SELECT id, specifique_norm FROM odonymes;
+        `,
+      ],
+      enforceQueryOnly: true,
+    });
+
+    try {
+      // (a1) Immeuble sans fiche parent interrogé SANS unité -> jamais de lot privatif d'une unité
+      const unitless = await adresseVerify(regHarness.d1, {
+        address: "1400, boul. René-Lévesque Ouest, Montréal",
+      });
+      expect(unitless.ok).toBe(true);
+      if (unitless.ok) {
+        const parsed = AdresseVerifyOutputSchema.parse(unitless.structured);
+        expect(parsed.status).toBe("exact_civic");
+        const c = parsed.candidates[0]!;
+        expect(c.lot_source).toBe("absent");
+        expect(c.lots_cadastraux).toEqual([]);
+        expect(c.matricule_evaluation).toBeNull();
+        expect(c.repli_immeuble_parent).toBe(false);
+        expect(c.ambiguites_cadastrales).toContain("copropriete_divise_ou_multi_unites");
+        expect(
+          parsed.corrections_appliquees.some((m) => m.includes("sans fiche bâtiment parent")),
+        ).toBe(true);
+        const codes = parsed.gardes.map((g) => g.code);
+        expect(codes).toContain("ADRESSE_LOT_MULTI_OU_COPROPRIETE");
+        expect(codes).not.toContain("ADRESSE_CORRESPONDANCE_APPROXIMATIVE");
+        expect(codes).not.toContain("ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT");
+      }
+
+      // (a2) Immeuble sans fiche parent interrogé avec unité non confirmée (app. 999)
+      const unconfirmed = await adresseVerify(regHarness.d1, {
+        address: "1400, boul. René-Lévesque Ouest, app. 999, Montréal",
+      });
+      expect(unconfirmed.ok).toBe(true);
+      if (unconfirmed.ok) {
+        const parsed = AdresseVerifyOutputSchema.parse(unconfirmed.structured);
+        expect(parsed.status).toBe("exact_civic_unit_unconfirmed");
+        const c = parsed.candidates[0]!;
+        expect(c.lot_source).toBe("absent");
+        expect(c.lots_cadastraux).toEqual([]);
+        expect(c.matricule_evaluation).toBeNull();
+        expect(c.repli_immeuble_parent).toBe(false);
+        expect(c.ambiguites_cadastrales).toContain("copropriete_divise_ou_multi_unites");
+        expect(
+          parsed.corrections_appliquees.some((m) => m.includes("Aucune fiche bâtiment parent")),
+        ).toBe(true);
+        const codes = parsed.gardes.map((g) => g.code);
+        expect(codes).toContain("ADRESSE_LOT_MULTI_OU_COPROPRIETE");
+        expect(codes).toContain("ADRESSE_CORRESPONDANCE_APPROXIMATIVE");
+        expect(codes).not.toContain("ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT");
+      }
+
+      // (a3) Unité confirmée (app. 601) sur immeuble sans fiche parent -> lot privatif conservé
+      const confirmed = await adresseVerify(regHarness.d1, {
+        address: "1400, boul. René-Lévesque Ouest, app. 601, Montréal",
+      });
+      expect(confirmed.ok).toBe(true);
+      if (confirmed.ok) {
+        expect(confirmed.structured.status).toBe("exact_civic");
+        const c = confirmed.structured.candidates[0]!;
+        expect(c.lot_source).toBe("rqa_unite");
+        expect(c.lots_cadastraux).toEqual(["1850601"]);
+        expect(c.matricule_evaluation).toBe("9888-30-0601");
+      }
+
+      // (b) Saturation LIMIT 80 avec lot propre + matricule propres identiques au parent poussé > 80
+      const satShared = await adresseVerify(regHarness.d1, {
+        address: "60-A, rue Saturation, app. U2, Montréal",
+      });
+      expect(satShared.ok).toBe(true);
+      if (satShared.ok) {
+        expect(satShared.structured.status).toBe("exact_civic");
+        const c = satShared.structured.candidates[0]!;
+        expect(c.lot_source).toBe("rqa_unite");
+        expect(c.lots_cadastraux).toEqual(["8800100"]);
+        expect(c.ambiguites_cadastrales).toContain("lot_partage_avec_immeuble_parent");
+        expect(satShared.structured.gardes.map((g) => g.code)).toContain(
+          "ADRESSE_LOT_MULTI_OU_COPROPRIETE",
+        );
+      }
+
+      // (c) Recherche inversée avec mention ', QC' / '(Québec)' / hors Québec
+      const revMtlQc = await adresseVerify(regHarness.d1, {
+        lot_number: "2359285",
+        municipality: "Montréal, QC",
+      });
+      expect(revMtlQc.ok && revMtlQc.structured.status).toBe("exact_civic");
+      if (revMtlQc.ok) {
+        expect(revMtlQc.structured.candidates[0]?.id_adresse).toBe(3);
+      }
+
+      const revMtlParen = await adresseVerify(regHarness.d1, {
+        lot_number: "2359285",
+        municipality: "Montréal (Québec)",
+      });
+      expect(revMtlParen.ok && revMtlParen.structured.status).toBe("exact_civic");
+
+      const revQcQc = await adresseVerify(regHarness.d1, {
+        lot_number: "1214555",
+        municipality: "Québec, QC",
+      });
+      expect(revQcQc.ok && revQcQc.structured.status).toBe("exact_civic");
+
+      const revOttawa = await adresseVerify(regHarness.d1, {
+        lot_number: "2359285",
+        municipality: "Ottawa",
+      });
+      expect(revOttawa.ok && revOttawa.structured.status).toBe("outside_quebec");
+    } finally {
+      regHarness.close();
+    }
   });
 });

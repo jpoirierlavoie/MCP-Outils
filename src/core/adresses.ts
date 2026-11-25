@@ -310,16 +310,31 @@ export interface ParsedQuebecAddress {
   corrections: string[];
 }
 
+function stripQuebecProvinceFromMunicipality(rawMun: string): string {
+  const withoutCanada = rawMun
+    .trim()
+    .replace(/,\s*canada\s*$/i, "")
+    .trim();
+  const stripped = withoutCanada
+    .replace(/\(\s*(?:québec|quebec|qc)\s*\)\s*$/gi, "")
+    .replace(/(?:,\s*(?:québec|quebec|qc)|\s+\bqc\b)\s*$/gi, "")
+    .trim();
+  return stripped || withoutCanada;
+}
+
 function normalizeMunicipalityInput(rawMun: string, corrections: string[]): string {
-  const munFolded = foldAddressToken(rawMun);
+  const cleanedMun = stripQuebecProvinceFromMunicipality(rawMun);
+  const munFolded = foldAddressToken(cleanedMun);
   const aliasTarget = MUNICIPALITY_ALIASES[munFolded];
   if (aliasTarget) {
     if (foldAddressToken(aliasTarget) !== munFolded) {
-      corrections.push(`Municipalité ou arrondissement '${rawMun}' rattaché à '${aliasTarget}'`);
+      corrections.push(
+        `Municipalité ou arrondissement '${cleanedMun}' rattaché à '${aliasTarget}'`,
+      );
     }
     return foldAddressToken(aliasTarget);
   }
-  const expanded = expandSaintAbbreviations(rawMun, corrections);
+  const expanded = expandSaintAbbreviations(cleanedMun, corrections);
   return foldAddressToken(expanded);
 }
 
@@ -1837,7 +1852,7 @@ export async function adresseVerify(
     const seenKeys = new Set<string>();
     const confirmedBuildings = new Set<string>();
     for (const item of scoredCivics) {
-      const buildingKey = `${item.odo.id}:${item.civ.suffixe}`;
+      const buildingKey = `${item.odo.id}:${item.civ.suffixe.toUpperCase()}`;
       if (parsed.unitNumber) {
         if (item.unitConfirmed) {
           confirmedBuildings.add(buildingKey);
@@ -1846,7 +1861,7 @@ export async function adresseVerify(
         }
       }
       const key = parsed.unitNumber
-        ? `${item.odo.id}:${item.civ.suffixe}:${item.unitConfirmed ? item.civ.numero_unite || item.civ.suffixe : "UNCONF"}`
+        ? `${item.odo.id}:${item.civ.suffixe.toUpperCase()}:${item.unitConfirmed ? item.civ.numero_unite.toUpperCase() || item.civ.suffixe.toUpperCase() : "UNCONF"}`
         : buildingKey;
       if (seenKeys.has(key)) continue;
       seenKeys.add(key);
@@ -1926,28 +1941,11 @@ export async function adresseVerify(
       }
     }
 
-    const unitStatsByBuildingKey = new Map<
-      string,
-      { unitCount: number; anyUnitDistinctFromParent: boolean }
-    >();
+    const unitCountByBuildingKey = new Map<string, number>();
     for (const c of civRes.results) {
       if (c.numero_unite !== "") {
         const bKey = `${c.odo_id}:${c.numero_municipal}:${c.suffixe.toUpperCase()}`;
-        const stats = unitStatsByBuildingKey.get(bKey) ?? {
-          unitCount: 0,
-          anyUnitDistinctFromParent: false,
-        };
-        stats.unitCount += 1;
-        const parent = parentByBuildingKey.get(bKey);
-        const cLots = splitLots(c.numero_lot);
-        const pLots = parent ? splitLots(parent.numero_lot) : [];
-        if (
-          cLots.length > 0 &&
-          (pLots.length === 0 || !lotsIntersect(cLots, pLots) || cLots.length !== pLots.length)
-        ) {
-          stats.anyUnitDistinctFromParent = true;
-        }
-        unitStatsByBuildingKey.set(bKey, stats);
+        unitCountByBuildingKey.set(bKey, (unitCountByBuildingKey.get(bKey) ?? 0) + 1);
       }
     }
 
@@ -1987,6 +1985,8 @@ export async function adresseVerify(
 
       const buildingKey = `${item.civ.odo_id}:${item.civ.numero_municipal}:${item.civ.suffixe.toUpperCase()}`;
       const isUnitRow = item.civ.numero_unite !== "" || suffixMatchesUnit;
+      const isUnrequestedOrUnconfirmedUnitRow =
+        item.civ.numero_unite !== "" && (!parsed.unitNumber || !item.unitConfirmed);
       const ownLots = splitLots(item.civ.numero_lot);
       const ownMatricule = item.civ.matricule?.trim() || null;
 
@@ -1994,8 +1994,9 @@ export async function adresseVerify(
         item.civ.numero_unite !== "" ? parentByBuildingKey.get(buildingKey) : undefined;
       if (
         item.civ.numero_unite !== "" &&
+        parsed.unitNumber &&
+        item.unitConfirmed &&
         !parentRow &&
-        (ownLots.length === 0 || !ownMatricule) &&
         civRes.results.length === 80
       ) {
         const fetchedParent = await db
@@ -2023,7 +2024,18 @@ export async function adresseVerify(
       let repliImmeubleParent = false;
       const ambiguites: AmbiguiteCadastrale[] = [];
 
-      if (isUnitRow) {
+      if (isUnrequestedOrUnconfirmedUnitRow) {
+        lots = [];
+        lotSource = "absent";
+        matriculeEval = null;
+        repliImmeubleParent = false;
+        ambiguites.push("copropriete_divise_ou_multi_unites");
+        corrections.push(
+          parsed.unitNumber
+            ? `Aucune fiche bâtiment parent (numero_unite = '') au RQA pour ce numéro civique : le lot et le matricule d'une autre unité répertoriée ('${item.civ.numero_unite}') ne sont pas attribués à l'unité demandée '${effectiveUnit}'.`
+            : `Immeuble multi-unités sans fiche bâtiment parent (numero_unite = '') au RQA : les lots et matricules des unités individuelles (p. ex. unité '${item.civ.numero_unite}') ne sont pas attribués à l'adresse globale sans précision d'unité.`,
+        );
+      } else if (isUnitRow) {
         if (ownLots.length > 0) {
           lots = ownLots;
           lotSource = "rqa_unite";
@@ -2069,8 +2081,7 @@ export async function adresseVerify(
           if (lots.length > 0) ambiguites.push("repli_lot_immeuble_parent");
           if (matriculeEval !== null) ambiguites.push("repli_matricule_immeuble_parent");
         }
-        const unitStats = unitStatsByBuildingKey.get(buildingKey);
-        if ((unitStats?.unitCount ?? 0) > 0) {
+        if ((unitCountByBuildingKey.get(buildingKey) ?? 0) > 0) {
           ambiguites.push("copropriete_divise_ou_multi_unites");
         }
       }
