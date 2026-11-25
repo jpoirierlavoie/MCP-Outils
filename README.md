@@ -12,8 +12,8 @@ Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
 | `calcul` | `calendrier_holidays` | Liste les jours fériés et non juridiques d'une année civile (`qc_cpc`, `qc_prescription`, `qc_li`, `ca_li` avec `province` optionnel). | Art. 82 al. 1 C.p.c., art. 2879 al. 2 C.c.Q., art. 61 par. 23° & art. 52 L.I. (RLRQ, c. I-16), art. 35(1) L.I. (L.R.C. 1985, c. I-21). |
-| `calcul` | `calendrier_deadlines` | Moteur arithmétique pur de calcul de délais (`qc_cpc`, `qc_prescription`, `qc_li`, `ca_li`, 1 à 25 étapes en lot ou chaînées via `depends_on_index`, prospectifs ou à rebours). | Art. 82, 83, 107 et 111 al. 2 C.p.c., art. 2879 al. 2 C.c.Q., art. 52 L.I. (`rollover_saturday=false` par défaut sous `qc_li`), `province='QC'` sous `ca_li`. |
-| `calcul` | `interets_1619` | Calcul en arithmétique exacte (`BigInt`, convention Exact/Exact 365/366, date de départ exclue / fin incluse) des intérêts simples et de l'indemnité additionnelle (1 à 50 tranches). | Art. 1618–1620 C.c.Q., art. 28 L.A.F. (Revenu Québec `2001-Q1` à `2026-Q4`), art. 3 *Loi sur l'intérêt*. Aucune extrapolation au-delà du dernier trimestre publié. |
+| `calcul` | `calendrier_deadlines` | Calculateur exact de 1 à 25 délais procéduraux ou légaux (prospectifs ou à rebours, chaînés au besoin via `depends_on_index`) sous `qc_cpc`, `qc_prescription`, `qc_li` et `ca_li`. | Art. 82, 83, 107 et 111 al. 2 C.p.c., art. 2879 al. 2 C.c.Q., art. 52 L.I. (`rollover_saturday=false` par défaut sous `qc_li`), `province='QC'` sous `ca_li`. |
+| `calcul` | `interets_1619` | Calcul au cent près des intérêts simples et de l'indemnité additionnelle (1 à 50 tranches, arithmétique exacte `BigInt` en convention Exact/Exact 365/366, date de départ exclue / fin incluse). | Art. 1618–1620 C.c.Q., art. 28 L.A.F. (Revenu Québec `2001-Q1` à `2026-Q4`), art. 3 *Loi sur l'intérêt*. Aucune extrapolation au-delà du dernier trimestre publié. |
 | `greffe` | `greffe_parse_number` | Décompose un numéro de dossier de cour du Québec (`NNN-NN-NNNNNN-NNN` ou préfixe `TAL-`, `C.F.-`, etc.) : greffe, district, juridiction et adresse connue. | Tables locales compilées du ministère de la Justice du Québec (`2026-11-17` / `2026-07-22`). Aucun appel sortant, aucun accès au plumitif. |
 | `greffe` | `palais_list` | Répertorie les 44 palais de justice et 9 points de service du Québec, filtrables par district, type ou texte libre. | Relevé du ministère de la Justice du Québec (`2026-11-17`). Employer `palais_get` pour les coordonnées ; vérifier à la source avant signification ou dépôt. |
 | `greffe` | `palais_get` | Fiche complète d'un lieu de justice (adresse municipale, postale s'il y a lieu, heures d'ouverture, télécopieur, téléphones et courriels par chambre/service, greffes et localités itinérantes), par `greffe_number` ou `palais`. | Relevé du ministère de la Justice du Québec (`2026-11-17` / `2026-07-22`). Une adresse absente signifie inconnue, jamais inexistante. |
@@ -24,7 +24,7 @@ Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `
 | `terminologie` | `termino_attestations` | Comptage exact et extraits bilingues alignés FR/EN dans le corpus législatif consolidé du Québec et du Canada (art. 8.1–8.2 L.I.). | Concordancier bilingue dérivé de LégisQuébec et Justice Canada (97 lois alignées). Ne remplace pas la lecture intégrale via `MCP-Legislation`. |
 | `terminologie` | `terminologie_scan` | Contrôle en lecture seule d'un extrait de projet d'acte (jusqu'à 32 000 car., FR/EN) pour signaler francismes de France, anglicismes / faux amis de common law et archaïsmes d'avant 2016. | Signale positions, motifs, remplacements civilistes suggérés et fondements légaux sans jamais réécrire le texte. |
 
-Chaque réponse réussie retourne à la fois des données structurées validées (`structuredContent`), un résumé lisible en français (`content[0].text`), des métadonnées de `provenance` et un tableau de `gardes` signalant les limites statutaires ou documentaires à vérifier (tous avec `openWorldHint: false` et `readOnlyHint: true`).
+Chaque réponse réussie retourne un résumé lisible en français (`content[0].text`), des données structurées validées (`structuredContent`), la provenance des sources et des mises en garde (`gardes`) rappelant les limites documentaires à vérifier (tous les outils sont hors ligne et en lecture seule : `openWorldHint: false`, `readOnlyHint: true`).
 
 ## Confidentialité et politique de journalisation zéro
 
@@ -35,6 +35,8 @@ Ce serveur est public (sans secret ni compte requis) tout en protégeant la conf
 - **Limitation de débit :** un plafond technique de 240 requêtes par minute et par adresse IP (`RATE_LIMITER`) protège la disponibilité du service sans stocker le contenu des appels.
 
 ## Configuration dans les clients MCP
+
+> **Avec le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) :** si vous installez le greffon complet dans Claude Code, Claude Desktop, Antigravity ou Gemini CLI, le connecteur `outils` est configuré automatiquement sans étape supplémentaire. Les instructions ci-dessous servent à connecter `outils` seul ou sur le Web.
 
 ### `claude.ai` et ChatGPT (Web / Desktop)
 
