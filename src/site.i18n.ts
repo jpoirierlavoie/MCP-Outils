@@ -212,7 +212,7 @@ export const OUTILS_EN: Readonly<Record<string, OutilEn>> = {
 } as const;
 
 export const EN = {
-  titre: "MCP Tools — Deadlines, Interest, Registries & Legal Terminology",
+  titre: "MCP Tools — Deadlines, Interest, Registries, Legal Terminology & Economy",
 
   intro: [
     "Free public connector for Québec civil and commercial litigation (no account or key required). " +
@@ -231,10 +231,11 @@ export const EN = {
       "sources before serving or filing.",
   ],
 
-  // ── Les cinq familles d'outils ─────────────────────────────────────────────
+  // ── Les six familles d'outils ──────────────────────────────────────────────
   outilsIntro: [
     "You never need to run these tools manually: your AI assistant calls them automatically behind " +
-      "the scenes when calculating dates or interest, verifying party details, or proofreading bilingual drafts.",
+      "the scenes when calculating dates, interest, or TAL rents, verifying party details or addresses, " +
+      "looking up BoC rates or CPI, or proofreading bilingual drafts.",
   ],
   familleCalcul: "Exact calculators (holidays, deadlines, art. 1619 C.C.Q. interest)",
   familleCalculTexte: [

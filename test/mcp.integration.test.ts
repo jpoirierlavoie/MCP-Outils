@@ -89,7 +89,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("2.2.0");
+    expect(healthJson.version).toBe("2.2.1");
     expect(healthJson.commit).toBe("inconnu");
     expect(healthJson.request_payload_logging).toBe(false);
 
@@ -199,7 +199,7 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("2.2.0");
+    expect(cardBody.version).toBe("2.2.1");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",

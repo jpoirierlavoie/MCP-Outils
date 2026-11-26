@@ -67,7 +67,7 @@ import {
 
 export const SERVER_NAME = "mcp-outils";
 export const SERVER_TITLE = "MCP Outils";
-export const SERVER_VERSION = "2.2.0";
+export const SERVER_VERSION = "2.2.1";
 export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F., taux préférentiel BDC), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses civiques et lots RQA, terminologie bijuridique, taux Banque du Canada, IPC StatCan et calculateur TAL (RLRQ, c. T-15.01, r. 2).";
 
