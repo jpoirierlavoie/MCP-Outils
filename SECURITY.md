@@ -14,7 +14,7 @@
 ## Portée
 
 Dans la portée :
-- Le Worker `outils` déployé sur `outils.poirierlavoie.ca` (`POST /mcp`, `GET /mcp/server-card`, `GET /`, `GET /healthz`) ;
+- Le Worker `outils` déployé sur `outils.poirierlavoie.ca` (`POST /mcp`, `GET /mcp/server-card`, `GET /.well-known/mcp/server-card.json`, `GET /`, `GET /healthz`) ;
 - Les modules sous `src/core/`, `src/mcp/`, `src/qc/`, `src/data/`, `src/site.ts` et les pipelines d'ingestion hors ligne sous `pipeline/`.
 
 Hors portée :

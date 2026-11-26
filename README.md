@@ -5,9 +5,9 @@ Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`),
 > **In English:** Public, unauthenticated, read-only MCP server for Québec civil and commercial litigation (`outils.poirierlavoie.ca/mcp`). Provides deterministic C.C.P. holiday/deadline, art. 1619 C.C.Q. interest, and TAL rent-fixing calculators alongside offline lookups for court file numbers, courthouses, corporate registries and LEI hierarchies (REQ, Corporations Canada, GLEIF), Québec civic addresses and lots (RQA), bijural legal terminology, Bank of Canada FX/policy rates, StatCan CPI, and CMHC rents. Queries and inputs are never logged.
 
 Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
-Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
+Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`, `/.well-known/mcp/server-card.json`)
 
-## Outils exposés (v2.2.1 — 15 outils sur 6 familles)
+## Outils exposés (v2.2.2 — 15 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
@@ -87,7 +87,7 @@ Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé
 
 - **URL Streamable HTTP** : `https://outils.poirierlavoie.ca/mcp`
 - **Claude Research & [Gemini Deep Research](https://ai.google.dev/gemini-api/docs/deep-research) (Gemini API, via l'API Interactions — `deep-research-preview-04-2026`)** : raccordement direct au serveur MCP sans jeton ni OAuth côté `outils` (l'authentification à l'API Gemini ou à Claude demeure requise côté client), en tant que connecteur public en lecture seule (`openWorldHint: false`, `readOnlyHint: true`). Pour obtenir des jetons individuels ou connecter via OAuth 2.1 les serveurs complémentaires de sources primaires (`lois` et `juris`, réservés aux membres en règle du Barreau du Québec), consulter [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca) et le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois). Par prudence professionnelle en mode Deep Research autonome (où la recherche web et `store=True` peuvent s'exécuter), **n'inclure aucun nom de client ni fait confidentiel** dans les invites.
-- **Fiche de découverte publique SEP-2127** : `GET https://outils.poirierlavoie.ca/mcp/server-card`
+- **Fiche de découverte publique SEP-2127** : `GET https://outils.poirierlavoie.ca/mcp/server-card` et `GET https://outils.poirierlavoie.ca/.well-known/mcp/server-card.json`
 - **Page documentaire publique** : `GET https://outils.poirierlavoie.ca/` (HTML bilingue FR/EN généré dynamiquement depuis les schémas et tables compilées)
 - **Vérification de santé** : `GET https://outils.poirierlavoie.ca/healthz`
 
