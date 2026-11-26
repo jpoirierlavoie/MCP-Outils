@@ -7,7 +7,7 @@ Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`),
 Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
 Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`)
 
-## Outils exposés (v2.2.0 — 15 outils sur 6 familles)
+## Outils exposés (v2.2.1 — 15 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
@@ -76,7 +76,8 @@ Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé
 {
   "mcpServers": {
     "outils": {
-      "httpUrl": "https://outils.poirierlavoie.ca/mcp"
+      "type": "http",
+      "url": "https://outils.poirierlavoie.ca/mcp"
     }
   }
 }

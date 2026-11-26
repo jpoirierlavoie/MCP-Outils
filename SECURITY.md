@@ -1,6 +1,6 @@
 # Security, Privacy & Professional Secrecy Policy / Politique de sécurité, confidentialité et secret professionnel
 
-> **Français :** Ce dépôt héberge le connecteur MCP public et sans journalisation **`MCP-Outils`** (`mcp-outils`, Worker Cloudflare `outils`, `https://outils.poirierlavoie.ca/mcp`), déployé sur Cloudflare Workers pour le calcul déterministe (jours fériés, délais C.p.c./L.I., intérêts art. 1619 C.c.Q.), l'annuaire statique des greffes et palais de justice du Québec et la consultation locale en lecture seule de jeux de données ouvertes (registres d'entreprises, adresses RQA et terminologie juridique bilingue), en appui au greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) (`v2.1.0`) et aux connecteurs authentifiés gérés via [`MCP-Acces`](https://github.com/jpoirierlavoie/MCP-Acces) (`acces.poirierlavoie.ca`).
+> **Français :** Ce dépôt héberge le connecteur MCP public et sans journalisation **`MCP-Outils`** (`mcp-outils`, Worker Cloudflare `outils`, `https://outils.poirierlavoie.ca/mcp`), déployé sur Cloudflare Workers pour le calcul déterministe (jours fériés, délais C.p.c./L.I., intérêts art. 1619 C.c.Q., fixation de loyer TAL), l'annuaire statique des greffes et palais de justice du Québec et la consultation locale en lecture seule de jeux de données ouvertes (registres d'entreprises dont GLEIF, adresses RQA, terminologie juridique bilingue, taux Banque du Canada, IPC Statistique Canada et loyers SCHL), en appui au greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) (`v3.3.1`) et aux connecteurs authentifiés gérés via [`MCP-Acces`](https://github.com/jpoirierlavoie/MCP-Acces) (`acces.poirierlavoie.ca`).
 > Pour signaler une **vulnérabilité de sécurité** OU un **enjeu de vie privée, de confidentialité ou de secret professionnel / privilège** (`art. 9` *Charte des droits et libertés de la personne*, `art. 131` *Loi sur le Barreau*), **n'ouvrez jamais d'issue publique sur GitHub**. Écrivez directement au mainteneur :
 > **Jason Poirier Lavoie, avocat (Québec)** — `jason@poirierlavoie.ca` (accusé de réception sous **72 heures**, divulgation coordonnée).
 > **Ne transmettez jamais** de documents clients réels, de renseignements nominatifs privilégiés ni de secrets de déploiement dans un premier signalement ; utilisez des paramètres fictifs.
@@ -19,7 +19,7 @@ Dans la portée :
 
 Hors portée :
 - Attaques physiques, ingénierie sociale ou attaques volumétriques (DoS) sur le réseau Cloudflare ;
-- Publications sources officielles externes (Revenu Québec, MJQ, Registraire des entreprises, RBQ, OPC, AMP, Corporations Canada, MRNF, Bureau de la traduction, OQLF).
+- Publications sources officielles externes (Revenu Québec, MJQ, Registraire des entreprises, RBQ, OPC, AMP, Corporations Canada, GLEIF, MRNF, Bureau de la traduction, OQLF, Banque du Canada, Statistique Canada / SCHL, TAL / LégisQuébec).
 
 ---
 
@@ -27,7 +27,7 @@ Hors portée :
 
 `MCP-Outils` est conçu pour les flux publics sans authentification tout en éliminant toute fuite ou persistance de données soumises par un avocat :
 
-1. **Bases D1 strictement en lecture seule à la requête et zéro appel sortant :** Les trois bases Cloudflare D1 (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, région `ENAM`) hébergent uniquement des instantanés publics de données ouvertes préchargés hors ligne. À la requête, aucune écriture (`INSERT`/`UPDATE`/`DELETE`), aucun KV/R2 et aucun appel HTTP sortant (`openWorldHint: false`, `readOnlyHint: true` sur les 12 outils) ne sont effectués. Aucun nom d'entreprise, aucune adresse civique et aucun extrait de projet d'acte soumis à l'outil ne quitte l'isolat Cloudflare ni n'est stocké.
+1. **Bases D1 strictement en lecture seule à la requête et zéro appel sortant :** Les quatre bases Cloudflare D1 (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, `DB_ECONOMIE`, région `ENAM`) hébergent uniquement des instantanés publics de données ouvertes préchargés hors ligne. À la requête, aucune écriture (`INSERT`/`UPDATE`/`DELETE`), aucun KV/R2 et aucun appel HTTP sortant (`openWorldHint: false`, `readOnlyHint: true` sur les 15 outils) ne sont effectués. Aucun nom d'entreprise, aucune adresse civique et aucun extrait de projet d'acte soumis à l'outil ne quitte l'isolat Cloudflare ni n'est stocké.
 2. **Exclusion stricte des personnes physiques protégées aux registres :** Les dirigeants, administrateurs et actionnaires personnes physiques sont exclus du jeu ouvert du REQ (L.P.L.E.), et les inscriptions RENA visant des personnes physiques sont purgées lors de l'ingestion hors ligne (`REGISTRE_ABSENCE_PERSONNES_PHYSIQUES`). Les dispenses d'adresse publiées au REQ sont intégralement respectées.
 3. **Journalisation désactivée dans [`wrangler.jsonc`](wrangler.jsonc) :**
    - `observability.enabled = false`

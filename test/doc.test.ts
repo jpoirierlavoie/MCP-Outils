@@ -114,7 +114,8 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
     expect(geminiExt.settings).toEqual([]);
     expect(Object.keys(geminiExt.mcpServers)).toEqual(["outils"]);
     expect(geminiExt.mcpServers.outils).toEqual({
-      httpUrl: "https://outils.poirierlavoie.ca/mcp",
+      type: "http",
+      url: "https://outils.poirierlavoie.ca/mcp",
     });
   });
 

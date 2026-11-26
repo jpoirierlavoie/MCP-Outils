@@ -342,7 +342,7 @@ function entete(): string {
   return `<header>
 ${barreSuite()}
 <div class="bar">
-<h1>${bi("MCP Outils — Délais, intérêts, greffes, registres et terminologie", EN.titre)}</h1>
+<h1>${bi("MCP Outils — Délais, intérêts, greffes, registres, terminologie et économie", EN.titre)}</h1>
 <div class="btns">
 <button id="theme" type="button" title="Thème / Theme">${etat("auto", "◐ Auto", "◐ Auto")}${etat("light", `${SOLEIL} Clair`, `${SOLEIL} Light`)}${etat("dark", "☾ Sombre", "☾ Dark")}</button>
 <button id="bascule" type="button" title="Français / English">FR&nbsp;·&nbsp;EN</button>
@@ -473,7 +473,7 @@ ${marqueurAppel(d)}
 ${h2("outils")}
 ${biP(
   [
-    "Vous n'avez jamais à lancer ces fonctions vous-même : votre assistant IA les appelle automatiquement en arrière-plan pour calculer des délais ou intérêts, vérifier une entreprise ou une adresse, ou relire votre terminologie.",
+    "Vous n'avez jamais à lancer ces fonctions vous-même : votre assistant IA les appelle automatiquement en arrière-plan pour calculer des délais, intérêts ou loyers TAL, vérifier une entreprise ou une adresse, consulter les taux BdC ou l'IPC, ou relire votre terminologie.",
   ],
   EN.outilsIntro,
 )}
@@ -885,7 +885,10 @@ function construireJsonLd(): string {
         "@type": "WebSite",
         "@id": `${ORIGINE_SITE}/#site`,
         url: `${ORIGINE_SITE}/`,
-        name: ["MCP Outils — Délais, intérêts, greffes, registres et terminologie", EN.titre],
+        name: [
+          "MCP Outils — Délais, intérêts, greffes, registres, terminologie et économie",
+          EN.titre,
+        ],
         inLanguage: ["fr-CA", "en-CA"],
         isPartOf: {
           "@type": "SoftwareApplication",
@@ -927,10 +930,10 @@ function construireJsonLd(): string {
 
 export function renderSite(): string {
   const corps = [entete(), outils(), dossier(), greffes(), acces(), schemas(), pied()].join("\n");
-  const titrePage = "MCP Outils — Délais, intérêts, greffes, registres et adresses";
-  const titrePageEn = "MCP Tools — Deadlines, Interest, Registries & Legal Terms";
+  const titrePage = "MCP Outils — Délais, intérêts, greffes, registres et économie";
+  const titrePageEn = "MCP Tools — Deadlines, Interest, Registries, Terms, Economy";
   const descMeta =
-    "Serveur MCP public sans journalisation : délais C.p.c., intérêts art. 1619 C.c.Q., greffes, registres d'entreprises, adresses RQA et terminologie bijuridique.";
+    "Serveur MCP public sans journalisation : délais C.p.c., intérêts art. 1619 C.c.Q., greffes, registres, adresses RQA, terminologie, taux BdC, IPC et loyer TAL.";
 
   return `<!doctype html>
 <html lang="fr" class="l-fr">
@@ -1026,7 +1029,7 @@ function construireLlmsTxt(): string {
     "- [MCP Accès (Admission & OAuth 2.1 Portal)](https://acces.poirierlavoie.ca/): Barreau du Québec admission (`/demande`) and `/moi` self-service portal for authenticated connectors.",
     "- [MCP Législation (`lois`)](https://legislation.poirierlavoie.ca/): Official Québec & federal statutes, regulations, court directives, and AMF texts.",
     "- [MCP Jurisprudence (`juris`)](https://jurisprudence.poirierlavoie.ca/): Case-law citation verification & CanLII metadata (BYOK CanLII).",
-    `- [MCP Outils (\`outils\` — Public)](${ORIGINE_SITE}/): Calculators, judicial registries, corporate snapshots, RQA addresses, and bijural terminology.`,
+    `- [MCP Outils (\`outils\` — Public)](${ORIGINE_SITE}/): 15 tools across 6 families — calculators, judicial registries, corporate/GLEIF snapshots, RQA addresses, bijural terminology, Bank of Canada rates, StatCan CPI, and TAL/CMHC rents.`,
     `- [Umbrella Plugin Repository](${DEPOT_PLUGIN}) · [Connector Repository](${DEPOT})`,
     "",
   ].join("\n");
