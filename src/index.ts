@@ -232,7 +232,10 @@ export default {
     if (url.pathname === "/healthz" && (request.method === "GET" || request.method === "HEAD")) {
       return healthzResponse(env);
     }
-    if (url.pathname === "/mcp/server-card") {
+    if (
+      url.pathname === "/mcp/server-card" ||
+      url.pathname === "/.well-known/mcp/server-card.json"
+    ) {
       return repondreCarteServeur(request.method);
     }
     if (url.pathname === "/mcp") {

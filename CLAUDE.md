@@ -1,6 +1,6 @@
 # MCP-Outils — Architecture, principes et consignes de travail
 
-Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.2.1`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
+Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.2.2`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
 
 ---
 
@@ -25,7 +25,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
          └──────────┬──────────┘ └──────────┬──────────┘ └──────────────────────────┘
                     │                       │
                     ├───────────┬───────────┴────┐
-                    │           ▼ (`#v0.8.5` dev)▼ (`DB_IDENTITE` `mcp-identite`)
+                    │           ▼ (`#v0.8.6` dev)▼ (`DB_IDENTITE` `mcp-identite`)
                     │  ┌──────────────────┐  ┌──────────────────────────────────────┐
                     │  │    MCP-Socle     │  │              MCP-Acces               │
                     │  │ Transport 2026   │  │     https://acces.poirierlavoie.ca   │
@@ -125,8 +125,8 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` : Page HTML bilingue dérivée de `listToolDescriptors()` (CSP stricte, zéro JSON à la racine, `405` sur autres méthodes).
-   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.2.1"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
-   - `GET` / `HEAD` / `OPTIONS /mcp/server-card` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
+   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.2.2"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
+   - `GET` / `HEAD` / `OPTIONS /mcp/server-card` & `/.well-known/mcp/server-card.json` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
    - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, plafond `MAX_MCP_BODY_BYTES = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), désencapsulation SSE → JSON, limiteur `RATE_LIMITER` (240 req/min/IP → `429`).
 2. **Topologie D1 à 4 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
    - `DB_TERMINOLOGIE` (`outils-terminologie`), `DB_REGISTRES` (`outils-registres`), `DB_ADRESSES` (`outils-adresses`), `DB_ECONOMIE` (`outils-economie`, `< 15 Mio`).
@@ -158,7 +158,7 @@ Tous les outils déclarent les annotations MCP :
 4. **Invariant 4 : Intégrité verbatim des gardes MJQ** (`src/qc/format.ts`) et **exclusion des sources terminologiques protégées** (jamais Crépeau/McGill, Juriterm ni Juridictionnaire).
 5. **Invariant 5 : Séparation stricte entre données indicatives et registres officiels** — nomenclature pure sans plumitif (`greffe_parse_number`), instantanés corporatifs sans dirigeants personnes physiques (`registre_*`), existence civique municipale distincte du domicile et du Registre foncier (`adresse_verify`), IPC/SCHL indicatifs et blocage de divergence de base (`indice_ipc`, `loyer_tal`).
 6. **Invariant 6 : La page publique `/` dérive du code** (`listToolDescriptors()`, identité visuelle partagée avec `MCP-Legislation` et `MCP-Jurisprudence`).
-7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.1`, 15 outils sur 6 familles, plafonds `<= 64` car.).
+7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.2`, 15 outils sur 6 familles, plafonds `<= 64` car.).
 8. **Invariant 8 : Limitation de débit d'arête (240 req/min/IP) et taille maximale (64 KiB)**.
 9. **Invariant 9 : Gouvernance Git (`main-pr-and-ci`)** — Le contournement administrateur du ruleset `main-pr-and-ci` est restreint à `pull_request` : **ne jamais pousser directement sur `main`** ; travailler sur une branche dédiée, ouvrir une Pull Request, attendre le passage des contrôles requis (`verify`, `CodeQL`, `OSV-Scanner`, `Trivy`), puis fusionner par *squash* (`gh pr merge --squash --delete-branch`).
 

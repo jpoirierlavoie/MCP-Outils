@@ -89,7 +89,7 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("2.2.1");
+    expect(healthJson.version).toBe("2.2.2");
     expect(healthJson.commit).toBe("inconnu");
     expect(healthJson.request_payload_logging).toBe(false);
 
@@ -199,7 +199,7 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("2.2.1");
+    expect(cardBody.version).toBe("2.2.2");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",
@@ -240,6 +240,17 @@ describe("Worker HTTP & intégration MCP", () => {
       expect(badRes.status, badMethod).toBe(405);
       expect(badRes.headers.get("allow")).toBe("GET, HEAD, OPTIONS");
     }
+
+    const wellKnownCardRes = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/.well-known/mcp/server-card.json"),
+      {},
+      dummyCtx,
+    );
+    expect(wellKnownCardRes.status).toBe(200);
+    expect(wellKnownCardRes.headers.get("content-type")).toBe(
+      "application/mcp-server-card+json; charset=utf-8",
+    );
+    expect(await wellKnownCardRes.json()).toEqual(cardBody);
 
     for (const wrongPath of ["/server-card", "/.well-known/mcp.json", "/mcp/server-card/"]) {
       const r404 = await worker.fetch(
