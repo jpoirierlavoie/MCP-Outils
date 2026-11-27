@@ -22,7 +22,7 @@
     "COMMIT": "inconnu",
     "MCP_ENABLED": "true",
     "ORIGINE_PORTAIL": "https://acces.poirierlavoie.ca",
-    "ALLOWED_ORIGINS": "https://claude.ai,https://claude.com,https://chatgpt.com,https://chat.openai.com,https://platform.openai.com,https://gemini.google.com,https://aistudio.google.com,https://console.cloud.google.com"
+    "ALLOWED_ORIGINS": "https://claude.ai,https://claude.com,https://gemini.google.com,https://aistudio.google.com,https://console.cloud.google.com"
   },
   "observability": {
     "enabled": false,

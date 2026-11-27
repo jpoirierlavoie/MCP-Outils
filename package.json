@@ -1,6 +1,6 @@
 {
   "name": "mcp-outils",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "Serveur MCP sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F., taux préférentiel BDC), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses civiques et lots RQA, terminologie bijuridique, taux Banque du Canada, IPC StatCan et calculateur TAL (RLRQ, c. T-15.01, r. 2).",
   "license": "Apache-2.0",

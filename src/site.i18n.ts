@@ -331,7 +331,7 @@ export const EN = {
 
   acces: [
     "Free access reserved for active Barreau du Québec members in good standing — no CanLII API key required (this connector does not query CanLII).",
-    "Apply once at acces.poirierlavoie.ca/demande (CanLII API key optional on /demande and manageable in /moi; required only for juris), then connect https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 (default) in claude.ai, ChatGPT, Gemini, or Antigravity — or use https://outils.poirierlavoie.ca/mcp with your personal Bearer token from /moi for headless CLI/API use.",
+    "Apply once at acces.poirierlavoie.ca/demande (CanLII API key optional on /demande and manageable in /moi; required only for juris), then connect https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 (default) in claude.ai, Gemini, or Antigravity — or use https://outils.poirierlavoie.ca/mcp with your personal Bearer token from /moi for headless CLI/API use.",
   ],
   accesTechniqueTitre:
     "Technical details (OAuth 2.1, MCP discovery, quotas & open-source licences)",

@@ -7,7 +7,7 @@ Serveur MCP (**Model Context Protocol**) en lecture seule et sans journalisation
 Points d'accès : `https://outils.poirierlavoie.ca/mcp/oauth` (OAuth 2.1 PKCE par navigateur, défaut du greffon) et `https://outils.poirierlavoie.ca/mcp` (jeton `Bearer` ou `?key=` sans navigateur)  
 Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/.well-known/oauth-protected-resource/mcp/oauth`, `/mcp/server-card`, `/.well-known/mcp/server-card.json`)
 
-## Outils exposés (v3.0.0 — 15 outils sur 6 familles)
+## Outils exposés (v3.0.1 — 15 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
@@ -42,7 +42,7 @@ L'accès est réservé aux membres du Barreau du Québec sans journalisation ni 
 
 > **Avec le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) :** si vous installez le greffon complet dans Claude Code, Claude Desktop, Antigravity ou Gemini CLI, le connecteur `outils` pointe déjà vers `https://outils.poirierlavoie.ca/mcp/oauth` et déclenche la connexion OAuth 2.1 automatiquement. Les instructions ci-dessous servent à connecter `outils` seul ou sur le Web.
 
-### `claude.ai` et ChatGPT (Web / Desktop)
+### `claude.ai` (Web / Desktop)
 
 Ajouter `https://outils.poirierlavoie.ca/mcp/oauth` comme connecteur MCP personnalisé avec authentification **OAuth** (via [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca)), ou `https://outils.poirierlavoie.ca/mcp?key=<VOTRE_JETON>` sur `claude.ai`.
 

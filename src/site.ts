@@ -809,7 +809,7 @@ ${h2("acces")}
 ${biP(
   [
     "Accès réservé gratuitement aux membres actifs en règle du Barreau du Québec — aucune clé API CanLII requise (ce connecteur ne dépend pas de CanLII).",
-    "Déposez une demande unique sur acces.poirierlavoie.ca/demande (clé API CanLII facultative sur /demande et gérable dans /moi ; exigée uniquement pour juris), puis connectez https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 (par défaut) dans claude.ai, ChatGPT, Gemini ou Antigravity — ou utilisez https://outils.poirierlavoie.ca/mcp avec votre jeton personnel (/moi) pour les scripts et CLI sans navigateur.",
+    "Déposez une demande unique sur acces.poirierlavoie.ca/demande (clé API CanLII facultative sur /demande et gérable dans /moi ; exigée uniquement pour juris), puis connectez https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 (par défaut) dans claude.ai, Gemini ou Antigravity — ou utilisez https://outils.poirierlavoie.ca/mcp avec votre jeton personnel (/moi) pour les scripts et CLI sans navigateur.",
   ],
   EN.acces,
 )}
