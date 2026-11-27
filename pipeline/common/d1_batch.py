@@ -1,17 +1,3 @@
-"""Export par lots SQLite -> Cloudflare D1 et bascule bleu-vert hors ligne.
-
-Principes :
-1. Toute source est d'abord assemblée et validée dans une base SQLite locale (`.db`).
-2. Aucune transaction explicite (`BEGIN` / `COMMIT`) n'est émise dans les lots `.sql`,
-   car `wrangler d1 execute --remote --file` les encapsule lui-même.
-3. Chaque instruction `INSERT` reste <= 75 Ko et chaque fichier `.sql` <= 6 Mo.
-4. Les index secondaires et tables virtuelles `FTS5` à contenu externe sont construits
-   en fin de chargement (par tranches d'identifiants `BETWEEN lo AND hi`) afin d'éviter
-   tout dépassement du délai CPU par requête de D1 et tout gonflement réseau.
-5. En mode bascule bleu-vert (`provision_or_get_d1`), une base datée p. ex.
-   `outils-adresses-20261115` peut être créée, chargée et contrôlée intégralement avant
-   toute mise à jour atomique de `database_id` dans `wrangler.jsonc`.
-"""
 from __future__ import annotations
 
 import json
@@ -65,7 +51,7 @@ def sql_literal(val: object) -> str:
     if isinstance(val, int):
         return str(val)
     if isinstance(val, float):
-        if val != val:  # NaN
+        if val != val:
             return "NULL"
         return repr(val)
     s = str(val).replace("\x00", "")
@@ -83,7 +69,6 @@ def export_table_batches(
     max_stmt_bytes: int = MAX_STMT_BYTES,
     insert_mode: str = "INSERT INTO",
 ) -> tuple[list[Path], int]:
-    """Exporte une table SQLite locale en fichiers `.sql` compacts multi-lignes."""
     if insert_mode == "INSERT OR REPLACE":
         insert_prefix = "INSERT OR REPLACE INTO"
     elif insert_mode == "INSERT OR IGNORE":

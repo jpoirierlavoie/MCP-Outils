@@ -1,35 +1,36 @@
 import { z } from "zod";
 import talCriteresJson from "../data/tal_criteres.json" with { type: "json" };
 import { addDays, parseIsoDate } from "./dates.js";
+import { assertSafeInt, roundHalfUpSigned } from "./format.js";
 import { GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 import { formatCentsToCad } from "./interest1619.js";
+import { foldAsciiAlnum } from "./normalize.js";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export const TalModeSchema = z.enum(["calcul_2026", "bareme", "schl"]);
-export type TalMode = z.infer<typeof TalModeSchema>;
+const TalModeSchema = z.enum(["calcul_2026", "bareme", "schl"]);
 
-export const BeneficiaryScopeSchema = z.enum(["all_units", "residential_only", "target_unit_only"]);
-export type BeneficiaryScope = z.infer<typeof BeneficiaryScopeSchema>;
+const BeneficiaryScopeSchema = z.enum(["all_units", "residential_only", "target_unit_only"]);
+type BeneficiaryScope = z.infer<typeof BeneficiaryScopeSchema>;
 
-export const CmhcStructureTypeSchema = z.enum([
+const CmhcStructureTypeSchema = z.enum([
   "row_and_apartment_3_plus",
   "apartment_3_plus",
   "apartment_6_plus",
   "row_3_plus",
 ]);
-export type CmhcStructureType = z.infer<typeof CmhcStructureTypeSchema>;
+type CmhcStructureType = z.infer<typeof CmhcStructureTypeSchema>;
 
-export const CmhcUnitTypeSchema = z.enum([
+const CmhcUnitTypeSchema = z.enum([
   "all",
   "bachelor",
   "one_bedroom",
   "two_bedroom",
   "three_bedroom",
 ]);
-export type CmhcUnitType = z.infer<typeof CmhcUnitTypeSchema>;
+type CmhcUnitType = z.infer<typeof CmhcUnitTypeSchema>;
 
-export const CapitalWorkItemSchema = z.strictObject({
+const CapitalWorkItemSchema = z.strictObject({
   label: z
     .string()
     .trim()
@@ -92,9 +93,8 @@ export const CapitalWorkItemSchema = z.strictObject({
       "Somme explicite des loyers mensuels des unités bénéficiaires en cents (art. 5 al. 2).",
     ),
 });
-export type CapitalWorkItem = z.infer<typeof CapitalWorkItemSchema>;
 
-export const NewExpenseItemSchema = z.strictObject({
+const NewExpenseItemSchema = z.strictObject({
   label: z
     .string()
     .trim()
@@ -130,9 +130,8 @@ export const NewExpenseItemSchema = z.strictObject({
     .optional()
     .describe("Somme explicite des loyers mensuels des unités bénéficiaires en cents."),
 });
-export type NewExpenseItem = z.infer<typeof NewExpenseItemSchema>;
 
-export const AidVariationItemSchema = z.strictObject({
+const AidVariationItemSchema = z.strictObject({
   label: z
     .string()
     .trim()
@@ -167,7 +166,6 @@ export const AidVariationItemSchema = z.strictObject({
     .optional()
     .describe("Somme explicite des loyers mensuels des unités bénéficiaires en cents."),
 });
-export type AidVariationItem = z.infer<typeof AidVariationItemSchema>;
 
 export const LoyerTalInputSchema = z.strictObject({
   mode: TalModeSchema.describe(
@@ -356,7 +354,7 @@ export const LoyerTalInputSchema = z.strictObject({
     "Type d'unité SCHL : 'all' (défaut), 'bachelor', 'one_bedroom', 'two_bedroom' ou 'three_bedroom'.",
   ),
 });
-export type LoyerTalInput = z.infer<typeof LoyerTalInputSchema>;
+type LoyerTalInput = z.infer<typeof LoyerTalInputSchema>;
 
 const Post2026EntrySchema = z.object({
   reference_year: z.number().int(),
@@ -448,7 +446,7 @@ export const LoyerTalOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type LoyerTalOutput = z.infer<typeof LoyerTalOutputSchema>;
+type LoyerTalOutput = z.infer<typeof LoyerTalOutputSchema>;
 
 interface Rational {
   num: bigint;
@@ -479,31 +477,13 @@ function addRational(a: Rational, b: Rational): Rational {
   return makeRational(a.num * b.den + b.num * a.den, a.den * b.den);
 }
 
-/**
- * Arrondi demi vers +infini conforme à `Math.round` du calculateur JS officiel TAL.
- */
-function roundHalfUpSigned(num: bigint, den: bigint): bigint {
-  if (den <= 0n) throw new RangeError("Le dénominateur doit être strictement positif.");
-  if (num >= 0n) {
-    return (num * 2n + den) / (2n * den);
-  }
-  const absNum = -num;
-  const q = absNum / den;
-  const r = absNum % den;
-  const roundedAbs = r * 2n > den ? q + 1n : q;
-  return roundedAbs === 0n ? 0n : -roundedAbs;
-}
-
 function roundArt151Dollar(totalCents: bigint): bigint {
   if (totalCents <= 0n) return 0n;
   return roundHalfUpSigned(totalCents, 100n) * 100n;
 }
 
-function assertSafeInt(val: bigint, label: string): number {
-  if (val > BigInt(Number.MAX_SAFE_INTEGER) || val < BigInt(-Number.MAX_SAFE_INTEGER)) {
-    throw new RangeError(`Dépassement de capacité entière sécuritaire : ${label}.`);
-  }
-  return Number(val);
+function assertSafeTalInt(val: bigint, label: string): number {
+  return assertSafeInt(val, `: ${label}`);
 }
 
 function computeArt4Component(
@@ -561,21 +541,12 @@ function formatBpsComma(bps: number): string {
   return `${neg ? "-" : ""}${(abs / 100).toFixed(1).replace(".", ",")} %`;
 }
 
-function normalizeSearch(raw: string): string {
-  return raw
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function escapeLikePattern(term: string): string {
   return term.replace(/[\\%_]/g, "\\$&");
 }
 
 function buildCmhcQueryTerms(raw: string): string[] {
-  const qNorm = normalizeSearch(raw);
+  const qNorm = foldAsciiAlnum(raw);
   if (!qNorm) return [];
 
   const terms: string[] = [];
@@ -588,7 +559,6 @@ function buildCmhcQueryTerms(raw: string): string[] {
 
   push(qNorm);
 
-  // Retirer uniquement un suffixe provincial en fin de chaîne (jamais le jeton ville seul)
   const strippedProv = qNorm
     .replace(
       /\s+(?:(?:ontario|new brunswick|nouveau brunswick)\s+quebec|saskatchewan\s+alberta|saskachewan\s+alberta|quebec|qc|ontario|on|new brunswick|nouveau brunswick|nb|alberta|ab|british columbia|colombie britannique|bc|manitoba|mb|nova scotia|nouvelle ecosse|ns|newfoundland and labrador|terre neuve et labrador|nl|prince edward island|ile du prince edouard|pe|pei|yukon|yt|northwest territories|territoires du nord ouest|nt|nunavut|nu)$/,
@@ -669,7 +639,6 @@ export async function loyerTal(
   db: D1Database | null,
   input: LoyerTalInput,
 ): Promise<{ ok: true; structured: LoyerTalOutput; text: string } | { ok: false; text: string }> {
-  // ── Mode 1 : Consultation des barèmes officiels TAL (2015–2027) ───────────
   if (input.mode === "bareme") {
     if (input.year !== undefined && (input.year < 2015 || input.year > 2027)) {
       return {
@@ -713,7 +682,6 @@ export async function loyerTal(
     return { ok: true, structured, text: formatTalText(structured) };
   }
 
-  // ── Mode 2 : Loyers moyens du marché SCHL (StatCan 34-10-0133-01) ──────────
   if (input.mode === "schl") {
     if (!db) {
       return {
@@ -772,7 +740,6 @@ export async function loyerTal(
         if (exactRow) {
           centres = [exactRow];
         } else {
-          // Repli exact sur name_fr / name_en normalisés (ex. « Smiths Falls, Ontario » vs « Smith Falls »)
           const allCentresRes = await db
             .prepare(
               "SELECT geo_member_id, geo_key, name_en, name_fr, search_norm, province_code, is_quebec, uom, first_year, last_year " +
@@ -782,8 +749,8 @@ export async function loyerTal(
           const allCentres = allCentresRes.results ?? [];
           const termSet = new Set(queryTerms);
           const nameMatched = allCentres.filter((c) => {
-            const frNorm = normalizeSearch(c.name_fr);
-            const enNorm = normalizeSearch(c.name_en);
+            const frNorm = foldAsciiAlnum(c.name_fr);
+            const enNorm = foldAsciiAlnum(c.name_en);
             return termSet.has(frNorm) || termSet.has(enNorm) || termSet.has(c.search_norm);
           });
           if (nameMatched.length > 0) {
@@ -801,7 +768,6 @@ export async function loyerTal(
             if (candidates.length === 1) {
               centres = candidates;
             } else if (candidates.length > 1) {
-              // Préférer le centre québécois si unique ou correspondance forte (ex. 'gatineau' -> partie québécoise)
               const qcCandidates = candidates.filter((c) => c.is_quebec === 1);
               if (qcCandidates.length === 1) {
                 centres = qcCandidates;
@@ -898,7 +864,6 @@ export async function loyerTal(
     return { ok: true, structured, text: formatTalText(structured) };
   }
 
-  // ── Mode 3 : Calculateur post-1er janvier 2026 (RLRQ, c. T-15.01, r. 2) ────
   if (!input.lease_renewal_date) {
     return {
       ok: false,
@@ -924,7 +889,6 @@ export async function loyerTal(
     };
   }
 
-  // Validation des paires de charges
   for (const [label, a, b] of [
     ["taxes municipales", input.municipal_taxes_prev_cents, input.municipal_taxes_curr_cents],
     ["taxes scolaires", input.school_taxes_prev_cents, input.school_taxes_curr_cents],
@@ -950,7 +914,6 @@ export async function loyerTal(
     };
   }
 
-  // Cas T1 : Avis donné avant le 1er janvier 2026 -> Régime transitoire (art. 6 Décret 1455-2025)
   if (input.notice_date !== undefined && input.notice_date < "2026-01-01") {
     const { year: renewalYear } = parseIsoDate(input.lease_renewal_date);
     const clampedPreYear = Math.min(2026, Math.max(2015, renewalYear));
@@ -982,7 +945,6 @@ export async function loyerTal(
     return { ok: true, structured, text: formatTalText(structured) };
   }
 
-  // Cas T2 : Exemption de 5 ans (art. 1955 C.c.Q., Section F du bail)
   if (input.section_f_exemption_5_ans === true) {
     const structured: LoyerTalOutput = {
       mode: "calcul_2026",
@@ -1004,7 +966,6 @@ export async function loyerTal(
     return { ok: true, structured, text: formatTalText(structured) };
   }
 
-  // Terme du bail (veille du début du bail renouvelé) & période de référence (art. 1)
   const leaseTermDate = addDays(input.lease_renewal_date, -1);
   const { year: termYear, month: termMonth } = parseIsoDate(leaseTermDate);
   const referenceYear = termMonth >= 4 ? termYear - 1 : termYear - 2;
@@ -1043,7 +1004,6 @@ export async function loyerTal(
   const nonResTotal = BigInt(input.building_non_residential_rents_cents ?? 0);
   const otherRevAnnual = BigInt(input.other_annual_revenue_cents ?? 0);
 
-  // Étape 1 : Pourcentage de base & RPA (art. 3 par. 1°, art. 3.1 al. 3, art. 4.1)
   const rawBaseBps = BigInt(regimeEntry.base_rent_bps);
   const effectiveBaseBps = rawBaseBps > 0n ? rawBaseBps : 0n;
   const absBaseBps = rawBaseBps < 0n ? -rawBaseBps : rawBaseBps;
@@ -1063,7 +1023,6 @@ export async function loyerTal(
     adjBaseNormalCents = adjBaseCents;
   }
 
-  // Étape 2 : Parts attribuables (art. 5 & parité outil JS officiel TAL)
   const poidLoyer = makeRational(currentRent, resTotal);
   const poidLoyerPlf = makeRational(
     currentRent * 12n,
@@ -1072,7 +1031,6 @@ export async function loyerTal(
   const taxShare = nonResTotal > 0n ? poidLoyerPlf : poidLoyer;
   const insurAndSnowShare = poidLoyerPlf;
 
-  // Étape 3 : Taxes municipales, taxes scolaires et assurances (art. 4)
   const munPrev = BigInt(input.municipal_taxes_prev_cents ?? 0);
   const munCurr = BigInt(input.municipal_taxes_curr_cents ?? 0);
   if (munPrev === 0n && munCurr > 0n) {
@@ -1103,7 +1061,6 @@ export async function loyerTal(
   const adjInsCents = computeArt4Component(insPrev, insCurr, insurAndSnowShare, absBaseBps);
   const adjTaxesAssurCents = adjMunCents + adjScolCents + adjInsCents;
 
-  // Étape 4 : Dépenses d'immobilisation (5 %, art. 3 par. 5° & al. 4, art. 13)
   const capBps = BigInt(regimeEntry.capital_expenditures_bps);
   let immoAcc: Rational = { num: 0n, den: 1n };
   for (const item of input.capital_works ?? []) {
@@ -1153,7 +1110,6 @@ export async function loyerTal(
   }
   const adjImmoCents = immoAcc.num <= 0n ? 0n : roundHalfUpSigned(immoAcc.num, immoAcc.den);
 
-  // Étape 5 : Nouvelles dépenses d'exploitation & variations d'aide (art. 3 par. 6°, art. 13 al. 4)
   let nouvAcc: Rational = { num: 0n, den: 1n };
   for (const item of input.new_expenses ?? []) {
     if (item.target_unit_benefits === false) continue;
@@ -1192,7 +1148,6 @@ export async function loyerTal(
   }
   const adjAidCents = roundHalfUpSigned(aidAcc.num, aidAcc.den);
 
-  // Étape 6 : Déneigement — parc de maisons mobiles (art. 12.1)
   const snowPrev = BigInt(input.snow_removal_prev_cents ?? 0);
   const snowCurr = BigInt(input.snow_removal_curr_cents ?? 0);
   const adjSnowCents = roundHalfUpSigned(
@@ -1200,7 +1155,6 @@ export async function loyerTal(
     12n * poidLoyerPlf.den,
   );
 
-  // Étape 7 : Total et arrondi final au dollar près (art. 15.1)
   const totalAdjCents =
     adjBaseCents + adjTaxesAssurCents + adjImmoCents + adjNouvCents + adjAidCents + adjSnowCents;
   const unroundedNewRentCents = currentRent + totalAdjCents;
@@ -1228,25 +1182,25 @@ export async function loyerTal(
       capital_expenditures_bps: regimeEntry.capital_expenditures_bps,
       current_rent_cents: input.current_rent_cents,
       current_rent_cad: formatCentsToCad(currentRent),
-      adj_base_cents: assertSafeInt(adjBaseCents, "adj_base"),
-      adj_base_normal_cents: assertSafeInt(adjBaseNormalCents, "adj_base_normal"),
-      adj_base_rpa_cents: assertSafeInt(adjBaseRpaCents, "adj_base_rpa"),
-      adj_municipal_taxes_cents: assertSafeInt(adjMunCents, "adj_mun"),
-      adj_school_taxes_cents: assertSafeInt(adjScolCents, "adj_scol"),
-      adj_insurance_cents: assertSafeInt(adjInsCents, "adj_ins"),
-      adj_taxes_and_insurance_cents: assertSafeInt(adjTaxesAssurCents, "adj_taxes_assur"),
-      adj_capital_works_cents: assertSafeInt(adjImmoCents, "adj_immo"),
-      adj_new_expenses_cents: assertSafeInt(adjNouvCents, "adj_nouv"),
-      adj_aid_variations_cents: assertSafeInt(adjAidCents, "adj_aid"),
-      adj_snow_removal_cents: assertSafeInt(adjSnowCents, "adj_snow"),
-      total_adjustment_cents: assertSafeInt(totalAdjCents, "total_adj"),
+      adj_base_cents: assertSafeTalInt(adjBaseCents, "adj_base"),
+      adj_base_normal_cents: assertSafeTalInt(adjBaseNormalCents, "adj_base_normal"),
+      adj_base_rpa_cents: assertSafeTalInt(adjBaseRpaCents, "adj_base_rpa"),
+      adj_municipal_taxes_cents: assertSafeTalInt(adjMunCents, "adj_mun"),
+      adj_school_taxes_cents: assertSafeTalInt(adjScolCents, "adj_scol"),
+      adj_insurance_cents: assertSafeTalInt(adjInsCents, "adj_ins"),
+      adj_taxes_and_insurance_cents: assertSafeTalInt(adjTaxesAssurCents, "adj_taxes_assur"),
+      adj_capital_works_cents: assertSafeTalInt(adjImmoCents, "adj_immo"),
+      adj_new_expenses_cents: assertSafeTalInt(adjNouvCents, "adj_nouv"),
+      adj_aid_variations_cents: assertSafeTalInt(adjAidCents, "adj_aid"),
+      adj_snow_removal_cents: assertSafeTalInt(adjSnowCents, "adj_snow"),
+      total_adjustment_cents: assertSafeTalInt(totalAdjCents, "total_adj"),
       total_adjustment_cad: formatCentsToCad(totalAdjCents),
-      unrounded_new_rent_cents: assertSafeInt(unroundedNewRentCents, "unrounded_new_rent"),
+      unrounded_new_rent_cents: assertSafeTalInt(unroundedNewRentCents, "unrounded_new_rent"),
       unrounded_new_rent_cad: formatCentsToCad(unroundedNewRentCents),
-      new_rent_cents: assertSafeInt(newRentCents, "new_rent"),
-      new_rent_dollars: assertSafeInt(newRentCents / 100n, "new_rent_dollars"),
+      new_rent_cents: assertSafeTalInt(newRentCents, "new_rent"),
+      new_rent_dollars: assertSafeTalInt(newRentCents / 100n, "new_rent_dollars"),
       new_rent_cad: formatCentsToCad(newRentCents),
-      effective_increase_bps: assertSafeInt(effectiveIncreaseBps, "effective_increase_bps"),
+      effective_increase_bps: assertSafeTalInt(effectiveIncreaseBps, "effective_increase_bps"),
     },
     bareme_post_2026: [regimeEntry],
     bareme_pre_2026: [],

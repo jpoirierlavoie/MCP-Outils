@@ -1,13 +1,23 @@
 import {
-  localhostAllowedHostnames,
-  SUPPORTED_PROTOCOL_VERSIONS,
-} from "@modelcontextprotocol/server";
-import { createMcpHandler } from "agents/mcp/server";
+  CHEMIN_WELL_KNOWN_CARTE_SERVEUR,
+  errorResponse,
+  INVALID_REQUEST,
+  jsonResponse,
+  lireCorpsBorne,
+  MAX_OCTETS_CORPS_MCP,
+  methodeNonPermise,
+  PARSE_ERROR,
+  repondreCarteServeur,
+  SERVER_CARD_SCHEMA,
+  servirRequeteMcp,
+} from "@poirierlavoie/mcp-socle";
 import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import talCriteresJson from "./data/tal_criteres.json" with { type: "json" };
 import {
-  createOutilsMcpServer,
+  callOutilsTool,
+  INSTRUCTIONS,
+  listMcpToolDescriptors,
   listToolDescriptors,
   type OutilsBindings,
   SERVER_DESCRIPTION,
@@ -27,10 +37,7 @@ export interface Env extends OutilsBindings {
   COMMIT?: string;
 }
 
-export const SERVER_CARD_SCHEMA =
-  "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json";
-
-export const SERVER_CARD_CONTENT_TYPE = "application/mcp-server-card+json; charset=utf-8";
+const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"] as const;
 
 export function carteServeur() {
   return {
@@ -48,7 +55,7 @@ export function carteServeur() {
       {
         type: "streamable-http" as const,
         url: "https://outils.poirierlavoie.ca/mcp",
-        supportedProtocolVersions: [...SUPPORTED_PROTOCOL_VERSIONS],
+        supportedProtocolVersions: [...VERSIONS],
         headers: [] as Array<{
           name: string;
           description: string;
@@ -60,44 +67,7 @@ export function carteServeur() {
   };
 }
 
-function repondreCarteServeur(method: string): Response {
-  if (method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-        "Access-Control-Allow-Headers": "Accept, Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
-    });
-  }
-  if (method !== "GET" && method !== "HEAD") {
-    return new Response(JSON.stringify({ error: "method_not_allowed" }), {
-      status: 405,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Allow: "GET, HEAD, OPTIONS",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-  const headers: Record<string, string> = {
-    "Content-Type": SERVER_CARD_CONTENT_TYPE,
-    "Cache-Control": "public, max-age=600",
-    "X-Content-Type-Options": "nosniff",
-    "Access-Control-Allow-Origin": "*",
-  };
-  return method === "HEAD"
-    ? new Response(null, { status: 200, headers })
-    : new Response(JSON.stringify(carteServeur()), { status: 200, headers });
-}
-
-const MAX_MCP_BODY_BYTES = 65_536;
-
-const DEFAULT_ALLOWED_HOSTNAMES = Array.from(
-  new Set(["outils.poirierlavoie.ca", ...localhostAllowedHostnames()]),
-);
+const DEFAULT_ALLOWED_HOSTNAMES = ["outils.poirierlavoie.ca", "localhost", "127.0.0.1", "[::1]"];
 
 function extractHostname(hostHeader: string | null): string | null {
   if (!hostHeader) return null;
@@ -130,14 +100,6 @@ function buildAllowedHostnames(extraCsv?: string): string[] {
     : DEFAULT_ALLOWED_HOSTNAMES;
 }
 
-function buildHandler(allowedHostnames: string[], env: Env) {
-  return createMcpHandler(() => createOutilsMcpServer(env), {
-    route: "/mcp",
-    allowedHostnames,
-    allowedOriginHostnames: "*",
-  });
-}
-
 function rateLimitExceededResponse(): Response {
   return Response.json(
     {
@@ -153,7 +115,7 @@ function rateLimitExceededResponse(): Response {
   );
 }
 
-function healthzResponse(env: Env): Response {
+function healthResponse(env: Env): Response {
   return Response.json(
     {
       status: "ok",
@@ -200,7 +162,7 @@ function pagePublique(request: Request): Response {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/") {
       if (request.method !== "GET" && request.method !== "HEAD") {
@@ -229,14 +191,14 @@ export default {
       }
     }
 
-    if (url.pathname === "/healthz" && (request.method === "GET" || request.method === "HEAD")) {
-      return healthzResponse(env);
-    }
     if (
-      url.pathname === "/mcp/server-card" ||
-      url.pathname === "/.well-known/mcp/server-card.json"
+      (url.pathname === "/health" || url.pathname === "/healthz") &&
+      (request.method === "GET" || request.method === "HEAD")
     ) {
-      return repondreCarteServeur(request.method);
+      return healthResponse(env);
+    }
+    if (url.pathname === "/mcp/server-card" || url.pathname === CHEMIN_WELL_KNOWN_CARTE_SERVEUR) {
+      return repondreCarteServeur(request.method, carteServeur());
     }
     if (url.pathname === "/mcp") {
       const allowedHostnames = env.ALLOWED_HOSTNAMES
@@ -258,96 +220,79 @@ export default {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
             "Access-Control-Allow-Headers":
-              "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id, Accept",
+              "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id, Last-Event-ID, Accept",
             "Access-Control-Max-Age": "86400",
           },
         });
       }
 
-      const handler = buildHandler(allowedHostnames, env);
+      if (request.method !== "POST") {
+        return methodeNonPermise("*");
+      }
 
-      const rawAccept = request.headers.get("accept");
-      const wantsSse = Boolean(rawAccept?.includes("text/event-stream"));
-
-      let mcpRequest = request;
-      if (request.method === "POST") {
-        const declaredLength = Number(request.headers.get("content-length") ?? "0");
-        if (Number.isFinite(declaredLength) && declaredLength > MAX_MCP_BODY_BYTES) {
-          return Response.json(
-            { error: "Payload Too Large (max 64 KiB)" },
-            { status: 413, headers: { "Cache-Control": "no-store" } },
+      const lecture = await lireCorpsBorne(request, MAX_OCTETS_CORPS_MCP);
+      if (!lecture.ok) {
+        if (lecture.motif === "trop_grand") {
+          return jsonResponse(
+            errorResponse(null, INVALID_REQUEST, "Payload Too Large (max 64 KiB)"),
+            413,
+            "*",
           );
         }
+        return jsonResponse(errorResponse(null, PARSE_ERROR, "Encodage UTF-8 invalide."), 200, "*");
+      }
 
-        const rawBytes = new Uint8Array(await request.arrayBuffer());
-        if (rawBytes.byteLength > MAX_MCP_BODY_BYTES) {
-          return Response.json(
-            { error: "Payload Too Large (max 64 KiB)" },
-            { status: 413, headers: { "Cache-Control": "no-store" } },
-          );
-        }
+      let parsed: unknown;
+      let isValidJson = false;
+      try {
+        parsed = JSON.parse(lecture.texte);
+        isValidJson = true;
+      } catch {}
 
-        let parsed: unknown;
-        let isValidJson = false;
-        try {
-          parsed = JSON.parse(new TextDecoder().decode(rawBytes));
-          isValidJson = true;
-        } catch {
-          // Malformed JSON falls through to the MCP handler so JSON-RPC returns -32700.
-        }
+      if (
+        isValidJson &&
+        (Array.isArray(parsed) ||
+          (typeof parsed === "object" &&
+            parsed !== null &&
+            "id" in parsed &&
+            (parsed as { id: unknown }).id !== null &&
+            typeof (parsed as { id: unknown }).id === "object"))
+      ) {
+        return jsonResponse(errorResponse(null, INVALID_REQUEST, "Invalid Request"), 400, "*");
+      }
 
-        if (
-          isValidJson &&
-          (Array.isArray(parsed) ||
-            (typeof parsed === "object" &&
-              parsed !== null &&
-              "id" in parsed &&
-              (parsed as { id: unknown }).id !== null &&
-              typeof (parsed as { id: unknown }).id === "object"))
-        ) {
-          return Response.json(
-            {
-              jsonrpc: "2.0",
-              id: null,
-              error: { code: -32600, message: "Invalid Request" },
-            },
-            { status: 400, headers: { "Cache-Control": "no-store" } },
-          );
-        }
+      const hdrs = new Headers(request.headers);
+      hdrs.delete("content-length");
+      const mcpRequest = new Request(request.url, {
+        method: "POST",
+        headers: hdrs,
+        body: lecture.texte,
+      });
 
-        const headers = new Headers(request.headers);
-        if (!wantsSse || !rawAccept?.includes("application/json")) {
-          headers.set("accept", "application/json, text/event-stream");
-        }
-        mcpRequest = new Request(request.url, {
-          method: "POST",
-          headers,
-          body: rawBytes,
+      const mcpResponse = await servirRequeteMcp(mcpRequest, {
+        versions: VERSIONS,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: {
+          name: SERVER_NAME,
+          title: SERVER_TITLE,
+          version: SERVER_VERSION,
+        },
+        instructions: INSTRUCTIONS,
+        descripteurs: listMcpToolDescriptors,
+        appeler: (nom, args) => callOutilsTool(env, nom, args),
+        origin: "*",
+        sertAvant2025_06_18: true,
+        ttlListeMs: 3_600_000,
+      });
+
+      if (mcpResponse.status === 404) {
+        return new Response(mcpResponse.body, {
+          status: 200,
+          headers: mcpResponse.headers,
         });
       }
 
-      const response = await handler(mcpRequest, env, ctx);
-
-      if (
-        !wantsSse &&
-        request.method === "POST" &&
-        response.headers.get("content-type")?.includes("text/event-stream")
-      ) {
-        const text = await response.text();
-        const dataLine = text.split(/\r?\n/).find((line) => line.startsWith("data: "));
-        if (dataLine) {
-          const jsonText = dataLine.slice(6);
-          return new Response(jsonText, {
-            status: response.status,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "no-store",
-            },
-          });
-        }
-      }
-
-      return response;
+      return mcpResponse;
     }
 
     return Response.json(

@@ -125,7 +125,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       }
     }
 
-    // Règle additionnelle article 1240 Code civil français
     regleId += 1;
     inserts.push(
       `INSERT INTO regles_contamination VALUES (
@@ -136,7 +135,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       );`,
     );
 
-    // Rang 3 (TERMIUM Plus — common law mortgage) et Rang 4 (OQLF — CC BY-NC-SA 4.0)
     ficheId += 1;
     inserts.push(
       `INSERT INTO fiches_terminologiques VALUES (
@@ -160,7 +158,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       );`,
     );
 
-    // Lois et articles bilingues (avec apostrophe typographique LégisQuébec \u2019)
     inserts.push(
       `INSERT INTO lois_bilingues VALUES
         ('ccq', 'qc', 'Code civil du Québec', 'Civil Code of Québec', 'RLRQ, c. CCQ-1991', NULL, '2026-04-07', '2026-04-07'),
@@ -253,7 +250,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     expect(parsedHyp.gardes.some((g) => g.code === "LICENCE_DONNEES_OUVERTES_NC_SA")).toBe(false);
     expect(hyp.text).not.toContain("LICENCE_DONNEES_OUVERTES_NC_SA");
 
-    // Faux ami anglais 'mortgage' : le rang 1 civiliste doit précéder le rang 3 common law, sans garde NC-SA
     const mort = await terminologieLookup(harness.d1, {
       query: "mortgage",
       source_lang: "en",
@@ -270,7 +266,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       false,
     );
 
-    // Rang 4 OQLF -> déclenche LICENCE_DONNEES_OUVERTES_NC_SA et expose URL_fiche
     const oqlf = await terminologieLookup(harness.d1, {
       query: "action collective",
       domain_filter: "procédure",
@@ -308,7 +303,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
     expect(mortFed.structured.total_matching_articles).toBe(1);
 
-    // Apostrophe droite en entrée vs apostrophe courbe dans LégisQuébec
     const dii = await terminologieAttestations(harness.d1, {
       term: "demande introductive d'instance",
       lang: "fr",
@@ -316,7 +310,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     expect(dii.structured.total_matching_articles).toBe(1);
     expect(dii.structured.attestations[0]!.law_id).toBe("cpc");
 
-    // Frontière de mot stricte : « dol » matche art. 1401, PAS « dollars » à l'art. 1619
     const dol = await terminologieAttestations(harness.d1, {
       term: "dol",
       lang: "fr",
@@ -336,7 +329,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
     const parsedFr = TerminologieScanTextOutputSchema.parse(frScan.structured);
     expect(parsedFr.flagged_count).toBeGreaterThanOrEqual(2);
-    // Le premier « avis d'assignation » (index ~86) ne doit PAS être signalé
+
     for (const occ of parsedFr.occurrences) {
       if (occ.matched_text.toLowerCase() === "assignation") {
         expect(occ.offset_start).toBeGreaterThan(105);
@@ -346,7 +339,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       true,
     );
 
-    // Anglais civiliste québécois : 'mortgage' et 'joint and several' sont signalés
     const enQc = await terminologieScanText(harness.d1, {
       text: "The debtors assume a joint and several obligation secured by a first-ranking mortgage.",
       lang: "en",
@@ -356,7 +348,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       expect.arrayContaining(["joint and several", "mortgage"]),
     );
 
-    // Contexte bijuridique fédéral : doublet complet toléré, terme isolé signalé en 'omission_bijuridique'
     const enFedOk = await terminologieScanText(harness.d1, {
       text: "Every person holding a mortgage on real property or hypothec on immovables is a secured creditor.",
       lang: "en",
@@ -470,8 +461,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       enforceQueryOnly: true,
     });
     try {
-      // Requête préfixielle non exacte ("beneficiair") avec domain_filter : sans poussée FTS5 sur {domaine},
-      // LIMIT 80 sur rang_source ASC évincerait la fiche de rang 4 derrière les 95 fiches de rang 3.
       const res = await terminologieLookup(domHarness.d1, {
         query: "beneficiair",
         domain_filter: "droit du travail",
@@ -498,8 +487,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     );
 
     const values: string[] = [];
-    // Répartition : 1 500 ccq + 1 500 cpc + 550 ca-i-21 + 500 qc-s-31.1 = 4 050 vrais positifs
-    // + 5 faux positifs FTS ("l. obligation") placés exactement à la frontière de page 3998..4002 = 4 055 candidats FTS
+
     let id = 0;
     let exact4kCount = 0;
     const lawPlan: Array<[string, number]> = [
@@ -545,7 +533,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
 
     try {
-      // 1) Franchissement multi-pages : 4 055 candidats FTS -> 4 050 articles vérifiés (5 faux positifs rejetés à la jonction 3998..4002)
       const multiPage = await terminologieAttestations(pageHarness.d1, {
         term: "l'obligation",
         lang: "fr",
@@ -559,12 +546,11 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
         ["ca-i-21", 550],
         ["qc-s-31.1", 500],
       ]);
-      // Même si ccq a été inséré en fin de table (> 2 550), la priorité statutaire place ccq art. 1 en tête
+
       expect(parsed.attestations.length).toBe(5);
       expect(parsed.attestations[0]!.law_id).toBe("ccq");
       expect(parsed.attestations[0]!.article_number).toBe("1");
 
-      // 2) Cas frontière exact d'un multiple plein de page (exactement 4 000 candidats FTS -> page 2 vide)
       const boundaryPage = await terminologieAttestations(pageHarness.d1, {
         term: "clause pénale",
         lang: "fr",
@@ -589,7 +575,7 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       seedSql: [
         schemaSql,
         `INSERT INTO meta_sources VALUES ('concordancier_legislatif', 'Concordancier', 2, 'OGL-Canada', '2026-11-15', 6);`,
-        // Fiche dont terme_fr_norm imite un chargement antérieur ('mise en uvre') + terme_fr avec ligature 'œuvre'
+
         `INSERT INTO fiches_terminologiques VALUES (
           1, NULL, 3, 'TERMIUM Plus®', 'OGL-Canada',
           'mise en œuvre', 'implementation', 'mise en uvre', 'implementation',
@@ -622,7 +608,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
 
     try {
-      // 1) Ligature œ <-> oe dans terminologie_lookup et termino_attestations
       const lookLig = await terminologieLookup(ligHarness.d1, { query: "mise en œuvre" });
       const lookAscii = await terminologieLookup(ligHarness.d1, { query: "mise en oeuvre" });
       expect(lookLig.structured.count).toBe(1);
@@ -641,7 +626,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       expect(attLig.structured.total_matching_articles).toBe(2);
       expect(attAscii.structured.total_matching_articles).toBe(2);
 
-      // 2) Isolation stricte de law_filter et échappement des jokers SQL LIKE
       const ccq = await terminologieAttestations(ligHarness.d1, {
         term: "hypothèque",
         lang: "fr",
@@ -673,7 +657,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       ligHarness.close();
     }
 
-    // 3) terminologie_scan : zéro faux positif sur les tournures statutaires du C.p.c. / C.c.Q.
     const cleanStatutesFr = await terminologieScanText(harness.d1, {
       text: "Le défendeur doit répondre à l’assignation dans le délai d'assignation devant les tribunaux judiciaires du Québec ou un autre tribunal judiciaire compétent.",
       lang: "fr",
@@ -697,7 +680,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
   });
 
   it("couvre breffage (D29), aligne estoppel sur fin de non-recevoir (D15), détecte les insertions EN en FR, les 11 formes conjuguées FR et consideration en EN sans faux positifs (D6)", async () => {
-    // 1) D29 — breffage (rang 1)
     expect(glossaireJson.entries.some((e) => e.id === "breffage")).toBe(true);
     const lookupBref = await terminologieLookup(harness.d1, { query: "breffage" });
     expect(lookupBref.structured.fiches[0]?.terme_fr).toBe("breffage");
@@ -709,7 +691,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
     expect(lookupBriefing.structured.fiches.some((f) => f.terme_fr === "breffage")).toBe(true);
 
-    // 2) D15 — estoppel -> fin de non-recevoir (art. 6, 7 et 1375 C.c.Q.) en FR et EN
     for (const lang of ["fr", "en"] as const) {
       const est = await terminologieScanText(harness.d1, {
         text: lang === "fr" ? "La partie invoque l'estoppel." : "Defendant pleads estoppel.",
@@ -723,7 +704,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       expect(occ?.legal_basis).toContain("1375 C.c.Q.");
     }
 
-    // 3) D6 — consideration en EN vs tournures non contractuelles et « considération » en FR
     const enCons = await terminologieScanText(harness.d1, {
       text: "The contract is void because it lacks consideration.",
       lang: "en",
@@ -744,7 +724,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
     expect(frAccentedCons.structured.flagged_count).toBe(0);
 
-    // 4) D6 — Insertions anglaises détectées même en mode lang='fr'
     const frWithEn = await terminologieScanText(harness.d1, {
       text: "Les parties sont tenues joint and several avec hold harmless, specific performance, punitive damages, un trustee, une mortgage et le statute of limitations.",
       lang: "fr",
@@ -762,7 +741,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
       expect(matchedEnInFr, `Insertion EN manquée en FR : ${expected}`).toContain(expected);
     }
 
-    // 5) D6 — 11 règles procédurales & conjugaisons FR détectées avec exactitude
     const frDirtyVerbs = await terminologieScanText(harness.d1, {
       text: [
         "Nous présentons une demande de référé et sollicitons une ordonnance de référé ainsi qu'un référé urgent en référé.",
@@ -808,7 +786,6 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     }
     expect(matchedDirtyFr.filter((m) => m === "comparu")).toHaveLength(2);
 
-    // 6) D6 — Zéro faux positif sur le français juridique propre
     const cleanLegalFr = await terminologieScanText(harness.d1, {
       text: [
         "La Cour s'est référé à l'article 145 C.p.c. avant d'émettre une citation à comparaître pour comparaître comme témoin.",
@@ -821,14 +798,12 @@ describe("Domaine A — Terminologie juridique bilingue et bijuridique", () => {
     });
     expect(cleanLegalFr.structured.flagged_count).toBe(0);
 
-    // 7) A-N4 : formes conjuguées et nominales de « répondre à l'assignation » tolérées
     const cleanReplyAssignation = await terminologieScanText(harness.d1, {
       text: "Le défendeur répond à l'assignation dans le délai ; les défenderesses ont répondu à l'assignation et la réponse à l'assignation a été produite.",
       lang: "fr",
     });
     expect(cleanReplyAssignation.structured.flagged_count).toBe(0);
 
-    // 8) D6 & A-N13 : « Le référé a été entendu » et « a logé une action » signalés en FR ; « motion to dismiss » et « laches » en EN
     const dirtyRefereAction = await terminologieScanText(harness.d1, {
       text: "Le référé a été entendu hier après que le demandeur a logé une action.",
       lang: "fr",

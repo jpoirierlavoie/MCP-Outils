@@ -23,16 +23,16 @@ import {
 const ISO_DATE_FORMAT_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_FORMAT_RE = /^\d{2}:\d{2}(?::\d{2})?$/;
 
-export const NotificationModeSchema = z.enum(["none", "technological", "physical"]);
-export type NotificationMode = z.infer<typeof NotificationModeSchema>;
+const NotificationModeSchema = z.enum(["none", "technological", "physical"]);
+type NotificationMode = z.infer<typeof NotificationModeSchema>;
 
-export const DeadlineUnitSchema = z.enum(["days", "months", "years"]);
-export type DeadlineUnit = z.infer<typeof DeadlineUnitSchema>;
+const DeadlineUnitSchema = z.enum(["days", "months", "years"]);
+type DeadlineUnit = z.infer<typeof DeadlineUnitSchema>;
 
-export const DeadlineDirectionSchema = z.enum(["forward", "backward"]);
-export type DeadlineDirection = z.infer<typeof DeadlineDirectionSchema>;
+const DeadlineDirectionSchema = z.enum(["forward", "backward"]);
+type DeadlineDirection = z.infer<typeof DeadlineDirectionSchema>;
 
-export const DeadlineStepInputSchema = z.strictObject({
+const DeadlineStepInputSchema = z.strictObject({
   label: z
     .string()
     .min(1)
@@ -69,7 +69,6 @@ export const DeadlineStepInputSchema = z.strictObject({
       "Index 0-basé d'une étape précédente de deadlines[] dont l'effective_date sert de point de départ.",
     ),
 });
-export type DeadlineStepInput = z.infer<typeof DeadlineStepInputSchema>;
 
 export const ComputeDeadlinesInputSchema = z.strictObject({
   event_date: z
@@ -111,15 +110,15 @@ export const ComputeDeadlinesInputSchema = z.strictObject({
     .max(25)
     .describe("Liste d'une à 25 étapes de calcul de délai à exécuter."),
 });
-export type ComputeDeadlinesInput = z.infer<typeof ComputeDeadlinesInputSchema>;
+type ComputeDeadlinesInput = z.infer<typeof ComputeDeadlinesInputSchema>;
 
-export const RolloverHopSchema = z.object({
+const RolloverHopSchema = z.object({
   date: z.string(),
   weekday_fr: z.string(),
   reason: z.string(),
 });
 
-export const DeadlineStepResultSchema = z.object({
+const DeadlineStepResultSchema = z.object({
   index: z.number().int(),
   label: z.string(),
   direction: DeadlineDirectionSchema,
@@ -140,7 +139,7 @@ export const DeadlineStepResultSchema = z.object({
   non_sitting_period_label: z.string().nullable(),
   formula_summary_fr: z.string(),
 });
-export type DeadlineStepResult = z.infer<typeof DeadlineStepResultSchema>;
+type DeadlineStepResult = z.infer<typeof DeadlineStepResultSchema>;
 
 export const ComputeDeadlinesOutputSchema = z.object({
   regime: RegimeSchema,
@@ -187,7 +186,6 @@ function addAmountByUnit(isoDate: string, signedAmount: number, unit: DeadlineUn
 }
 
 export function computeDeadlines(input: ComputeDeadlinesInput): ComputeDeadlinesOutput {
-  // Strict calendar validation upfront before arithmetic
   parseIsoDate(input.event_date);
   if (input.event_time !== undefined) {
     parseTimeHHMM(input.event_time);

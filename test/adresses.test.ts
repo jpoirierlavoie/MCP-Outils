@@ -166,7 +166,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
   });
 
   it("distingue une unité de copropriété confirmée au RQA d'une unité non répertoriée et résout un ancien odonyme (Dorchester -> René-Lévesque)", async () => {
-    // 1) Unité 402 inscrite au RQA -> exact_civic
     const confirmed = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, app. 402, Montréal",
     });
@@ -177,7 +176,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(confirmed.structured.candidates[0]?.lots_cadastraux).toEqual(["1850402"]);
     }
 
-    // 2) Unité 999 non inscrite au RQA sur un immeuble existant -> exact_civic_unit_unconfirmed
     const unconfirmed = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, bureau 999, Montréal",
     });
@@ -189,7 +187,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       );
     }
 
-    // 3) Ancien nom « Dorchester » via renvois_recherche
     const renvoi = await adresseVerify(harness.d1, {
       address: "1200 boul. Dorchester Ouest, Montréal",
     });
@@ -378,7 +375,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     });
 
     try {
-      // 1) Patronyme à particule exact + faute de frappe + ligature œ
       const exactGauch = await adresseVerify(subHarness.d1, {
         address: "1000, rue De La Gauchetière Ouest, Montréal",
       });
@@ -412,7 +408,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         );
       }
 
-      // 2) Suffixe numérique d'unité RQA (Gaspé 11, suffixe '101' -> pas de collage '11101'), fraction '1/2', suffixe '10-B' non confirmé
       const gaspe = await adresseVerify(subHarness.d1, {
         address: "11, rue de la Cathédrale, bureau 101, Gaspé G4X 2V9",
       });
@@ -451,7 +446,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         );
       }
 
-      // 3) Odonyme ordinal composé ('6e rue de la Pointe'), mention d'étage ('1er étage') et bureau décimal ('bureau 1.32')
       const shawinigan = await adresseVerify(subHarness.d1, {
         address: "212, 6e rue de la Pointe, 1er étage, Shawinigan G9N 8B6",
       });
@@ -474,7 +468,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         );
       }
 
-      // 4) Divergence de cardinal ('Ouest' -> 'Est') ou de générique ('rue' -> 'avenue') : jamais exact_civic silencieux
       const cardMismatch = await adresseVerify(subHarness.d1, {
         address: "1250, boulevard De Maisonneuve Ouest, Montréal",
       });
@@ -543,7 +536,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     });
 
     try {
-      // 1) Adresses hors Québec (ON / BC / AB) -> status outside_quebec sans garde d'approximation
       for (const addr of [
         "100 King Street West, Toronto, ON M5X 1C9",
         "123 Main Street, Vancouver, British Columbia",
@@ -562,7 +554,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         }
       }
 
-      // 2) Une rue québécoise nommée « Ontario » à Montréal ne déclenche JAMAIS outside_quebec
       const rueOntario = await adresseVerify(dupHarness.d1, {
         address: "1500, rue Ontario Est, Montréal",
       });
@@ -571,7 +562,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         expect(rueOntario.structured.status).toBe("exact_civic");
       }
 
-      // 3) Plusieurs candidats partageant exactement le même libellé affichent leurs attributs distinctifs
       const dup = await adresseVerify(dupHarness.d1, {
         address: "42, rue Principale, Montréal",
       });
@@ -590,7 +580,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
   });
 
   it("distingue la provenance des lots, le repli sur l'immeuble parent et les ambiguïtés de copropriété en recherche directe", async () => {
-    // 1) Unité confirmée avec lot privatif propre (app. 402)
     const unitOwn = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, app. 402, Montréal",
     });
@@ -606,7 +595,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(codes).not.toContain("ADRESSE_CORRESPONDANCE_APPROXIMATIVE");
     }
 
-    // 2) Immeuble subdivisé interrogé sans unité (1200 René-Lévesque)
     const buildingSubdivided = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, Montréal",
     });
@@ -622,7 +610,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(codes).not.toContain("ADRESSE_CORRESPONDANCE_APPROXIMATIVE");
     }
 
-    // 3) Unité existante (app. 403) sans lot ni matricule propres -> repli sur l'immeuble parent sans fausse approximation
     const unitFallbackBoth = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, app. 403, Montréal",
     });
@@ -641,7 +628,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(codes).not.toContain("ADRESSE_CORRESPONDANCE_APPROXIMATIVE");
     }
 
-    // 4) Unité avec lot propre (app. 404) mais matricule manquant -> repli partiel matricule uniquement
     const unitFallbackMat = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, app. 404, Montréal",
     });
@@ -659,7 +645,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       );
     }
 
-    // 5) Unité partageant le même lot que le bâtiment principal (1250 René-Lévesque, bureau 2500)
     const sharedLot = await adresseVerify(harness.d1, {
       address: "1250, boul. René-Lévesque Ouest, bureau 2500, Montréal",
     });
@@ -674,7 +659,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(codes).not.toContain("ADRESSE_CORRESPONDANCE_APPROXIMATIVE");
     }
 
-    // 6) Unité non confirmée (bureau 999) sur immeuble subdivisé -> cumul des gardes attendues
     const unconfUnit = await adresseVerify(harness.d1, {
       address: "1200, boul. René-Lévesque Ouest, bureau 999, Montréal",
     });
@@ -690,7 +674,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(codes).toContain("ADRESSE_LOT_MULTI_OU_COPROPRIETE");
     }
 
-    // 7) Adresse sans lot ni matricule (3502 Saint-Laurent) -> lot_source 'absent'
     const noLot = await adresseVerify(harness.d1, {
       address: "3502, boul. Saint-Laurent, Montréal",
     });
@@ -706,7 +689,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
   });
 
   it("effectue la recherche inversée par numéro de lot et matricule, applique les gardes d'exclusivité et exploite les index SQLite", async () => {
-    // 1) Lot formaté avec espaces (Palais de justice multi-lots)
     const byLotSpaced = await adresseVerify(harness.d1, { lot_number: "2 359 285" });
     expect(byLotSpaced.ok).toBe(true);
     if (byLotSpaced.ok) {
@@ -722,7 +704,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       );
     }
 
-    // 2) Lot compact d'unité de copropriété
     const byLotCompact = await adresseVerify(harness.d1, { lot_number: "1850402" });
     expect(byLotCompact.ok).toBe(true);
     if (byLotCompact.ok) {
@@ -734,7 +715,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       );
     }
 
-    // 3) Lot multi-adresses avec troncature (1250 René-Lévesque, 87 lignes, max_candidates=5)
     const multiLot = await adresseVerify(harness.d1, {
       lot_number: "1851407",
       max_candidates: 5,
@@ -758,7 +738,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       );
     }
 
-    // 4) Filtre municipal strict en recherche inversée
     const munMatch = await adresseVerify(harness.d1, {
       lot_number: "2359285",
       municipality: "Montréal",
@@ -783,7 +762,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     });
     expect(munOutside.ok && munOutside.structured.status).toBe("outside_quebec");
 
-    // 5) Lot inexistant et formats invalides
     const lotAbsent = await adresseVerify(harness.d1, { lot_number: "9 999 999" });
     expect(lotAbsent.ok && lotAbsent.structured.status).toBe("not_found");
 
@@ -792,7 +770,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(bad.ok, `lot invalide: ${badLot}`).toBe(false);
     }
 
-    // 6) Matricules (avec tirets, compact, étendu 14 chiffres, multi-unités, invalide)
     const byMatDashed = await adresseVerify(harness.d1, { matricule: "9891-44-1234" });
     expect(byMatDashed.ok).toBe(true);
     if (byMatDashed.ok) {
@@ -827,7 +804,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(bad.ok, `matricule invalide: ${badMat}`).toBe(false);
     }
 
-    // 7) Garde-fous d'exclusivité mutuelle
     for (const conflicting of [
       { lot_number: "2359285", matricule: "9891-44-1234" },
       { lot_number: "2359285", address: "1 rue Notre-Dame Est, Montréal" },
@@ -837,7 +813,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
       expect(res.ok).toBe(false);
     }
 
-    // 8) EXPLAIN QUERY PLAN — vérifier l'utilisation des index sans balayage complet de adresses_civiques
     const lotPlan = harness.rawDb
       .prepare(
         `EXPLAIN QUERY PLAN
@@ -886,7 +861,7 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         );
       }
     }
-    // Fiche parent pour l'odonyme 10 (poussée au-delà de LIMIT 80 par les 80 lignes rank 0)
+
     const saturationParent = `(${cid++}, 10, 60, 'A', '', NULL, 'H3B4W9', 'C', 'Principal', '8800100', '6666-00-0001', 45.498, -73.572)`;
 
     const regHarness = createSqliteD1Harness({
@@ -927,7 +902,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
     });
 
     try {
-      // (a1) Immeuble sans fiche parent interrogé SANS unité -> jamais de lot privatif d'une unité
       const unitless = await adresseVerify(regHarness.d1, {
         address: "1400, boul. René-Lévesque Ouest, Montréal",
       });
@@ -950,7 +924,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         expect(codes).not.toContain("ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT");
       }
 
-      // (a2) Immeuble sans fiche parent interrogé avec unité non confirmée (app. 999)
       const unconfirmed = await adresseVerify(regHarness.d1, {
         address: "1400, boul. René-Lévesque Ouest, app. 999, Montréal",
       });
@@ -973,7 +946,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         expect(codes).not.toContain("ADRESSE_LOT_OU_MATRICULE_IMMEUBLE_PARENT");
       }
 
-      // (a3) Unité confirmée (app. 601) sur immeuble sans fiche parent -> lot privatif conservé
       const confirmed = await adresseVerify(regHarness.d1, {
         address: "1400, boul. René-Lévesque Ouest, app. 601, Montréal",
       });
@@ -986,7 +958,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         expect(c.matricule_evaluation).toBe("9888-30-0601");
       }
 
-      // (b) Saturation LIMIT 80 avec lot propre + matricule propres identiques au parent poussé > 80
       const satShared = await adresseVerify(regHarness.d1, {
         address: "60-A, rue Saturation, app. U2, Montréal",
       });
@@ -1002,7 +973,6 @@ describe("Domaine C — Vérification et normalisation d'adresses au RQA", () =>
         );
       }
 
-      // (c) Recherche inversée avec mention ', QC' / '(Québec)' / hors Québec
       const revMtlQc = await adresseVerify(regHarness.d1, {
         lot_number: "2359285",
         municipality: "Montréal, QC",

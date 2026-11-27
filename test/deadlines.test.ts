@@ -23,7 +23,6 @@ describe("calendrier_deadlines", () => {
     expect(stepCpc.in_non_sitting_period).toBe(true);
     expect(outCpc.gardes.map((g) => g.code)).toContain("JOUR_NON_SEANCE_ART_82_AL_2");
 
-    // Difference sur le 2 janvier en semaine (mardi 2024-01-02) : férié en qc_cpc, ouvrable en qc_li
     const cpcJan2 = computeDeadlines({
       event_date: "2023-12-23",
       regime: "qc_cpc",
@@ -40,16 +39,15 @@ describe("calendrier_deadlines", () => {
 
   it("applique la règle de l'art. 111 al. 2 C.p.c. à 17:00 ou après ou un jour non juridique en mode technologique", () => {
     const before17 = computeDeadlines({
-      event_date: "2026-07-03", // vendredi avant 17h
+      event_date: "2026-07-03",
       event_time: "16:59",
       notification_mode: "technological",
       deadlines: [{ label: "Avant 17h00", amount: 30, unit: "days" }],
     });
     expect(before17.results[0]!.anchor_shifted_art_111).toBe(false);
     expect(before17.results[0]!.effective_anchor_date).toBe("2026-07-03");
-    expect(before17.results[0]!.effective_date).toBe("2026-08-03"); // 2 août dimanche -> lundi 3 août
+    expect(before17.results[0]!.effective_date).toBe("2026-08-03");
 
-    // 17:00 sans secondes sur jour ouvrable -> NE bascule PAS, émet la garde de seconde exacte
     const atExact17 = computeDeadlines({
       event_date: "2026-07-03",
       event_time: "17:00",
@@ -63,7 +61,6 @@ describe("calendrier_deadlines", () => {
       "NOTIFICATION_TECHNOLOGIQUE_17H_SECONDE_EXACTE",
     );
 
-    // 17:00:00 avec secondes explicites -> NE bascule PAS
     const atExact17Sec = computeDeadlines({
       event_date: "2026-07-03",
       event_time: "17:00:00",
@@ -73,7 +70,6 @@ describe("calendrier_deadlines", () => {
     expect(atExact17Sec.results[0]!.anchor_shifted_art_111).toBe(false);
     expect(atExact17Sec.results[0]!.effective_anchor_date).toBe("2026-07-03");
 
-    // 17:00:01 avec secondes explicites -> BASCULE au lundi 2026-07-06
     const at170001 = computeDeadlines({
       event_date: "2026-07-03",
       event_time: "17:00:01",
@@ -86,7 +82,7 @@ describe("calendrier_deadlines", () => {
     expect(at170001.gardes.map((g) => g.code)).toContain("NOTIFICATION_TECHNOLOGIQUE_APRES_17H");
 
     const after17 = computeDeadlines({
-      event_date: "2026-07-03", // vendredi 17:40 -> réputé lundi 2026-07-06
+      event_date: "2026-07-03",
       event_time: "17:40",
       notification_mode: "technological",
       deadlines: [{ label: "Après 17h00", amount: 30, unit: "days" }],
@@ -97,7 +93,7 @@ describe("calendrier_deadlines", () => {
     expect(after17.gardes.map((g) => g.code)).toContain("NOTIFICATION_TECHNOLOGIQUE_APRES_17H");
 
     const onHolidayMorning = computeDeadlines({
-      event_date: "2026-06-24", // mercredi férié à 10:00
+      event_date: "2026-06-24",
       event_time: "10:00",
       notification_mode: "technological",
       deadlines: [{ amount: 15, unit: "days" }],
@@ -128,7 +124,7 @@ describe("calendrier_deadlines", () => {
   it("calcule les délais à rebours en reculant au jour ouvrable précédent et émet le garde approprié", () => {
     const out = ComputeDeadlinesOutputSchema.parse(
       computeDeadlines({
-        event_date: "2026-05-11", // lundi
+        event_date: "2026-05-11",
         regime: "qc_cpc",
         deadlines: [
           { label: "10j ouvrables avant", amount: 10, unit: "days", direction: "backward" },
@@ -153,8 +149,8 @@ describe("calendrier_deadlines", () => {
     expect(out.results[0]!.preceding_business_day).toBe("2026-05-01");
     expect(out.results[0]!.rolled_over).toBe(false);
 
-    expect(out.results[1]!.raw_date).toBe("2026-05-02"); // samedi
-    expect(out.results[1]!.preceding_business_day).toBe("2026-05-01"); // vendredi
+    expect(out.results[1]!.raw_date).toBe("2026-05-02");
+    expect(out.results[1]!.preceding_business_day).toBe("2026-05-01");
     expect(out.results[1]!.effective_date).toBe("2026-05-01");
     expect(out.results[1]!.rolled_over).toBe(true);
 
@@ -250,7 +246,6 @@ describe("calendrier_deadlines", () => {
   });
 
   it("B-N12 & B-N14 : ca_li ne reporte pas le samedi par défaut (art. 26 L.I. CA) et refuse depends_on_index à l'étape 0", () => {
-    // 2026-06-13 + 7 jours = samedi 2026-06-20 -> reste au 2026-06-20 par défaut sous ca_li
     const satDefault = ComputeDeadlinesOutputSchema.parse(
       computeDeadlines({
         event_date: "2026-06-13",
@@ -263,7 +258,6 @@ describe("calendrier_deadlines", () => {
     expect(satDefault.results[0]!.rolled_over).toBe(false);
     expect(satDefault.gardes.map((g) => g.code)).toContain("SAMEDI_CONGE_LOI_INTERPRETATION_CA");
 
-    // Avec rollover_saturday=true explicite -> report au lundi 2026-06-22
     const satExplicit = ComputeDeadlinesOutputSchema.parse(
       computeDeadlines({
         event_date: "2026-06-13",
@@ -275,7 +269,6 @@ describe("calendrier_deadlines", () => {
     expect(satExplicit.results[0]!.effective_date).toBe("2026-06-22");
     expect(satExplicit.results[0]!.rolled_over).toBe(true);
 
-    // Mode technologique sans event_time ni anchor_time -> émet la garde dédiée sans déplacer l'ancrage
     const techNoTime = ComputeDeadlinesOutputSchema.parse(
       computeDeadlines({
         event_date: "2026-05-04",
@@ -286,7 +279,6 @@ describe("calendrier_deadlines", () => {
     expect(techNoTime.results[0]!.effective_date).toBe("2026-05-19");
     expect(techNoTime.gardes.map((g) => g.code)).toContain("NOTIFICATION_TECHNOLOGIQUE_SANS_HEURE");
 
-    // depends_on_index à l'étape 0 -> message explicite sans borne « < 0 »
     expect(() =>
       computeDeadlines({
         event_date: "2026-06-01",

@@ -1,5 +1,3 @@
--- Schéma D1 lecture seule — Domaine B : Registres d'entreprises (QC + Canada + GLEIF)
-
 DROP TABLE IF EXISTS gleif_exceptions;
 DROP TABLE IF EXISTS gleif_liens;
 DROP TABLE IF EXISTS gleif_entites;

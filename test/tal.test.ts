@@ -42,7 +42,6 @@ function createTestCmhcDb() {
 
 describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
   it("reproduit à la cent près et au dollar près les 8 scénarios vérifiés du calculateur TAL 2026", async () => {
-    // Scénario 1 : Logement standard 1 000 $, 2026-07-01 -> +31,00 $ -> 1 031 $
     const s1 = await loyerTal(null, {
       mode: "calcul_2026",
       notice_date: "2026-03-15",
@@ -55,7 +54,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(p1.calculation?.adj_base_cents).toBe(3_100);
     expect(p1.calculation?.new_rent_dollars).toBe(1_031);
 
-    // Scénario 2 : RPA 2 000 $ (1 500 $ + 500 $ services personnels) -> 46,50 + 33,50 = 80,00 $ -> 2 080 $
     const s2 = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -70,7 +68,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s2.structured.calculation?.adj_base_cents).toBe(8_000);
     expect(s2.structured.calculation?.new_rent_dollars).toBe(2_080);
 
-    // Scénario 3 : Taxes mun. > 3,1 % (+7 %), scol. (+2 %) & assur. (+2,5 %) <= 3,1 % -> 1 243,70 $ -> 1 244 $
     const s3 = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -92,7 +89,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s3.structured.calculation?.total_adjustment_cents).toBe(4_370);
     expect(s3.structured.calculation?.new_rent_dollars).toBe(1_244);
 
-    // Scénario 4 : Baisse réelle des taxes municipales (-3,0 %) -> report intégral -5,00 $ -> 1 232 $
     const s4 = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -109,7 +105,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s4.structured.calculation?.total_adjustment_cents).toBe(3_220);
     expect(s4.structured.calculation?.new_rent_dollars).toBe(1_232);
 
-    // Scénario 5 : Travaux majeurs 5 % avec subvention & prêt à intérêt réduit -> 41,73 + 20,83 = 62,56 $ -> 1 409 $
     const s5 = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -132,7 +127,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s5.structured.calculation?.total_adjustment_cents).toBe(6_256);
     expect(s5.structured.calculation?.new_rent_dollars).toBe(1_409);
 
-    // Scénario 6 : Identique au scénario 5 sans prêt -> adj_immo = 25,00 $ -> 1 413 $
     const s6 = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -151,7 +145,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s6.structured.calculation?.adj_capital_works_cents).toBe(2_500);
     expect(s6.structured.calculation?.new_rent_dollars).toBe(1_413);
 
-    // Scénario 7 : Bail renouvelé le 2026-03-01 (terme 2026-02-28 -> réf. 2024 -> 4,5 %) -> 992,75 $ -> 993 $
     const s7 = await loyerTal(null, {
       mode: "calcul_2026",
       notice_date: "2026-01-15",
@@ -165,7 +158,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s7.structured.calculation?.adj_base_cents).toBe(4_275);
     expect(s7.structured.calculation?.new_rent_dollars).toBe(993);
 
-    // Scénario 8 : Immeuble mixte (rés. 3 000 $ + comm. 1 000 $), nouveau service résidentiel 1 200 $/an -> 1 074,75 $ -> 1 075 $
     const s8 = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -190,7 +182,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(s8.structured.calculation?.total_adjustment_cents).toBe(7_475);
     expect(s8.structured.calculation?.new_rent_dollars).toBe(1_075);
 
-    // Frontière art. 15.1 : 1 074,49 $ -> 1 074 $
     const boundary = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -205,7 +196,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
   });
 
   it("gère les cas transitoires/d'exemption (Cas T1, Cas T2), les barèmes 2015–2027 et les cas particuliers (autre_revenu, déneigement, pas d'extrapolation)", async () => {
-    // Cas T1 : Avis < 2026-01-01 -> regime pre_2026_transitoire + garde obligatoire
     const t1 = await loyerTal(null, {
       mode: "calcul_2026",
       notice_date: "2025-12-20",
@@ -218,7 +208,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(t1.structured.calculation).toBeNull();
     expect(t1.structured.gardes.map((g) => g.code)).toContain("TAL_REGIME_TRANSITOIRE_PRE_2026");
 
-    // Cas T2 : Exemption 5 ans art. 1955 C.c.Q. (Section F)
     const t2 = await loyerTal(null, {
       mode: "calcul_2026",
       notice_date: "2026-03-01",
@@ -234,7 +223,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       "TAL_EXEMPTION_CINQ_ANS_ART_1955_CCQ",
     );
 
-    // Barème 2024 : Mazout -10,0 % (-1000 bps) ; Barème 2023 : RPA null
     const b2024 = await loyerTal(null, { mode: "bareme", year: 2024 });
     expect(b2024.ok).toBe(true);
     if (!b2024.ok) return;
@@ -246,7 +234,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     if (!b2023.ok) return;
     expect(b2023.structured.bareme_pre_2026[0]?.rpa_personal_services_bps).toBeNull();
 
-    // Particularité autre_revenu_annuel > 0 sans local commercial : poid_loyer sur taxes vs poid_loyer_plf sur assurance
     const otherRev = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2026-07-01",
@@ -254,9 +241,9 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       building_residential_rents_cents: 200_000,
       other_annual_revenue_cents: 2_400_000,
       municipal_taxes_prev_cents: 1_000_000,
-      municipal_taxes_curr_cents: 1_091_000, // +9.1 % -> +6.0 % net * 1/2 / 12 = 2500 cents
+      municipal_taxes_curr_cents: 1_091_000,
       insurance_prev_cents: 400_000,
-      insurance_curr_cents: 436_400, // +9.1 % -> +6.0 % net * (1.2M / 4.8M = 1/4) / 12 = 500 cents
+      insurance_curr_cents: 436_400,
     });
     expect(otherRev.ok).toBe(true);
     if (!otherRev.ok) return;
@@ -264,7 +251,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
     expect(otherRev.structured.calculation?.adj_insurance_cents).toBe(500);
     expect(otherRev.structured.gardes[0]?.message).toContain("poid_loyer");
 
-    // Refus d'extrapolation au-delà du 2027-04-01
     const futureLease = await loyerTal(null, {
       mode: "calcul_2026",
       lease_renewal_date: "2027-07-01",
@@ -287,7 +273,7 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       expect(parsed.cmhc_results).toHaveLength(1);
       expect(parsed.cmhc_results[0]?.geo_member_id).toBe(46);
       const cells = parsed.cmhc_results[0]!.cells;
-      // bachelor absent/supprimé pour 46.3.1 en 2025 dans le jeu de test
+
       expect(cells.find((c) => c.unit_type === "bachelor")).toEqual({
         unit_type: "bachelor",
         unit_label_fr: "Studio",
@@ -302,7 +288,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       });
       expect(parsed.gardes.map((g) => g.code)).toContain("SCHL_LOYER_MOYEN_INDICATIF");
 
-      // Gatineau résout Ottawa-Gatineau partie québécoise (is_quebec = true)
       const gat = await loyerTal(harness.d1, {
         mode: "schl",
         cmhc_geo: "Gatineau",
@@ -313,7 +298,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       expect(gat.structured.cmhc_results[0]?.geo_member_id).toBe(37);
       expect(gat.structured.cmhc_results[0]?.is_quebec).toBe(true);
 
-      // Québec sans ambiguïté sur "Québec"
       const qc = await loyerTal(harness.d1, {
         mode: "schl",
         cmhc_geo: "Québec",
@@ -323,7 +307,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       if (!qc.ok) return;
       expect(qc.structured.cmhc_results[0]?.geo_member_id).toBe(48);
 
-      // Pas d'extrapolation au-delà de 2025
       const futureCmhc = await loyerTal(harness.d1, {
         mode: "schl",
         cmhc_geo: "Montréal",
@@ -331,7 +314,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
       });
       expect(futureCmhc.ok).toBe(false);
 
-      // Régression : variantes « Québec, Québec », « Quebec, QC », « Quebec part », « Ontario/Québec » et tirets/espaces StatCan
       const expectedIds: Array<[string, number]> = [
         ["Québec, Québec", 48],
         ["Québec, Quebec", 48],
@@ -360,7 +342,6 @@ describe("loyer_tal (RLRQ, c. T-15.01, r. 2 & SCHL 34-10-0133-01)", () => {
         }
       }
 
-      // Les jokers SQL seuls ne doivent jamais correspondre à tous les centres
       const wildcardOnly = await loyerTal(harness.d1, {
         mode: "schl",
         cmhc_geo: "%%%",

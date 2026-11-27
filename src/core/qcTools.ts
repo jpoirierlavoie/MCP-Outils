@@ -32,8 +32,6 @@ const PROVENANCE_DOSSIER_SOURCE =
 const PROVENANCE_PALAIS_SOURCE =
   "Ministère de la Justice du Québec — répertoire des palais de justice et points de service";
 
-// ── Schémas d'entrée (fermés, Z.strictObject) ──────────────────────────────────
-
 export const ParseCourtFileInputSchema = z.strictObject({
   court_file_number: z
     .string()
@@ -42,7 +40,7 @@ export const ParseCourtFileInputSchema = z.strictObject({
     .max(40)
     .describe("Le numéro brut, p. ex. « 500-05-123456-241 » ou « TAL-594531 »."),
 });
-export type ParseCourtFileInput = z.infer<typeof ParseCourtFileInputSchema>;
+type ParseCourtFileInput = z.infer<typeof ParseCourtFileInputSchema>;
 
 export const PalaisListInputSchema = z.strictObject({
   district: z
@@ -62,7 +60,7 @@ export const PalaisListInputSchema = z.strictObject({
       "« palais » (44) ou « point_de_service » (9, au sens du MJQ — à ne pas confondre avec les greffes de cour itinérante).",
     ),
 });
-export type PalaisListInput = z.infer<typeof PalaisListInputSchema>;
+type PalaisListInput = z.infer<typeof PalaisListInputSchema>;
 
 export const PalaisGetInputSchema = z.strictObject({
   greffe_number: z
@@ -84,18 +82,16 @@ export const PalaisGetInputSchema = z.strictObject({
       "Nom ou clef du palais, p. ex. « Montréal » ou « saint-jerome ». ⚠ Fournir EXACTEMENT l'un des deux : soit « palais », soit « greffe_number ». Les deux ensemble, ou aucun, sont REFUSÉS. Un nom ambigu fait rendre la LISTE des candidats plutôt qu'un choix arbitraire.",
     ),
 });
-export type PalaisGetInput = z.infer<typeof PalaisGetInputSchema>;
+type PalaisGetInput = z.infer<typeof PalaisGetInputSchema>;
 
-// ── Schémas de sortie structurée ──────────────────────────────────────────────
-
-export const ContactOutputSchema = z.object({
+const ContactOutputSchema = z.object({
   service: z.string(),
   tel: z.string().nullable(),
   fax: z.string().optional(),
   courriel: z.string().nullable(),
 });
 
-export const PalaisAdresseOutputSchema = z.object({
+const PalaisAdresseOutputSchema = z.object({
   key: z.string().nullable(),
   name: z.string(),
   location_type: z.enum(["palais", "point_de_service"]),
@@ -149,16 +145,16 @@ export const ParseCourtFileOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type ParseCourtFileOutput = z.infer<typeof ParseCourtFileOutputSchema>;
+type ParseCourtFileOutput = z.infer<typeof ParseCourtFileOutputSchema>;
 
-export const GreffeSummaryOutputSchema = z.object({
+const GreffeSummaryOutputSchema = z.object({
   numero: z.string(),
   palais_de_justice: z.string(),
   district_judiciaire: z.string(),
   point_de_service: z.boolean(),
 });
 
-export const PalaisSummaryOutputSchema = z.object({
+const PalaisSummaryOutputSchema = z.object({
   key: z.string(),
   name: z.string(),
   location_type: z.enum(["palais", "point_de_service"]),
@@ -183,7 +179,7 @@ export const PalaisListOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type PalaisListOutput = z.infer<typeof PalaisListOutputSchema>;
+type PalaisListOutput = z.infer<typeof PalaisListOutputSchema>;
 
 export const PalaisGetOutputSchema = z.object({
   lookup_by: z.enum(["greffe_number", "palais"]),
@@ -202,7 +198,7 @@ export const PalaisGetOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type PalaisGetOutput = z.infer<typeof PalaisGetOutputSchema>;
+type PalaisGetOutput = z.infer<typeof PalaisGetOutputSchema>;
 
 function toPalaisAdresseOutput(
   key: string | null,
@@ -230,8 +226,6 @@ function toPalaisAdresseOutput(
   };
 }
 
-// ── 1. greffe_parse_number ─────────────────────────────────────────
-
 export function parseCourtFile(input: ParseCourtFileInput): {
   structured: ParseCourtFileOutput;
   text: string;
@@ -247,7 +241,6 @@ export function parseCourtFile(input: ParseCourtFileInput): {
 
   const lignes: string[] = [`Analyse de « ${propre} » — aucun appel, table locale.`, ""];
 
-  // ── Forum non judiciaire : le préfixe EST la réponse ────────────────────────
   if (r.forum) {
     lignes.push(
       `Forum : ${r.forum.name} (${r.forum.abbr})`,
@@ -289,7 +282,6 @@ export function parseCourtFile(input: ParseCourtFileInput): {
     };
   }
 
-  // ── Préfixe alphabétique non répertorié ─────────────────────────────────────
   if (r.is_administrative && !r.greffe_number && !r.parse_error) {
     lignes.push(
       "Préfixe alphabétique NON répertorié.",
@@ -318,7 +310,6 @@ export function parseCourtFile(input: ParseCourtFileInput): {
     };
   }
 
-  // ── Forme refusée ───────────────────────────────────────────────────────────
   if (!r.greffe_number) {
     lignes.push(
       r.parse_error ?? "Numéro non analysable.",
@@ -350,7 +341,6 @@ export function parseCourtFile(input: ParseCourtFileInput): {
     };
   }
 
-  // ── Numéro judiciaire ───────────────────────────────────────────────────────
   if (r.greffe) {
     lignes.push(
       `Greffe ${r.greffe_number}      ${joindre([
@@ -441,8 +431,6 @@ export function parseCourtFile(input: ParseCourtFileInput): {
     },
   };
 }
-
-// ── 2. palais_list ────────────────────────────────────────────────────────────
 
 function lignePalais(p: PalaisResolu): string {
   const lignes: string[] = [
@@ -574,8 +562,6 @@ export function palaisList(input: PalaisListInput): {
   };
 }
 
-// ── 3. palais_get ─────────────────────────────────────────────────────────────
-
 function blocAdresse(p: Palais): string[] {
   const lignes = ["Adresse :", `  ${p.street}`];
   if (p.unit) lignes.push(`  ${p.unit}`);
@@ -601,7 +587,7 @@ function blocAdresse(p: Palais): string[] {
   return lignes;
 }
 
-export type PalaisGetResult =
+type PalaisGetResult =
   | { ok: true; structured: PalaisGetOutput; text: string }
   | { ok: false; text: string };
 
@@ -624,7 +610,6 @@ export function palaisGet(input: PalaisGetInput): PalaisGetResult {
     table_version: MJQ_MAJ,
   };
 
-  // ── Par numéro de greffe ────────────────────────────────────────────────────
   if (greffeNumber) {
     const greffe = getGreffe(greffeNumber);
     if (!greffe) {
@@ -703,7 +688,6 @@ export function palaisGet(input: PalaisGetInput): PalaisGetResult {
     };
   }
 
-  // ── Par nom ou clef de palais ───────────────────────────────────────────────
   const direct = resoudrePalais(palaisClef!);
   const candidats = direct ? [direct] : listerPalais({ query: palaisClef });
 

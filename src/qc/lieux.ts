@@ -1,39 +1,8 @@
-/**
- * Lieux desservis par chaque greffe — relevé OFFICIEL du ministère de la Justice.
- *
- * ⚠ FICHIER GÉNÉRÉ par `scripts/extraire-lieux-mjq.mjs`. Ne pas le modifier à la
- *   main : régénérer depuis la page enregistrée.
- *
- * Source : « Numéros des greffes des palais de justice et des points de service de
- * justice », justice.gouv.qc.ca. Page enregistrée à la main — le site répond 403 à
- * toute requête automatisée. Elle porte sa propre date de mise à jour : **2026-07-22**.
- *
- * ⚠ UN GREFFE PEUT DESSERVIR PLUSIEURS LIEUX. C'est ce que `GREFFES.palais_key`, qui
- *   est 1:1, ne peut pas exprimer : il ne nomme qu'un bâtiment. Cette table-ci porte
- *   la relation réelle, un-à-plusieurs, telle que le Ministère la publie.
- *
- * `itinerant` reprend l'astérisque de la page, dont la légende est « Point de service
- * itinérant ». Il qualifie un LIEU, non le greffe : le greffe 760 tient un palais fixe
- * à Salaberry-de-Valleyfield ET un point itinérant à Vaudreuil-Dorion. Ne pas le
- * confondre avec `GREFFES.point_de_service`, qui qualifie le greffe.
- *
- * Réconciliation du 2026-07-30 contre la table portée d'Athéna — deux écarts RÉELS,
- * consignés avec leur preuve plutôt que corrigés en silence :
- *   - le greffe **625 (Senneterre, Abitibi)** manquait entièrement ; « 625-… » rendait
- *     « greffe inconnu » sur un greffe qui existe ;
- *   - **Kuujjuaq** relève du greffe **635** et n'y est PAS itinérant : c'est le siège
- *     fixe. Athéna l'avait laissé volontairement orphelin, refusant de le rattacher au
- *     jugé « sur un greffe itinérant du Nunavik ». La page officielle le dit.
- * Aucun district ne diverge, et aucun greffe de notre table n'est absent du relevé.
- */
-
 export interface LieuMjq {
   readonly nom: string;
-  /** Point de service ITINÉRANT (astérisque du MJQ). Qualifie le LIEU, pas le greffe. */
   readonly itinerant: boolean;
 }
 
-/** Date de mise à jour publiée PAR le Ministère sur la page elle-même. */
 export const MJQ_MAJ = "2026-07-22";
 
 export const LIEUX_PAR_GREFFE: Readonly<Record<string, readonly LieuMjq[]>> = {

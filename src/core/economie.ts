@@ -1,25 +1,26 @@
 import { z } from "zod";
 import { compareIsoDates, diffCalendarDays, parseIsoDate } from "./dates.js";
+import { assertSafeInt, formatMicros6, parseDecimalAmount } from "./format.js";
 import { type GardeCode, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 import { formatCentsToCad, roundHalfAwayFromZero } from "./interest1619.js";
 
 const ISO_DATE_FORMAT_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DECIMAL_AMOUNT_RE = /^\d+(?:\.\d{1,6})?$/;
-const REGIME_SWITCH_INT = 20170501; // 2017-05-01 : passage au taux moyen quotidien 16 h 30 HE
+const REGIME_SWITCH_INT = 20170501;
 const MAX_FX_ROLLBACK_DAYS = 10;
 const MAX_FX_FUTURE_TAIL_DAYS = 4;
 
-export const EconomieCategorySchema = z.enum(["fx", "policy", "bank", "prime", "all_rates"]);
-export type EconomieCategory = z.infer<typeof EconomieCategorySchema>;
+const EconomieCategorySchema = z.enum(["fx", "policy", "bank", "prime", "all_rates"]);
+type EconomieCategory = z.infer<typeof EconomieCategorySchema>;
 
-export const BocInterestSeriesIdSchema = z.enum(["V39079", "V122530", "V80691311"]);
-export type BocInterestSeriesId = z.infer<typeof BocInterestSeriesIdSchema>;
+const BocInterestSeriesIdSchema = z.enum(["V39079", "V122530", "V80691311"]);
+type BocInterestSeriesId = z.infer<typeof BocInterestSeriesIdSchema>;
 
-export const ConversionDirectionSchema = z.enum(["foreign_to_cad", "cad_to_foreign"]);
-export type ConversionDirection = z.infer<typeof ConversionDirectionSchema>;
+const ConversionDirectionSchema = z.enum(["foreign_to_cad", "cad_to_foreign"]);
+type ConversionDirection = z.infer<typeof ConversionDirectionSchema>;
 
-export const FxMethodologySchema = z.enum(["noon_spot_pre_2017_05_01", "daily_average_1630_et"]);
-export type FxMethodology = z.infer<typeof FxMethodologySchema>;
+const FxMethodologySchema = z.enum(["noon_spot_pre_2017_05_01", "daily_average_1630_et"]);
+type FxMethodology = z.infer<typeof FxMethodologySchema>;
 
 export const TauxBocRatesInputSchema = z.strictObject({
   category: EconomieCategorySchema.optional().describe(
@@ -70,9 +71,9 @@ export const TauxBocRatesInputSchema = z.strictObject({
     .optional()
     .describe("Nombre maximal d'observations retournées sur une plage (1 à 500, défaut : 100)."),
 });
-export type TauxBocRatesInput = z.infer<typeof TauxBocRatesInputSchema>;
+type TauxBocRatesInput = z.infer<typeof TauxBocRatesInputSchema>;
 
-export const FxObservationSchema = z.object({
+const FxObservationSchema = z.object({
   currency_code: z.string(),
   requested_date: z.string().nullable(),
   effective_observation_date: z.string(),
@@ -84,7 +85,7 @@ export const FxObservationSchema = z.object({
   rate_micros: z.number().int(),
 });
 
-export const InterestObservationSchema = z.object({
+const InterestObservationSchema = z.object({
   series_id: BocInterestSeriesIdSchema,
   series_label_fr: z.string(),
   requested_date: z.string().nullable(),
@@ -95,7 +96,7 @@ export const InterestObservationSchema = z.object({
   rate_percent: z.string(),
 });
 
-export const CurrencyConversionSchema = z.object({
+const CurrencyConversionSchema = z.object({
   direction: ConversionDirectionSchema,
   foreign_currency: z.string(),
   input_amount: z.string(),
@@ -130,7 +131,7 @@ export const TauxBocRatesOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type TauxBocRatesOutput = z.infer<typeof TauxBocRatesOutputSchema>;
+type TauxBocRatesOutput = z.infer<typeof TauxBocRatesOutputSchema>;
 
 const SERIES_META: Record<
   BocInterestSeriesId,
@@ -161,35 +162,6 @@ function isoToInt(iso: string): number {
 function intToIso(dInt: number): string {
   const s = String(dInt).padStart(8, "0");
   return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
-}
-
-function formatMicros6(micros: bigint): string {
-  const neg = micros < 0n;
-  const abs = neg ? -micros : micros;
-  const whole = abs / 1_000_000n;
-  const frac = (abs % 1_000_000n).toString().padStart(6, "0");
-  return `${neg ? "-" : ""}${whole.toString()}.${frac}`;
-}
-
-function parseDecimalAmount(raw: string): { num: bigint; scale: bigint } {
-  const trimmed = raw.trim();
-  const dot = trimmed.indexOf(".");
-  if (dot === -1) {
-    return { num: BigInt(trimmed), scale: 1n };
-  }
-  const whole = trimmed.slice(0, dot);
-  const frac = trimmed.slice(dot + 1);
-  return {
-    num: BigInt(`${whole}${frac}`),
-    scale: 10n ** BigInt(frac.length),
-  };
-}
-
-function assertSafeCents(val: bigint): number {
-  if (val > BigInt(Number.MAX_SAFE_INTEGER) || val < BigInt(-Number.MAX_SAFE_INTEGER)) {
-    throw new RangeError("Dépassement de capacité entière sécuritaire lors de la conversion.");
-  }
-  return Number(val);
 }
 
 function normalizeCurrencyCode(
@@ -463,7 +435,7 @@ export async function tauxBocRates(
             ? roundHalfAwayFromZero(num * rateMicros * 1_000_000n, scale * 1_000_000n)
             : roundHalfAwayFromZero(num * 1_000_000n * 1_000_000n, scale * rateMicros);
 
-        const convertedCents = assertSafeCents(rawCents);
+        const convertedCents = assertSafeInt(rawCents, "lors de la conversion");
         conversion = {
           direction,
           foreign_currency: ccyCode,
@@ -549,7 +521,6 @@ export async function tauxBocRates(
     };
   }
 
-  // ── Séries de taux d'intérêt BoC (V39079 / V122530 / V80691311) ────────────
   const seriesIds = targetSeriesForCategory(category);
   const interestObs: Array<z.infer<typeof InterestObservationSchema>> = [];
   const missingDetails: string[] = [];

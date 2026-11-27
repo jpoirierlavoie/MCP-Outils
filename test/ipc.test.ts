@@ -51,7 +51,7 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       expect(mParsed.vector_id).toBe("v41691783");
       expect(mParsed.observations[0]?.value_decimal).toBe("171.2");
       expect(mParsed.observations[0]?.value_milli).toBe(171_200);
-      // (171.2 - 168.4) / 168.4 = 1.6627...% -> 166 bps
+
       expect(mParsed.observations[0]?.yoy_bps).toBe(166);
       expect(mParsed.observations[0]?.yoy_percent).toBe("+1.66 %");
       expect(mParsed.gardes.map((g) => g.code)).toEqual(["IPC_INSTANTANE_HORS_LIGNE"]);
@@ -63,7 +63,7 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       });
       expect(aRes.ok).toBe(true);
       if (!aRes.ok) return;
-      // (161.0 - 157.2) / 157.2 = 2.4173...% -> 242 bps
+
       expect(aRes.structured.observations[0]?.yoy_bps).toBe(242);
     } finally {
       harness.close();
@@ -73,7 +73,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
   it("effectue l'indexation contractuelle en BigInt avec floor_bps, cap_bps et arrondi half_up vs half_away_from_zero", async () => {
     const harness = createTestIpcDb();
     try {
-      // Brut : 1000.00 * 171200 / 168400 = 1016.627078... -> 101663 cents (1016.63 $)
       const rawEsc = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -94,7 +93,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
         "IPC_INDEXATION_CONTRACTUELLE_NON_NORMATIVE",
       );
 
-      // Plancher floor_bps=200 (+2.00 %) > brut (+1.6627 %) -> 1020.00 $
       const floored = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -109,7 +107,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       expect(floored.structured.escalation?.applied_bound).toBe("floor");
       expect(floored.structured.escalation?.escalated_cents).toBe(102_000);
 
-      // Plafond cap_bps=150 (+1.50 %) < brut (+1.6627 %) -> 1015.00 $
       const capped = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -124,7 +121,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       expect(capped.structured.escalation?.applied_bound).toBe("cap");
       expect(capped.structured.escalation?.escalated_cents).toBe(101_500);
 
-      // Exact half-cent boundary : 100.005 $ avec floor 0 bps -> 10001 cents
       const halfUpRes = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -163,7 +159,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       });
       expect(rmrHealth.ok).toBe(false);
 
-      // RMR rented_accommodation fonctionne
       const rmrRented = await indiceIpc(harness.d1, {
         geo: "montreal_rmr",
         product: "rented_accommodation",
@@ -171,7 +166,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       });
       expect(rmrRented.ok).toBe(true);
 
-      // Pas d'extrapolation au-delà de 2026-10
       const future = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -179,7 +173,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       });
       expect(future.ok).toBe(false);
 
-      // Divergence 1992=100 -> 2002=100 sur indexation : DOIT échouer de manière sécuritaire !
       const uomMismatch = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -194,7 +187,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
         expect(uomMismatch.text).toContain("IPC_BASE_REINDEXATION_ATTENTION");
       }
 
-      // Série 1992=100 seule : inclut IPC_BASE_REINDEXATION_ATTENTION
       const oldBase = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -208,7 +200,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
         "IPC_BASE_REINDEXATION_ATTENTION",
       );
 
-      // Plage multi-UOM sans amount : pas de cumulative_change_bps et garde émise
       const multiUomRange = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -280,7 +271,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       enforceQueryOnly: true,
     });
     try {
-      // limit=3 sur 5 mois (2024-01..2024-05) : +10.00 % (1000 bps) sur la plage complète, pas +1.33 % (133 bps)
       const truncatedWithAmount = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -298,7 +288,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       expect(truncatedWithAmount.structured.escalation?.raw_change_bps).toBe(1000);
       expect(truncatedWithAmount.text).toContain("3 observations sur 5");
 
-      // Sans amount également : cumulative_change_bps reflète toute la plage [2024-01, 2024-05]
       const truncatedRangeOnly = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -311,7 +300,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
       expect(truncatedRangeOnly.structured.cumulative_change_bps).toBe(1000);
       expect(truncatedRangeOnly.structured.observations_truncated).toBe(true);
 
-      // Multi-UOM sans amount : end_period futur hors instantané DOIT échouer (pas d'extrapolation)
       const multiUomFuture = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",
@@ -325,7 +313,6 @@ describe("indice_ipc (DB_ECONOMIE en lecture seule)", () => {
         expect(multiUomFuture.text).toContain("extrapolation");
       }
 
-      // Multi-UOM sans amount : start_period antérieur à startSeries.first_period DOIT échouer
       const multiUomPast = await indiceIpc(harness.d1, {
         geo: "quebec",
         product: "all_items",

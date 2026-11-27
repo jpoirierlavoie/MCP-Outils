@@ -1,22 +1,3 @@
-"""Pipeline d'ingestion et de chargement D1 — Domaine C : Référentiel québécois des adresses (RQA).
-
-Sources intégrées (zéro appel réseau sortant au moment de la requête MCP) :
-  1. Référentiel québécois des adresses (RQA, MRNF, `CC BY 4.0`, ~5M d'adresses civiques) —
-     résolution dynamique via l'API CKAN Données Québec (`referentiel-quebecois-des-adresses`).
-  2. Odonymes et renvois (MRNF, `CC BY 4.0`) — rattachement des anciens noms de rues et
-     variantes orthographiques vers l'odonyme actif `(code_municipalite, renvoi_seqodo)`.
-
-Architecture compacte en 3 tables (`municipalites`, `odonymes`, `adresses_civiques`) :
-  - `FTS5` (`odonymes_fts` + `odonymes_trigram`) uniquement sur les ~85 000 odonymes,
-    JAMAIS sur les ~5M d'adresses civiques afin de maintenir l'empreinte D1 sous ~1,8 Go.
-  - Les adresses civiques sont triées par `(odo_id, numero_municipal, suffixe, numero_unite)`
-    avant insertion pour garantir une localité séquentielle optimale des pages SQLite/D1.
-
-Usage :
-  python -m pipeline.adresses.ingest_adresses --build-local --sample
-  python -m pipeline.adresses.ingest_adresses --build-local --push-remote --db-name outils-adresses
-  python -m pipeline.adresses.ingest_adresses --build-local --push-remote --blue-green --swap
-"""
 from __future__ import annotations
 
 import argparse
@@ -122,7 +103,6 @@ STATIC_CITY_ALIASES: dict[str, list[str]] = {
 
 
 def fold_address_token(raw: str) -> str:
-    """Parité stricte avec `foldAddressToken` dans `src/core/adresses.ts`."""
     s = strip_accents(raw)
     s = re.sub(r"[\u2018\u2019\u02bc']", " ", s).lower()
     s = re.sub(r"[^a-z0-9]+", " ", s).strip()
@@ -130,7 +110,6 @@ def fold_address_token(raw: str) -> str:
 
 
 def compute_consonant_key(raw: str) -> str:
-    """Parité stricte avec `computeConsonantKey` dans `src/core/adresses.ts`."""
     folded = fold_address_token(raw).replace(" ", "")
     raw_cons = re.sub(r"[aeiouy]", "", folded)
     out_chars: list[str] = []
@@ -164,7 +143,6 @@ def encode_etat(raw: str) -> str:
 
 
 def _extract_lot_numbers(raw: str | None) -> tuple[list[int], int]:
-    """Extrait les numéros de lot entiers positifs du Cadastre du Québec et compte les jetons ignorés."""
     if not raw:
         return [], 0
     lots: list[int] = []
@@ -185,12 +163,6 @@ def _extract_lot_numbers(raw: str | None) -> tuple[list[int], int]:
         else:
             skipped += 1
     return lots, skipped
-
-
-def parse_lot_numbers(raw: str | None) -> list[int]:
-    """Découpe et valide les numéros de lot numériques d'une ligne RQA."""
-    lots, _ = _extract_lot_numbers(raw)
-    return lots
 
 
 def _http_get_json(url: str) -> dict:
@@ -228,7 +200,6 @@ def _download_stream(url: str, dest: Path, label: str) -> Path:
     if tmp_dest.exists():
         tmp_dest.unlink()
 
-    # Vérifier si le serveur prend en charge HTTP Range pour les archives > 50 Mo
     head_req = urllib.request.Request(
         url, method="HEAD", headers={"User-Agent": "mcp-outils-pipeline/0.3"}
     )
@@ -340,7 +311,6 @@ def resolve_rqa_urls() -> dict[str, str]:
 def load_odonymes_renvois(
     csv_path: Path, fallback_date: str
 ) -> tuple[dict[tuple[str, str], set[str]], int, str]:
-    """Associe chaque variante/ancien odonyme à l'odonyme actif `(code_municipalite, renvoi_seqodo)`."""
     renvois_map: dict[tuple[str, str], set[str]] = defaultdict(set)
     total_rows = 0
     version_date = fallback_date
@@ -438,7 +408,6 @@ def build_local_sqlite(
         """
     )
 
-    # Structures en mémoire pour `municipalites` (~1 150) et `odonymes` (~85 000)
     mun_info: dict[str, tuple[str, str, str | None, str | None]] = {}
     mun_aliases: dict[str, set[str]] = defaultdict(set)
 
@@ -485,7 +454,6 @@ def build_local_sqlite(
                 if total_civ == 0 and row.get("date_diffusion_version"):
                     rqa_version_date = format_yyyymmdd(row["date_diffusion_version"], today_iso)
 
-                # 1) Municipalité
                 if code_mun not in mun_info:
                     nom_mun = " ".join((row.get("nom_municipalite") or "").split()) or code_mun
                     nom_norm = fold_address_token(nom_mun)
@@ -503,7 +471,6 @@ def build_local_sqlite(
                 if arr:
                     mun_aliases[code_mun].add(arr)
 
-                # 2) Odonyme
                 odo_key = (code_mun, seqodo)
                 odo_id = odo_id_by_key.get(odo_key)
                 if odo_id is None:
@@ -549,7 +516,6 @@ def build_local_sqlite(
                         )
                     )
 
-                # 3) Adresse civique
                 suf = (row.get("numero_municipal_suffixe") or "").strip().upper()
                 unite = (row.get("numero_unite") or "").strip().upper()
                 typ_unite = " ".join((row.get("type_unite") or "").split()) or None
@@ -611,7 +577,6 @@ def build_local_sqlite(
         "INSERT INTO odonymes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", odo_rows
     )
 
-    # Copier `s_civ` trié par `(odo_id, numero_municipal, suffixe, numero_unite)` pour localité optimale
     conn.execute(f"ATTACH DATABASE '{scratch_db_path.as_posix()}' AS scratch;")
     conn.execute(
         """
@@ -834,7 +799,6 @@ def export_local_batches(
         ).fetchone()[0],
     }
 
-    # Isoler chaque CREATE INDEX / CREATE VIRTUAL TABLE dans son propre lot pour respecter le budget CPU D1
     idx_stmts = _split_sql_statements((HERE / "indexes.sql").read_text(encoding="utf-8"))
     for i, stmt in enumerate(idx_stmts, 1):
         p = batch_dir / f"9000_idx_{i:02d}.sql"

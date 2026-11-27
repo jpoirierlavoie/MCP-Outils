@@ -52,7 +52,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
   it("distingue le régime au comptant de midi (pré-2017-05-01) de la moyenne 16 h 30 HE et rejette les devises héritées après mai 2017", async () => {
     const harness = createTestEconomieDb();
     try {
-      // Sur le chevauchement 2017-01-03 (< 2017-05-01), regime=1 (1.3438) doit être retenu
       const preRes = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "FXUSDCAD",
@@ -65,7 +64,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
       expect(pre.fx_observations[0]!.cad_per_foreign_unit).toBe("1.343800");
       expect(pre.gardes.map((g) => g.code)).toContain("TAUX_BOC_NOON_HISTORIQUE_PRE_2017");
 
-      // À compter du 2017-05-01, regime=2 (1.3670) doit être retenu sans garde pré-2017
       const postRes = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "usd",
@@ -78,7 +76,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
         "TAUX_BOC_NOON_HISTORIQUE_PRE_2017",
       );
 
-      // COP (héritée jusqu'au 2017-04-28 uniquement) interrogée au 2017-05-02 ne doit pas fuir à travers la bascule
       const legacyAfter = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "COP",
@@ -86,7 +83,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
       });
       expect(legacyAfter.ok).toBe(false);
 
-      // StatCan 2001-01-02 (FRF)
       const frfRes = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "FRF",
@@ -103,7 +99,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
   it("gère le report au jour ouvrable précédent et bloque l'extrapolation ou les séries interrompues", async () => {
     const harness = createTestEconomieDb();
     try {
-      // Dimanche 2026-11-22 -> vendredi 2026-11-20 (rollback_days=2)
       const weekend = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "USD",
@@ -118,7 +113,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
         "TAUX_BOC_REPORT_JOUR_OUVRABLE_PRECEDENT",
       );
 
-      // Date future au-delà de l'instantané -> refus sans extrapolation
       const future = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "USD",
@@ -126,7 +120,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
       });
       expect(future.ok).toBe(false);
 
-      // RUB interrompue le 2026-04-30 interrogée en juin 2026 -> refus (hors fenêtre de 10 jours)
       const discontinued = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "RUB",
@@ -141,7 +134,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
   it("effectue une conversion BigInt exacte (art. 12 Loi sur la monnaie) dans les deux sens", async () => {
     const harness = createTestEconomieDb();
     try {
-      // 100 000 JPY à 0.009145 CAD/JPY (2026-11-20) = 914.50 CAD (91450 cents)
       const jpyToCad = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "JPY",
@@ -158,7 +150,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
         "TAUX_BOC_CONVERSION_LOI_MONNAIE",
       );
 
-      // 1 000.00 CAD -> USD au 2026-11-23 (1.3982) : 1000 / 1.3982 = 715.20526391... -> 71521 cents
       const cadToUsd = await tauxBocRates(harness.d1, {
         category: "fx",
         currency: "USD",
@@ -197,7 +188,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
         "1.367000",
       ]);
 
-      // Taux préférentiel au 2001-01-01 -> report sur la graine 2000-12-27 (750 bps)
       const prime2001 = await tauxBocRates(harness.d1, {
         category: "prime",
         date: "2001-01-01",
@@ -209,7 +199,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
         "2000-12-27",
       );
 
-      // all_rates en novembre 2026 retourne les 3 séries
       const allNov = await tauxBocRates(harness.d1, {
         category: "all_rates",
         date: "2026-11-23",
@@ -222,7 +211,6 @@ describe("taux_boc_rates (DB_ECONOMIE en lecture seule)", () => {
         "V80691311",
       ]);
 
-      // policy (V39079) avant 2009-04-21 refusée proprement
       const prePolicy = await tauxBocRates(harness.d1, {
         category: "policy",
         date: "2008-06-01",

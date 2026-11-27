@@ -1,6 +1,6 @@
 # MCP-Outils — Architecture, principes et consignes de travail
 
-Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.2.2`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
+Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v2.2.3`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 en lecture seule et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
 
 ---
 
@@ -12,7 +12,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 
 ```
          ┌────────────────────────────────────────────────────────────────┐
-         │          droit-civil-quebecois (Plugin Cadre v3.3.1)           │
+         │          droit-civil-quebecois (Plugin Cadre v3.3.2)           │
          │  10 compétences · 60 feuilles · 6 personas · 4 scripts stdlib  │
          └──────────┬───────────────────────┬──────────────────┬──────────┘
                     │ /mcp + /mcp/oauth     │ /mcp + /mcp/oauth│ (public)
@@ -21,11 +21,11 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
          │   MCP-Legislation   │ │  MCP-Jurisprudence  │ │        MCP-Outils        │
          │  D1 + Vectorize +   │ │  D1 cache CanLII    │ │   Public, zéro secret,   │
          │  Workers AI +       │ │  BYOK CanLII strict │ │   4 D1 lecture seule, Zod│
-         │  hybride_permis     │ │  sans fetched_at    │ │   zéro journalisation    │
-         └──────────┬──────────┘ └──────────┬──────────┘ └──────────────────────────┘
-                    │                       │
-                    ├───────────┬───────────┴────┐
-                    │           ▼ (`#v0.8.6` dev)▼ (`DB_IDENTITE` `mcp-identite`)
+         │  hybride_permis     │ │  sans fetched_at    │ │   0 dép. exécution       │
+         └──────────┬──────────┘ └──────────┬──────────┘ └────────────┬─────────────┘
+                    │                       │                         │ (`#v0.8.7` dev)
+                    ├───────────┬───────────┴────┬────────────────────┘
+                    │           ▼ (`#v0.8.7` dev)▼ (`DB_IDENTITE` `mcp-identite`)
                     │  ┌──────────────────┐  ┌──────────────────────────────────────┐
                     │  │    MCP-Socle     │  │              MCP-Acces               │
                     │  │ Transport 2026   │  │     https://acces.poirierlavoie.ca   │
@@ -42,7 +42,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 
 ### Relations inter-dépôts et séparation des responsabilités
 - **Découplage de `MCP-Jurisprudence`** : Depuis `v0.2.0`, les outils `greffe_*` et `palais_*` ainsi que `src/qc/` résident ici afin de séparer l'interrogation distante de CanLII (avec secret Bearer) des outils locaux déterministes.
-- **Découplage de `MCP-Socle`** : Ce serveur étant public et sans authentification, il utilise directement `@modelcontextprotocol/server` avec `zod`.
+- **Intégration de `MCP-Socle` (`#v0.8.7`, `devDependencies`)** : `MCP-Outils` embarque `@poirierlavoie/mcp-socle` (`servirRequeteMcp` avec `sertAvant2025_06_18: true`, `repondreCarteServeur`, `lireCorpsBorne`, `methodeNonPermise`, `./verifier-audit`) et `zod` comme dépendances de développement (`0` dépendance d'exécution dans `package.json`).
 - **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `MCP-Outils` exécute les calculs arithmétiques et fournit les attestations terminologiques et données économiques précalculées en lecture seule.
 
 ---
@@ -125,9 +125,9 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` : Page HTML bilingue dérivée de `listToolDescriptors()` (CSP stricte, zéro JSON à la racine, `405` sur autres méthodes).
-   - `GET` / `HEAD /healthz` : Statut JSON (`service: "mcp-outils"`, `version: "2.2.2"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
+   - `GET` / `HEAD /health` (alias `/healthz` actif) : Statut JSON (`service: "mcp-outils"`, `version: "2.2.3"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
    - `GET` / `HEAD` / `OPTIONS /mcp/server-card` & `/.well-known/mcp/server-card.json` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, `headers: []`, `405` sur autres méthodes).
-   - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, plafond `MAX_MCP_BODY_BYTES = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), désencapsulation SSE → JSON, limiteur `RATE_LIMITER` (240 req/min/IP → `429`).
+   - `POST` / `OPTIONS /mcp` : Protection anti-rebouclage DNS (`Host`), CORS `204`, `methodeNonPermise` (`405`), plafond `MAX_OCTETS_CORPS_MCP = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), `servirRequeteMcp` (`sertAvant2025_06_18: true`, normalisation `-32601` -> HTTP `200`, réponses `application/json`), limiteur `RATE_LIMITER` (240 req/min/IP → `429`).
 2. **Topologie D1 à 4 bases isolées (`ENAM`) et bascule bleu-vert (`pipeline/`)** :
    - `DB_TERMINOLOGIE` (`outils-terminologie`), `DB_REGISTRES` (`outils-registres`), `DB_ADRESSES` (`outils-adresses`), `DB_ECONOMIE` (`outils-economie`, `< 15 Mio`).
    - Les pipelines Python (`pipeline/terminologie/`, `pipeline/registres/`, `pipeline/adresses/`, `pipeline/economie/`) assemblent d'abord une base SQLite locale validée, exportent des lots SQL sans `BEGIN`/`COMMIT` explicites, construisent les index et `FTS5` par tranches en fin de chargement, et supportent `--blue-green --swap` pour basculer sans coupure.
@@ -141,8 +141,8 @@ Tous les outils déclarent les annotations MCP :
 | # | Axe d'impact | Éléments à inspecter et maintenir synchronisés | Règle / Garde associée |
 |---|---|---|---|
 | 1 | **Outils MCP, calculs, D1 et schémas** | `src/core/`, `src/mcp/`, `src/qc/`, `src/data/`, `pipeline/`, `src/index.ts` | Double sortie obligatoire + `gardes`, `openWorldHint: false`, `readOnlyHint: true`, arithmétique `BigInt`, constantes `src/qc/format.ts`, zéro source sous droit d'auteur fermée |
-| 2 | **`README.md`, manifestes autonomes et gouvernance** | `README.md`, `SECURITY.md`, `LICENSE` (`Apache-2.0`), `NOTICE` (attributions et non-revendication des données ouvertes), `package.json`, `plugin.json`, `mcp_config.json`, `gemini-extension.json`, `assets/logo.svg`, `wrangler.jsonc`, `CLAUDE.md`, `GEMINI.md`, `test/doc.test.ts` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de licence, de version ou de déploiement |
-| 3 | **Page publique HTML (`GET /`), `/mcp/server-card` et `/healthz`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts`, `test/mcp.integration.test.ts` | Parité bilingue `OUTILS_EN` (15 outils, 6 familles), fiche SEP-2127, variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
+| 2 | **`README.md`, manifestes autonomes et gouvernance** | `README.md`, `SECURITY.md`, `LICENSE` (`Apache-2.0`), `NOTICE` (attributions et non-revendication des données ouvertes), `package.json`, `plugin.json`, `mcp_config.json`, `gemini-extension.json`, `assets/logo.svg`, `wrangler.jsonc`, `scripts/deployer.mjs`, `scripts/verifier-audit.mjs`, `CLAUDE.md`, `GEMINI.md`, `test/doc.test.ts` | Tout changement d'outil, de base D1, de source de données ouvertes, de politique zéro-log, de licence, de version ou de déploiement |
+| 3 | **Page publique HTML (`GET /`), `/mcp/server-card` et `/health`** | `src/site.ts`, `src/site.i18n.ts`, `src/index.ts`, `test/site.test.ts`, `test/mcp.integration.test.ts` | Parité bilingue `OUTILS_EN` (15 outils, 6 familles), fiche SEP-2127, variables CSS clair/sombre, liste blanche `ALLOWED_URL_PREFIXES` |
 | 4 | **Impacts inter-dépôts (`Cross-repository`)** | **`droit-civil-quebecois`** (`verifier.py`, `verifier_tout.py`, `scripts/regenerer_cache_mcp.py --apply`, `skills/*`, `README.md`, `CLAUDE.md`, `GEMINI.md`, manifestes) ; **`MCP-Legislation` & `MCP-Jurisprudence`** (lecture seule stricte, cohérence visuelle HTML/CSS) | Maintenir les fins de ligne LF (`\n`), le plafond `<= 64` car. des identifiants MCP composés et les feuilles terminales sans liens relatifs |
 
 ---
@@ -158,7 +158,7 @@ Tous les outils déclarent les annotations MCP :
 4. **Invariant 4 : Intégrité verbatim des gardes MJQ** (`src/qc/format.ts`) et **exclusion des sources terminologiques protégées** (jamais Crépeau/McGill, Juriterm ni Juridictionnaire).
 5. **Invariant 5 : Séparation stricte entre données indicatives et registres officiels** — nomenclature pure sans plumitif (`greffe_parse_number`), instantanés corporatifs sans dirigeants personnes physiques (`registre_*`), existence civique municipale distincte du domicile et du Registre foncier (`adresse_verify`), IPC/SCHL indicatifs et blocage de divergence de base (`indice_ipc`, `loyer_tal`).
 6. **Invariant 6 : La page publique `/` dérive du code** (`listToolDescriptors()`, identité visuelle partagée avec `MCP-Legislation` et `MCP-Jurisprudence`).
-7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.2`, 15 outils sur 6 familles, plafonds `<= 64` car.).
+7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v2.2.3`, 15 outils sur 6 familles, plafonds `<= 64` car.).
 8. **Invariant 8 : Limitation de débit d'arête (240 req/min/IP) et taille maximale (64 KiB)**.
 9. **Invariant 9 : Gouvernance Git (`main-pr-and-ci`)** — Le contournement administrateur du ruleset `main-pr-and-ci` est restreint à `pull_request` : **ne jamais pousser directement sur `main`** ; travailler sur une branche dédiée, ouvrir une Pull Request, attendre le passage des contrôles requis (`verify`, `CodeQL`, `OSV-Scanner`, `Trivy`), puis fusionner par *squash* (`gh pr merge --squash --delete-branch`).
 
@@ -169,8 +169,10 @@ Tous les outils déclarent les annotations MCP :
 Employer `npm.cmd`, `npx.cmd` et `$env:PYTHONUTF8 = "1"` :
 
 ```powershell
-npm.cmd run typecheck    # npx.cmd tsc --noEmit
+npm.cmd run type-check   # npx.cmd tsc --noEmit
 npm.cmd run lint         # npx.cmd biome check .
 npm.cmd test             # npx.cmd vitest run (suite complète hors réseau, PRAGMA query_only = ON)
 npm.cmd run build        # npx.cmd wrangler deploy --dry-run --outdir dist
+npm.cmd run audit        # node scripts/verifier-audit.mjs (@poirierlavoie/mcp-socle/verifier-audit)
+npm.cmd run deploy       # node scripts/deployer.mjs (arbre propre + --var COMMIT:<sha7>)
 ```

@@ -35,11 +35,11 @@ class IngestEconomieTest(unittest.TestCase):
         self.assertEqual(to_bps("4.70"), 470)
         self.assertEqual(to_bps("0.25"), 25)
         with self.assertRaises(ValueError):
-            to_micros("1.1234567")  # > 6 décimales
+            to_micros("1.1234567")
         with self.assertRaises(ValueError):
             to_micros("0")
         with self.assertRaises(ValueError):
-            to_bps("4.705")  # > 2 décimales
+            to_bps("4.705")
 
     def test_statcan_skips_zero_weekend_rows(self) -> None:
         import io
@@ -72,8 +72,6 @@ class IngestEconomieTest(unittest.TestCase):
 
             conn = sqlite3.connect(db_path)
             conn.execute("PRAGMA query_only = ON;")
-            # IEXE0105 (USD_90D_FWD) et coordonnée 1.2 (forward) doivent être exclus
-            # ARS 2010-01-04 doit prendre IEXE2703 (0.2734 -> 273400) plutôt que IEXE2702 (0.2690)
             ars_row = conn.execute(
                 "SELECT r.rate_micros FROM fx_rates r "
                 "JOIN fx_currencies c ON c.id = r.currency_id "
@@ -81,7 +79,6 @@ class IngestEconomieTest(unittest.TestCase):
             ).fetchone()
             self.assertEqual(ars_row, (273_400,))
 
-            # Chevauchement 2017-01-03 : regime=1 (1.3438) ET regime=2 (1.3435) coexistent
             usd_2017 = conn.execute(
                 "SELECT r.regime, r.rate_micros FROM fx_rates r "
                 "JOIN fx_currencies c ON c.id = r.currency_id "
@@ -89,7 +86,6 @@ class IngestEconomieTest(unittest.TestCase):
             ).fetchall()
             self.assertEqual(usd_2017, [(1, 1_343_800), (2, 1_343_500)])
 
-            # StatCan pré-euro FRF (2001-01-02 = 0.2145)
             frf_row = conn.execute(
                 "SELECT r.rate_micros FROM fx_rates r "
                 "JOIN fx_currencies c ON c.id = r.currency_id "
@@ -97,14 +93,12 @@ class IngestEconomieTest(unittest.TestCase):
             ).fetchone()
             self.assertEqual(frf_row, (214_500,))
 
-            # V80691311 doit inclure la graine 2000-12-27 (750 bps)
             seed_prime = conn.execute(
                 "SELECT rate_bps FROM boc_rates WHERE series_id = 'V80691311' AND obs_date = 20001227"
             ).fetchone()
             self.assertEqual(seed_prime, (750,))
             conn.close()
 
-            # Export par lots : zéro BEGIN/COMMIT, LF uniquement, rejouable dans SQLite
             batch_files, counts = export_local_batches(db_path=db_path, batch_dir=batch_dir)
             self.assertGreaterEqual(len(batch_files), 6)
             self.assertGreater(counts["fx_rates"], 10)
@@ -121,7 +115,6 @@ class IngestEconomieTest(unittest.TestCase):
                     self.assertNotIn("COMMIT", txt.upper())
                     rconn.executescript(txt)
 
-                # Appliquer ensuite la synchro incrémentale échantillon sur la base rejouée
                 incr_file = incremental_fx_sync(
                     sample_only=True,
                     push_remote=False,
@@ -179,19 +172,16 @@ class IngestEconomieTest(unittest.TestCase):
                 wrangler_path=wrangler_copy,
             )
 
-            # Sans --db-name (None), la cible suit la bascule bleu-vert de wrangler.jsonc
             self.assertEqual(
                 _resolve_economie_binding_from_wrangler(None, wrangler_path=wrangler_copy),
                 ("outils-economie-20261125", swapped_uuid),
             )
-            # Un --db-name différent ne doit jamais hériter du UUID de l'entrée basculée
             self.assertEqual(
                 _resolve_economie_binding_from_wrangler(
                     "outils-economie", wrangler_path=wrangler_copy
                 ),
                 ("outils-economie", None),
             )
-            # Un --db-name explicite identique conserve son UUID
             self.assertEqual(
                 _resolve_economie_binding_from_wrangler(
                     "outils-economie-20261125", wrangler_path=wrangler_copy
@@ -247,7 +237,6 @@ class IngestEconomieTest(unittest.TestCase):
             tag = dt.date.today().strftime("%Y%m%d")
             self.assertFalse((batch_dir / f"incr_fx_{tag}.sql").exists())
 
-            # Si --db-name diffère de wrangler.jsonc, provision_or_get_d1 résout l'UUID cible
             override_uuid = "99999999-8888-7777-6666-555555555555"
             with (
                 mock.patch.object(
@@ -290,12 +279,10 @@ class IngestEconomieTest(unittest.TestCase):
         series_rows, obs_rows, meta = _parse_cpi_wds(
             codesets, cube_metas, series_infos, vector_datas, require_all_mandatory=True
         )
-        # 32 séries 2002=100 + 8 séries 1992=100 = 40 séries (les 8 vectorId=0 RMR rent/soins santé ignorés)
         self.assertEqual(len(series_rows), 40)
         geo_codes = {s["geo_code"] for s in series_rows}
         self.assertEqual(geo_codes, {"canada", "quebec", "quebec_rmr", "montreal_rmr"})
 
-        # Vérifier absence de rent et health_care_services sur RMR
         rmr_products = {
             (s["geo_code"], s["product_code"])
             for s in series_rows
@@ -304,7 +291,6 @@ class IngestEconomieTest(unittest.TestCase):
         self.assertNotIn(("quebec_rmr", "rent"), rmr_products)
         self.assertNotIn(("montreal_rmr", "health_care_services"), rmr_products)
 
-        # Vérifier UOM exacts (2002=100 vs 1992=100) et rejet de value=None (1978-08-01)
         uoms = {s["uom"] for s in series_rows}
         self.assertEqual(uoms, {"2002=100", "1992=100"})
         qc_m_all = next(
@@ -340,7 +326,6 @@ class IngestEconomieTest(unittest.TestCase):
         self.assertEqual(by_id[219]["search_norm"], "sainte sophie")
         self.assertEqual(by_id[203]["search_norm"], "saint lin laurentides")
 
-        # Les cellules supprimées (48.2.1 STATUS=".." / VALUE="0" et 219.3.3 STATUS="F") doivent être absentes
         rent_keys = {(g, s, u, y) for g, s, u, y, _ in rents}
         self.assertNotIn((48, 2, 1, 2025), rent_keys)
         self.assertNotIn((48, 2, 1, 1987), rent_keys)
@@ -399,7 +384,6 @@ class IngestEconomieTest(unittest.TestCase):
                 self.assertIn("ON CONFLICT", sync_txt)
                 rconn.executescript(sync_txt)
 
-                # Idempotence : le nombre de séries et de loyers reste identique après rejeu
                 self.assertEqual(
                     rconn.execute("SELECT COUNT(*) FROM cpi_series").fetchone()[0], 40
                 )

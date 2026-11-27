@@ -1,28 +1,3 @@
-"""Pipeline d'ingestion et de chargement D1 — Domaine E : Économie (taux BoC, change, IPC & loyers SCHL).
-
-Sources intégrées (zéro appel réseau sortant au moment de la requête MCP) :
-  1. Banque du Canada — Valet `FX_RATES_DAILY` (`regime=2`, moyennes quotidiennes 16 h 30 HE
-     à compter du 2017-01-03, 27 devises dont 24 actives et 3 historiques).
-  2. Banque du Canada — Valet `LEGACY_NOON_RATES` (`regime=1`, taux au comptant de midi
-     du 2007-05-01 au 2017-04-28 ; exclut les séries à terme `IEXE0105`, `IEXE0124`, `IEXE0125`
-     et donne préséance à `IEXE2703` sur `IEXE2702` pour `ARS` sur le chevauchement 2010–2012).
-  3. Statistique Canada — Tableau `10-10-0008-01` (`regime=1`, 21 séries au comptant de midi
-     du 2001-01-01 au 2007-04-30, `OGL-Canada`).
-  4. Banque du Canada — Séries d'intérêt Valet : `V39079` (taux cible du financement à un jour,
-     quotidien ouvrable à compter du 2009-04-21), `V122530` (taux officiel d'escompte mensuel),
-     `V80691311` (taux préférentiel hebdomadaire du mercredi, amorcé dès 2000-12-27 pour couvrir
-     le 2001-01-01).
-  5. Statistique Canada — IPC WDS (`18-10-0004-01` mensuel, `18-10-0005-01` annuel ; Canada,
-     Québec, RMR de Québec, RMR de Montréal ; `2002=100` et série historique `1992=100`, `OGL-Canada`).
-  6. Statistique Canada / SCHL — Loyers moyens du marché (`34-10-0133-01`, `OGL-Canada`).
-
-Usage :
-  python -m pipeline.economie.ingest_economie --build-local --sample --export-batches
-  python -m pipeline.economie.ingest_economie --build-local --export-batches
-  python -m pipeline.economie.ingest_economie --incremental-fx --sample --export-batches
-  python -m pipeline.economie.ingest_economie --incremental-fx --push-remote
-  python -m pipeline.economie.ingest_economie --sync-statcan --push-remote
-"""
 from __future__ import annotations
 
 import argparse
@@ -61,7 +36,7 @@ WORK_DIR = REPO_ROOT / "pipeline" / "work" / "economie"
 BATCH_DIR = REPO_ROOT / "pipeline" / "batches" / "economie"
 LOCAL_DB_PATH = WORK_DIR / "outils_economie.db"
 
-MAX_ECONOMIE_DB_BYTES = 15 * 1024 * 1024  # 15 Mio max
+MAX_ECONOMIE_DB_BYTES = 15 * 1024 * 1024
 
 BOC_VALET_BASE = "https://www.bankofcanada.ca/valet/observations"
 STATCAN_FX_ZIP_URL = "https://www150.statcan.gc.ca/n1/en/tbl/csv/10100008-eng.zip"
@@ -351,7 +326,6 @@ def _download_cached(url: str, dest: Path, force: bool = False, accept: str = "*
 
 
 def _sample_payloads() -> tuple[dict, dict, bytes, dict[str, dict]]:
-    """Construit des jeux de données déterministes hors ligne pour tests E2E `--sample`."""
     fx_daily = {
         "seriesDetail": {
             "FXUSDCAD": {"label": "USD/CAD", "description": "Daily average exchange rate of the US dollar in Canadian dollars."},
@@ -424,7 +398,6 @@ def _sample_payloads() -> tuple[dict, dict, bytes, dict[str, dict]]:
 
 
 def _sample_statcan_payloads() -> tuple[dict, dict[int, dict], list[dict], list[dict], dict, bytes]:
-    """Construit des jeux StatCan IPC & SCHL déterministes hors ligne pour `--sample`."""
     codesets = {
         "status": "SUCCESS",
         "object": {
@@ -471,7 +444,6 @@ def _sample_statcan_payloads() -> tuple[dict, dict[int, dict], list[dict], list[
         for gid, _ in CPI_GEOS:
             for pmid, _ in CPI_PRODUCTS:
                 coord = f"{gid}.{pmid}.0.0.0.0.0.0.0.0"
-                # RMR Québec (12) et Montréal (13) n'ont pas Rent (81) ni Health care services (311)
                 if gid in (12, 13) and pmid in (81, 311):
                     series_infos.append(
                         {
@@ -521,7 +493,6 @@ def _sample_statcan_payloads() -> tuple[dict, dict[int, dict], list[dict], list[
                             {"refPer": "2018-01-01", "value": 153.5},
                         ]
                     elif gid == 11 and pmid == 2:
-                        # Reproduit exactement les variations QC 2022->2025 (moyenne 3,1 %)
                         pts = [
                             {"refPer": "2022-01-01", "value": 147.0},
                             {"refPer": "2023-01-01", "value": 153.6},
@@ -529,7 +500,6 @@ def _sample_statcan_payloads() -> tuple[dict, dict[int, dict], list[dict], list[
                             {"refPer": "2025-01-01", "value": 161.0},
                         ]
                     elif gid == 11 and pmid == 311:
-                        # Reproduit exactement les variations QC soins santé 2022->2025 (moyenne 6,7 %)
                         pts = [
                             {"refPer": "2022-01-01", "value": 140.6},
                             {"refPer": "2023-01-01", "value": 150.6},
@@ -609,7 +579,6 @@ def _parse_fx_daily(
         ccy = m.group(1)
         series_to_ccy[s_key] = ccy
         desc = str(meta.get("description") or ccy).strip()
-        # Extraire un libellé anglais court lisible
         short_en = desc.replace("Daily average exchange rate of the ", "").replace(" in Canadian dollars.", "").strip()
         if short_en:
             short_en = short_en[0].upper() + short_en[1:]
@@ -674,7 +643,6 @@ def _parse_legacy_noon(
 
     count = 0
     max_date = ""
-    # Trier pour appliquer IEXE2703 en dernier (prioritaire sur IEXE2702 pour ARS 2010..2012)
     ordered_keys = sorted(series_to_ccy.keys(), key=lambda k: (1 if k == "IEXE2703" else 0, k))
     for row in payload.get("observations") or []:
         d_str = row.get("d")
@@ -728,7 +696,6 @@ def _parse_statcan_fx(
                 val = (row.get("VALUE") or "").strip()
                 if not val:
                     continue
-                # StatCan 10-10-0008-01 encode les fins de semaine et jours fériés par 0.00000000
                 if Decimal(val) == 0:
                     continue
                 ccy, name_en = mapped
@@ -1066,7 +1033,6 @@ def _parse_statcan_cmhc(
                 val_str = (row.get("VALUE") or "").strip()
                 if not val_str:
                     continue
-                # StatCan 34-10-0133-01 encode parfois des cellules non enquêtées par '0'
                 if Decimal(val_str) == 0:
                     continue
                 coord = (row.get("COORDINATE") or "").strip()
@@ -1622,7 +1588,6 @@ def incremental_fx_sync(
     batch_dir: Path = BATCH_DIR,
     wrangler_path: Path = WRANGLER_JSONC,
 ) -> Path | None:
-    """Génère un lot SQL idempotent incrémental (zéro commit Git) pour FX_RATES_DAILY et taux BoC."""
     batch_dir.mkdir(parents=True, exist_ok=True)
     target_name, configured_id = _resolve_economie_binding_from_wrangler(
         db_name, wrangler_path=wrangler_path
@@ -1790,7 +1755,6 @@ def sync_statcan_data(
     batch_dir: Path = BATCH_DIR,
     wrangler_path: Path = WRANGLER_JSONC,
 ) -> Path | None:
-    """Génère un lot SQL idempotent (zéro commit Git) pour l'IPC StatCan et les loyers SCHL."""
     batch_dir.mkdir(parents=True, exist_ok=True)
     target_name, configured_id = _resolve_economie_binding_from_wrangler(
         db_name, wrangler_path=wrangler_path
@@ -1851,7 +1815,6 @@ def sync_statcan_data(
         cmhc_zip_bytes, cmhc_meta
     )
 
-    # Réconcilier les IDs avec ceux déjà en base D1/locale
     temp_to_final_id: dict[int, int] = {}
     for s in cpi_series_rows:
         key = (int(s["product_id"]), str(s["coordinate"]), str(s["uom"]))

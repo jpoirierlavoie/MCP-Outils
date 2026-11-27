@@ -1,18 +1,7 @@
 name: verifier-deploiement
 
-# CONTRÔLE DE DÉRIVE — il REGARDE, il ne déploie rien et ne le peut pas.
-#
-# ╔═════════════════════════════════════════════════════════════════════════════╗
-# ║ Filet de sécurité indépendant sans secret : aucun jeton,                   ║
-# ║ `permissions: contents: read`, un simple GET sur `/healthz`.                ║
-# ║ Il détecte un déploiement manqué (`wrangler deploy`), ou une               ║
-# ║ désynchronisation silencieuse entre `main` et la production                 ║
-# ║ (`https://outils.poirierlavoie.ca/healthz`).                                ║
-# ╚═════════════════════════════════════════════════════════════════════════════╝
-
 on:
   schedule:
-    # Une fois par jour, 11h37 UTC — en semaine comme en fin de semaine.
     - cron: "37 11 * * *"
   workflow_dispatch:
 
@@ -33,12 +22,10 @@ jobs:
         with:
           egress-policy: audit
 
-      # Aucun `checkout` : on n'a besoin ni du code, ni de l'historique. `github.sha`
-      # porte déjà le commit de tête de la branche par défaut.
       - name: La version en ligne est-elle celle de main ?
         env:
           ATTENDU_LONG: ${{ github.sha }}
-          SANTE: https://outils.poirierlavoie.ca/healthz
+          SANTE: https://outils.poirierlavoie.ca/health
         run: |
           set -euo pipefail
           attendu="${ATTENDU_LONG:0:7}"
@@ -50,7 +37,7 @@ jobs:
             exit 1
           fi
           if [ "$code" != "200" ]; then
-            echo "::error title=/healthz a répondu ${code}::La mesure de santé a échoué."
+            echo "::error title=/health a répondu ${code}::La mesure de santé a échoué."
             exit 1
           fi
 

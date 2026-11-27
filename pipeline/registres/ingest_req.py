@@ -1,22 +1,3 @@
-"""Pipeline d'ingestion et de chargement D1 — Domaine B : Registres d'entreprises (QC + Canada + GLEIF).
-
-Sources intégrées (zéro appel réseau sortant au moment de la requête MCP) :
-  1. REQ — Fichier ouvert local `pipeline/sources/req.zip` (ou `req.zip.zip` déposé après
-     téléchargement navigateur ; ZÉRO grattage ni contournement du défi Cloudflare du portail REQ).
-  2. RENA — Entreprises non admissibles aux contrats publics (AMP, `CC BY 4.0`, joint sur NEQ,
-     excluant strictement les personnes physiques et dirigeants/actionnaires personnes physiques).
-  3. RBQ — Licences actives d'entrepreneurs (`CC BY 4.0`, regroupées par licence et NEQ).
-  4. OPC — Permis et exemptions en vigueur (`CC BY 4.0`, URL datée résolue dynamiquement via CKAN).
-  5. Corporations Canada — Sociétés fédérales actives et dissoutes (`OGL-Canada`, CKAN dynamique).
-  6. GLEIF Golden Copy (`CC0 1.0`) — LEI canadiens (`lei2`), relations mères/filiales (`rr`)
-     et exceptions de déclaration (`repex`), appariés via `RA000081`/`RA000842` (NEQ) et
-     `RA000072` (Corporations Canada) plus entités canadiennes autonomes titulaires d'un LEI.
-
-Usage :
-  python -m pipeline.registres.ingest_req --build-local --sample --export-batches
-  python -m pipeline.registres.ingest_req --build-local --push-remote --db-name outils-registres
-  python -m pipeline.registres.ingest_req --build-local --push-remote --blue-green --swap
-"""
 from __future__ import annotations
 
 import argparse
@@ -73,7 +54,7 @@ ACRONYM_DOTS_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b")
 CITY_CLEAN_RE = re.compile(r"\s*\((?:QUÉBEC|QUEBEC|QC)\)\s*$", re.I)
 CRA_PROGRAM_BN_RE = re.compile(r"^(\d{9})R[A-Z]\d{4}$", re.I)
 
-BATCH_MAX_FILE_BYTES = 18_000_000  # ~18 Mo par lot SQL pour maximiser le débit vers D1
+BATCH_MAX_FILE_BYTES = 18_000_000
 
 ENTITES_INSERT_SQL = (
     "INSERT INTO entites "
@@ -140,7 +121,6 @@ def _clean_bn(val: str | None) -> str | None:
 def _extract_city_from_req_lines(lign2: str, lign3: str = "") -> str | None:
     s3 = " ".join(lign3.split())
     s2 = " ".join(lign2.split())
-    # Lorsque l'adresse comporte un étage ou bureau en ligne 2, la municipalité figure en ligne 3
     if s3 and (CITY_CLEAN_RE.search(s3) or not CITY_CLEAN_RE.search(s2)):
         cleaned3 = CITY_CLEAN_RE.sub("", s3).strip(" ,-")
         if cleaned3 and not re.fullmatch(r"[A-Z]\d[A-Z]\s*\d[A-Z]\d", cleaned3, re.IGNORECASE):
@@ -159,13 +139,11 @@ def _build_extra_search_tokens(official_name: str, extra_names: list[str]) -> st
     out_tokens: list[str] = []
     seen = set(official_tokens)
 
-    # Ajouter la forme soudée de « S.E.N.C.R.L. » -> « sencrl » si présente dans nom_officiel
     for tok in normalize_search_text(official_collapsed).split():
         if tok not in seen:
             seen.add(tok)
             out_tokens.append(tok)
 
-    # Ajouter la forme 8 chiffres soudée des sociétés à numéro « 9123-4567 » -> « 91234567 »
     for m in NUMBERED_CORP_RE.finditer(official_name):
         merged = f"{m.group(1)}{m.group(2)}"
         if merged not in seen:
@@ -286,7 +264,6 @@ def _ingest_ancillary_qc(
             conn.execute("INSERT INTO meta_sources VALUES (?, ?, ?, ?, 1)", (k, lbl, lic, today_iso))
         return rbq_neqs, opc_neqs, rena_neqs
 
-    # 1) RENA (JSON via CKAN — exclusion stricte des personnes physiques)
     print("[RENA] Résolution CKAN et chargement...", flush=True)
     rena_pkg = _http_get_json(RENA_CKAN_URL)["result"]
     rena_url = next(
@@ -302,7 +279,6 @@ def _ingest_ancillary_qc(
     for item in inscriptions:
         nom_ent = (item.get("Nom_entreprise") or "").strip()
         neq = _clean_neq(item.get("NEQ"))
-        # Exclure les inscriptions visant uniquement une personne physique (aucun Nom_entreprise ni NEQ)
         if not nom_ent and not neq:
             continue
         if neq:
@@ -332,7 +308,6 @@ def _ingest_ancillary_qc(
     )
     print(f"[RENA] {rena_count} inscriptions d'entreprises chargées ({len(rena_neqs)} NEQ).", flush=True)
 
-    # 2) OPC (URL datée résolue dynamiquement via CKAN)
     print("[OPC] Résolution CKAN dynamique et chargement...", flush=True)
     opc_pkg = _http_get_json(OPC_CKAN_URL)["result"]
     opc_url = next(
@@ -388,7 +363,6 @@ def _ingest_ancillary_qc(
     )
     print(f"[OPC] {opc_count} permis chargés ({len(opc_neqs)} NEQ, date={opc_date}).", flush=True)
 
-    # 3) RBQ (CSV compressé via CKAN — agrégation des sous-catégories par NEQ + licence)
     print("[RBQ] Résolution CKAN et agrégation des sous-catégories...", flush=True)
     rbq_pkg = _http_get_json(RBQ_CKAN_URL)["result"]
     rbq_url = next(
@@ -554,12 +528,10 @@ def _ingest_req_archive(
 
     req_snapshot_date = today_iso
     with zipfile.ZipFile(req_zip, "r") as zf:
-        # Date de modification interne du zip comme date d'instantané REQ vérifiée
         for zi in zf.infolist():
             if zi.filename == "Entreprise.csv" and zi.date_time:
                 req_snapshot_date = f"{zi.date_time[0]:04d}-{zi.date_time[1]:02d}-{zi.date_time[2]:02d}"
 
-        # 1) DomaineValeur.csv
         with zf.open("DomaineValeur.csv") as raw_dv:
             dv_rows = [
                 (
@@ -573,7 +545,6 @@ def _ingest_req_archive(
         conn.executemany("INSERT OR REPLACE INTO domaine_valeur VALUES (?, ?, ?)", dv_rows)
         print(f"[REQ] DomaineValeur : {len(dv_rows)} codes chargés (instantané {req_snapshot_date}).", flush=True)
 
-        # 2) Nom.csv -> scratch
         print("[REQ] Indexation temporaire de Nom.csv...", flush=True)
         batch_nom: list[tuple] = []
         with zf.open("Nom.csv") as raw_f:
@@ -600,7 +571,6 @@ def _ingest_req_archive(
             scratch.executemany("INSERT INTO s_nom VALUES (?, ?, ?, ?, ?, ?, ?)", batch_nom)
             batch_nom.clear()
 
-        # 3) Etablissements.csv -> scratch
         print("[REQ] Indexation temporaire de Etablissements.csv...", flush=True)
         batch_etab: list[tuple] = []
         with zf.open("Etablissements.csv") as raw_f:
@@ -645,7 +615,6 @@ def _ingest_req_archive(
             scratch.executemany("INSERT INTO s_etab VALUES (?, ?, ?, ?, ?, ?, ?)", batch_etab)
             batch_etab.clear()
 
-        # 4) FusionScissions.csv -> scratch
         print("[REQ] Indexation temporaire de FusionScissions.csv...", flush=True)
         batch_fus: list[tuple] = []
         with zf.open("FusionScissions.csv") as raw_f:
@@ -682,7 +651,6 @@ def _ingest_req_archive(
             scratch.executemany("INSERT INTO s_fus VALUES (?, ?, ?, ?, ?, ?)", batch_fus)
             batch_fus.clear()
 
-        # 5) ContinuationsTransformations.csv -> scratch
         batch_cont: list[tuple] = []
         with zf.open("ContinuationsTransformations.csv") as raw_f:
             for r in csv.DictReader(io.TextIOWrapper(raw_f, encoding="utf-8-sig", errors="replace")):
@@ -716,13 +684,11 @@ def _ingest_req_archive(
         )
         scratch.commit()
 
-        # Itérateurs triés par NEQ pour jointure en flux (merge-join O(N) mémoire minimale)
         def _grouped_iter(table_sql: str):
             cur = scratch.execute(table_sql)
             for k, grp in itertools.groupby(cur, key=lambda row: row[0]):
                 yield k, list(grp)
 
-        # Charger Entreprise.csv dans une table temporaire triée par NEQ aussi pour un vrai merge-join
         print("[REQ] Chargement de Entreprise.csv dans le trieur local...", flush=True)
         scratch.execute(
             """
@@ -868,12 +834,10 @@ def _ingest_req_archive(
         if ind_fail.upper() == "O":
             flags |= FLAG_FAILLITE
 
-        # Coquilles d'entreprises individuelles (IND) sans aucun nom commercial publié ni volet joint
         if cod_forme == "IND" and not noms and flags == 0:
             skipped_redacted_ind += 1
             continue
 
-        # Sélection du nom officiel : (1) V+N, (2) V+autre, (3) A+N le plus récent, (4) A+autre
         nom_officiel = ""
         v_n = [n for n in noms if n[3] == "V" and n[4] == "N"]
         v_a = [n for n in noms if n[3] == "V" and n[4] != "N"]
@@ -1075,7 +1039,6 @@ def _ingest_corporations_canada(
         for r in pkg.get("resources", [])
         if str(r.get("format", "")).upper() == "CSV" and str(r.get("url", "")).endswith("-fr.csv")
     ]
-    # Charger les actives d'abord afin qu'en cas de doublon, l'état actif prime
     fr_urls.sort(key=lambda u: 0 if "actives-" in u else 1)
 
     seen_corp: set[str] = set()
@@ -1198,24 +1161,15 @@ def _open_single_zip_csv(zip_path: Path):
     return zf, raw_f, txt_f
 
 
-def _col_get(row: list[str], idx_map: dict[str, int], col: str) -> str:
-    idx = idx_map.get(col)
-    if idx is None or idx >= len(row):
-        return ""
-    return row[idx].strip()
-
-
 def _match_gleif_to_entites(
     conn: sqlite3.Connection,
     ra_pairs: list[tuple[str, str]],
 ) -> tuple[int | None, str | None, int | None, str | None]:
-    """Apparie les autorités d'enregistrement GLEIF aux lignes `qc` (NEQ) et `ca` (CorpCan)."""
     qc_id: int | None = None
     matched_neq: str | None = None
     ca_id: int | None = None
     matched_corp_no: str | None = None
 
-    # Priorité Québec : RA000081 (REQ), puis repli RA000842 si NEQ à 10 chiffres
     qc_candidates: list[str] = []
     for ra_id, ra_val in ra_pairs:
         if ra_id == "RA000081":
@@ -1238,7 +1192,6 @@ def _match_gleif_to_entites(
             matched_neq = neq
             break
 
-    # Corporations Canada : RA000072
     for ra_id, ra_val in ra_pairs:
         if ra_id != "RA000072":
             continue
@@ -1612,7 +1565,6 @@ def _ingest_gleif(
     repex_zip = _download_file(repex_url, gleif_dir / Path(repex_url).name, force=force_download)
     lei2_zip = _download_file(lei2_url, gleif_dir / Path(lei2_url).name, force=force_download)
 
-    # Étape A : balayage unique de rr (relations mères/filiales)
     print("[GLEIF] Balayage Level 2 (rr)...", flush=True)
     all_rr_ends: set[str] = set()
     rr_rows: list[tuple] = []
@@ -1727,7 +1679,6 @@ def _ingest_gleif(
         zf.close()
     print(f"[GLEIF] {len(rr_rows)} relations Level 2 lues ({len(all_rr_ends)} mères distinctes).", flush=True)
 
-    # Étape B : balayage unique de lei2 (Level 1 LEI-CDF 3.1)
     print("[GLEIF] Balayage Level 1 (lei2)...", flush=True)
     ca_leis: set[str] = set()
     ca_records: list[dict] = []
@@ -1851,7 +1802,6 @@ def _ingest_gleif(
         raw_f.close()
         zf.close()
 
-    # Étape C : appariement avec entites + insertion des entités canadiennes autonomes
     print(f"[GLEIF] Appariement et insertion de {len(ca_records)} entités canadiennes...", flush=True)
     qc_best_lei: dict[int, tuple[int, str]] = {}
     ca_best_lei: dict[int, tuple[int, str]] = {}
@@ -1951,7 +1901,6 @@ def _ingest_gleif(
         conn.executemany(ENTITES_INSERT_SQL, standalone_batch)
         standalone_batch.clear()
 
-    # Mères étrangères référencées par une filiale canadienne (is_canadian = 0, absentes de `entites`)
     needed_foreign = {
         end_lei
         for start_lei, end_lei, *_rest in rr_rows
@@ -2007,7 +1956,6 @@ def _ingest_gleif(
         [(lei, eid) for eid, (_, lei) in ca_best_lei.items()],
     )
 
-    # Étape D : liens Level 2 (enfants canadiens) + REPEX
     liens_batch: list[tuple] = []
     lien_id = 0
     for row in rr_rows:
@@ -2114,7 +2062,6 @@ def build_local_sqlite(
         conn, sample_only, cur_id, today_iso, work_dir=work_dir
     )
 
-    # Index de recherche créés avant l'appariement GLEIF pour des jointures O(log N)
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_entites_jur_ident "
         "ON entites(juridiction, identifiant_principal)"
@@ -2299,7 +2246,6 @@ def export_local_batches(
         "gleif_exceptions": conn.execute("SELECT COUNT(*) FROM gleif_exceptions").fetchone()[0],
     }
 
-    # Isoler chaque CREATE INDEX / CREATE VIRTUAL TABLE dans son propre lot pour respecter le budget CPU D1
     idx_stmts = _split_sql_statements((HERE / "indexes.sql").read_text(encoding="utf-8"))
     for i, stmt in enumerate(idx_stmts, 1):
         p = batch_dir / f"9000_idx_{i:02d}.sql"
@@ -2311,7 +2257,6 @@ def export_local_batches(
     )
     conn.close()
 
-    # Regrouper par 3 tranches FTS par fichier (~225k lignes) pour éviter les délais CPU par requête D1
     for g_idx in range(0, len(fts_stmts), 3):
         chunk = "\n".join(fts_stmts[g_idx : g_idx + 3]) + "\n"
         p = batch_dir / f"9100_fts_{(g_idx // 3) + 1:03d}.sql"

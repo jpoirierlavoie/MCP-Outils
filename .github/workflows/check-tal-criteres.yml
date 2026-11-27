@@ -108,7 +108,7 @@ jobs:
               "",
               "Mettre à jour `src/data/tal_criteres.json` après publication à la Gazette officielle du Québec / sur le site du TAL, puis exécuter :",
               "```bash",
-              "npm run typecheck && npm run lint && npm test && npm run build",
+              "npm run type-check && npm run lint && npm test && npm run build",
               "```",
             ].join("\n");
 

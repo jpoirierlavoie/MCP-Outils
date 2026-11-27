@@ -3,28 +3,11 @@ import { GREFFES } from "../qc/greffes.js";
 import { LIEUX_PAR_GREFFE, MJQ_MAJ } from "../qc/lieux.js";
 import { PALAIS } from "../qc/palais.js";
 import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
-
-// ── Normalisation phonétique/orthographique québécoise ───────────────────────
-
-export function foldAddressToken(raw: string): string {
-  return raw
-    .replace(/Œ/g, "OE")
-    .replace(/œ/g, "oe")
-    .replace(/Æ/g, "AE")
-    .replace(/æ/g, "ae")
-    .replace(/ß/g, "ss")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\u2018\u2019\u02bc']/g, " ")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
+import { foldAsciiAlnum as foldAddressToken } from "./normalize.js";
 
 export function computeConsonantKey(raw: string): string {
   const folded = foldAddressToken(raw).replace(/\s+/g, "");
-  // Conserver les chiffres (p. ex. 1re, 3e avenue) et les consonnes sans répétition consécutive
+
   const rawConsonants = folded.replace(/[aeiouy]/g, "");
   let out = "";
   for (const ch of rawConsonants) {
@@ -60,8 +43,6 @@ function similarityRatio(a: string, b: string): number {
   if (maxLen === 0) return 1;
   return 1 - levenshteinDistance(a, b) / maxLen;
 }
-
-// ── Table des abréviations municipales et anciennes villes fusionnées du Québec ──
 
 const MUNICIPALITY_ALIASES: Readonly<Record<string, string>> = {
   mtl: "Montréal",
@@ -229,8 +210,6 @@ function isGisStackingUnitType(raw: string | null | undefined): boolean {
   return !f || f.startsWith("etalement ");
 }
 
-// ── Rattachement prudent au district judiciaire via `src/qc/lieux.ts` ────────
-
 interface DistrictRattachement {
   district: string;
   greffes: string[];
@@ -290,9 +269,7 @@ function resolveProbableDistrict(nomMunicipalite: string): DistrictRattachement 
   };
 }
 
-// ── Décomposition et normalisation d'une adresse québécoise ──────────────────
-
-export interface ParsedQuebecAddress {
+interface ParsedQuebecAddress {
   civicNumber: number | null;
   civicSuffix: string;
   unitNumber: string;
@@ -355,7 +332,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
   const corrections: string[] = [];
   let freeLine = (input.address ?? "").trim();
 
-  // 0) Virgule française après le numéro civique initial (p. ex. « 1, rue Notre-Dame Est », « 10-B, boul. Sainte-Anne »)
   if (freeLine && !input.civic_number && !input.street) {
     freeLine = freeLine.replace(
       /^\s*(\d+\s*(?:1\/2|-\s*[A-Za-z]|[A-Za-z])?)\s*,\s*(?=[A-Za-zÀ-ÿ0-9])/,
@@ -363,7 +339,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     );
   }
 
-  // 1) Code postal
   let postalCompact: string | null = null;
   if (input.postal_code) {
     const m = /([A-Za-z]\d[A-Za-z])\s*-?\s*(\d[A-Za-z]\d)/.exec(input.postal_code);
@@ -379,7 +354,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     );
   }
 
-  // 2) Unité (bureau, app., suite, local, # ou préfixe 200-1) et mention d'étage — avant retrait de la province
   let unitNumber = "";
   let unitTypeLabel: string | null = null;
 
@@ -419,7 +393,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       }
     }
 
-    // Retirer une indication d'étage (« 1er étage », « 20 ième étage », « rez-de-chaussée ») absente de la clé civique RQA
     const floorRe =
       /(?:,\s*|\s+)\b(\d+\s*(?:er|re|e|ère|ere|ième|ieme|ème|eme)\s+étage|\d+\s*(?:er|re|e|ère|ere|ième|ieme|ème|eme)\s+etage|étage\s+[A-Za-z0-9.-]+|etage\s+[A-Za-z0-9.-]+|rez-de-chaussée|rez-de-chaussee)(?=\s*,|\s|$)/iu;
     const flMatch = floorRe.exec(freeLine);
@@ -430,7 +403,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       freeLine = `${freeLine.slice(0, flMatch.index)} ${freeLine.slice(flMatch.index + flMatch[0].length)}`;
     }
 
-    // Format postal canadien « 200-1 rue Notre-Dame » -> unité 200, civique 1
     const prefixUnitRe = /^\s*(\d+[A-Za-z]?)\s*-\s*(\d+)\s*([A-Za-z]?)\b(?=\s+[A-Za-zÀ-ÿ])/;
     const pm = prefixUnitRe.exec(freeLine);
     if (pm && !input.civic_number) {
@@ -441,14 +413,12 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       freeLine = `${pm[2]}${pm[3] ?? ""} ${freeLine.slice(pm[0].length)}`;
     }
 
-    // Retirer province entre parenthèses et pays final explicite
     freeLine = freeLine
       .replace(/\(\s*(?:québec|quebec|qc)\s*\)/gi, " ")
       .replace(/,\s*canada\s*$/i, " ")
       .replace(/(?:,\s*|\s+)\bqc\b\s*$/i, " ");
   }
 
-  // 3) Séparation rue / municipalité
   let rawMun: string | null = input.municipality?.trim() ?? null;
   let streetWork = input.street?.trim() ?? "";
 
@@ -458,7 +428,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       .map((s) => s.trim())
       .filter(Boolean);
 
-    // Retirer un dernier segment résiduel « QC » / « Québec » s'il y a déjà une ville avant
     if (segments.length >= 3 && /^(?:qc|quebec|québec)$/i.test(segments[segments.length - 1]!)) {
       segments.pop();
     }
@@ -468,8 +437,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
       streetWork = segments.join(" ");
     } else {
       streetWork = segments.join(" ");
-      // Si aucune virgule, détecter un alias municipal en fin de chaîne (p. ex. « 1 Notr-Dame E Mtl »)
-      // uniquement s'il subsiste au moins un jeton d'odonyme spécifique avant la municipalité.
+
       if (!rawMun) {
         const words = streetWork.split(/\s+/);
         const hasExplicitCivic = Boolean(input.civic_number);
@@ -498,10 +466,8 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     }
   }
 
-  // Normalisation de la municipalité
   const municipalityNorm = rawMun ? normalizeMunicipalityInput(rawMun, corrections) : null;
 
-  // 4) Numéro civique + suffixe
   let civicNumber: number | null = null;
   let civicSuffix = "";
 
@@ -519,7 +485,7 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     if (leadCivic) {
       const rawLeadSuffix = leadCivic[2] ?? leadCivic[3] ?? "";
       const restAfter = streetWork.slice(leadCivic[0].length).trim();
-      // Ne pas confondre un odonyme ordinal sans numéro civique (« 1re Avenue », « 3e Rue », « 4e Rang ») avec un numéro civique
+
       const restFirstFold = foldAddressToken(restAfter.split(/\s+/)[0] ?? "");
       const isOrdinalStreet =
         !leadCivic[2] &&
@@ -538,14 +504,12 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     }
   }
 
-  // 5) Décomposition de l'odonyme (générique, particule, spécifique, point cardinal)
   let cardinal: string | null = null;
   let generique: string | null = null;
 
   const cleanStreet = streetWork.replace(/[.,]+/g, " ").replace(/\s+/g, " ").trim();
   const stTokens = cleanStreet.split(" ").filter(Boolean);
 
-  // Point cardinal final (p. ex. « E », « Est », « O », « Ouest »)
   if (stTokens.length >= 2) {
     const lastFold = foldAddressToken(stTokens[stTokens.length - 1]!);
     const mappedCard = CARDINAL_MAP[lastFold];
@@ -558,10 +522,9 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     }
   }
 
-  // Générique initial (« boul », « av », « rue », « ch ») ou postposé à un ordinal simple (« 1re Avenue », « 3e Rue », « 4e Rang »)
   if (stTokens.length >= 2) {
     const firstFold = foldAddressToken(stTokens[0]!);
-    // Attention : « St » suivi d'un nom est « Saint- », pas « street »
+
     const isSaint = firstFold === "st" || firstFold === "ste";
     const mappedGen = !isSaint ? GENERIC_MAP[firstFold] : undefined;
     if (mappedGen) {
@@ -596,7 +559,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
   let specificRaw = stTokens.join(" ");
   specificRaw = expandSaintAbbreviations(specificRaw, corrections);
 
-  // Conserver aussi la forme complète avec particule pour les patronymes (« De La Gauchetière », « De Maisonneuve », « D'Iberville »)
   const rawFoldedFull = foldAddressToken(specificRaw);
   const specifiqueWithParticleNorm =
     GENERIC_MAP[rawFoldedFull] || PARTICLE_SET.has(rawFoldedFull) ? "" : rawFoldedFull;
@@ -604,7 +566,6 @@ export function parseQuebecAddress(input: AdresseVerifyInput): ParsedQuebecAddre
     ? computeConsonantKey(specificRaw)
     : "";
 
-  // Retirer une particule initiale (« de la », « de l' », « à la », « à l' », « du », « des », « de », « d' », « l' »)
   const particlePrefixRe =
     /^(?:de\s+la\s+|de\s+l\s*['\u2018\u2019\u02bc]\s*|à\s+la\s+|a\s+la\s+|à\s+l\s*['\u2018\u2019\u02bc]\s*|a\s+l\s*['\u2018\u2019\u02bc]\s*|des\s+|du\s+|de\s+|aux\s+|au\s+|à\s+|a\s+|d\s*['\u2018\u2019\u02bc]\s*|l\s*['\u2018\u2019\u02bc]\s*)(?=.{2,})/iu;
   const specificCore = specificRaw.replace(particlePrefixRe, "").trim() || specificRaw;
@@ -662,8 +623,6 @@ function expandEtatRqa(code: string): string {
       return code;
   }
 }
-
-// ── Schémas Zod d'entrée et de sortie ────────────────────────────────────────
 
 export const AdresseVerifyInputSchema = z.strictObject({
   address: z
@@ -738,7 +697,7 @@ export const AdresseVerifyInputSchema = z.strictObject({
     .optional()
     .describe("Nombre maximal de candidats retournés (1 à 10, défaut 5)."),
 });
-export type AdresseVerifyInput = z.infer<typeof AdresseVerifyInputSchema>;
+type AdresseVerifyInput = z.infer<typeof AdresseVerifyInputSchema>;
 
 const OUTSIDE_QC_PROVINCE_NAMES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^(?:ontario)$/i, "Ontario"],
@@ -833,7 +792,7 @@ function matchProvinceToken(raw: string, requireUppercaseCode: boolean): string 
 function detectOutsideQuebecIndicator(input: AdresseVerifyInput): string | null {
   const checkStr = (raw: string | undefined, isMunicipalityField: boolean): string | null => {
     if (!raw) return null;
-    // Retirer code postal canadien et « Canada » en fin de chaîne pour inspecter le segment province
+
     let work = raw
       .replace(/\b[A-Za-z]\d[A-Za-z]\s*-?\s*\d[A-Za-z]\d\b/g, " ")
       .replace(/,\s*canada\s*$/i, " ")
@@ -852,7 +811,6 @@ function detectOutsideQuebecIndicator(input: AdresseVerifyInput): string | null 
       .filter(Boolean);
     if (segments.length === 0) return null;
 
-    // Inspecter le dernier segment (et l'avant-dernier si le dernier est Canada)
     const startIdx = isMunicipalityField ? 0 : Math.max(0, segments.length - 1);
     for (let i = segments.length - 1; i >= startIdx; i--) {
       const seg = segments[i]!;
@@ -860,7 +818,7 @@ function detectOutsideQuebecIndicator(input: AdresseVerifyInput): string | null 
       if (direct && (isMunicipalityField || segments.length >= 2)) {
         return direct;
       }
-      // « Toronto ON » ou « Calgary AB » ou « Ottawa Ontario »
+
       const tokens = seg.split(/\s+/).filter(Boolean);
       if (tokens.length >= 2) {
         const lastTok = tokens[tokens.length - 1]!;
@@ -887,7 +845,7 @@ function detectOutsideQuebecIndicator(input: AdresseVerifyInput): string | null 
   return checkStr(input.municipality, true) ?? checkStr(input.address, false);
 }
 
-export const MatchStatusSchema = z.enum([
+const MatchStatusSchema = z.enum([
   "exact_civic",
   "exact_civic_unit_unconfirmed",
   "fuzzy_street_exact_civic",
@@ -895,16 +853,16 @@ export const MatchStatusSchema = z.enum([
   "outside_quebec",
   "not_found",
 ]);
-export type MatchStatus = z.infer<typeof MatchStatusSchema>;
+type MatchStatus = z.infer<typeof MatchStatusSchema>;
 
-export const LotSourceSchema = z
+const LotSourceSchema = z
   .enum(["rqa_unite", "rqa_immeuble_parent", "absent"])
   .describe(
     "Provenance RQA des lots cadastraux : fiche de l'unité ('rqa_unite'), fiche du bâtiment principal / immeuble parent ('rqa_immeuble_parent') ou absent ('absent').",
   );
-export type LotSource = z.infer<typeof LotSourceSchema>;
+type LotSource = z.infer<typeof LotSourceSchema>;
 
-export const AmbiguiteCadastraleSchema = z
+const AmbiguiteCadastraleSchema = z
   .enum([
     "lots_multiples",
     "copropriete_divise_ou_multi_unites",
@@ -914,9 +872,9 @@ export const AmbiguiteCadastraleSchema = z
     "lot_associe_a_plusieurs_adresses",
   ])
   .describe("Type d'ambiguïté cadastrale ou de copropriété relevé au RQA.");
-export type AmbiguiteCadastrale = z.infer<typeof AmbiguiteCadastraleSchema>;
+type AmbiguiteCadastrale = z.infer<typeof AmbiguiteCadastraleSchema>;
 
-export const CandidatAdresseSchema = z.object({
+const CandidatAdresseSchema = z.object({
   id_adresse: z.number().int().nullable(),
   seqodo: z.string().nullable(),
   adresse_normalisee: z.string(),
@@ -979,9 +937,7 @@ export const AdresseVerifyOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type AdresseVerifyOutput = z.infer<typeof AdresseVerifyOutputSchema>;
-
-// ── Résolution SQL sur `DB_ADRESSES` ─────────────────────────────────────────
+type AdresseVerifyOutput = z.infer<typeof AdresseVerifyOutputSchema>;
 
 interface RawMunRow {
   code_municipalite: string;
@@ -1420,7 +1376,6 @@ export async function adresseVerify(
     });
   }
 
-  // 1) Résoudre les municipalités candidates si fournies
   const munMap = new Map<string, RawMunRow>();
   if (parsed.municipalityNorm) {
     const munRes = await db
@@ -1438,7 +1393,6 @@ export async function adresseVerify(
     }
   }
 
-  // Détecter aussi un code postal hors série G/H/J ou une grande ville canadienne hors QC lorsque aucune municipalité QC ne correspond
   if (munMap.size === 0) {
     const nonQcPostal =
       parsed.postalCodeCompact !== null && !/^[GHJ]/.test(parsed.postalCodeCompact);
@@ -1475,7 +1429,6 @@ export async function adresseVerify(
     new Set([parsed.consonantKey, parsed.consonantKeyWithParticle].filter((k) => k.length >= 3)),
   );
 
-  // Voie rapide par code postal + numéro civique lorsque présents
   if (parsed.postalCodeCompact && parsed.civicNumber !== null) {
     const cpRes = await db
       .prepare(
@@ -1506,7 +1459,6 @@ export async function adresseVerify(
   }
 
   if (specNormVariants.length > 0) {
-    // 2A) Correspondance exacte sur `specifique_norm` (avec ou sans particule patronymique)
     const specInSql =
       specNormVariants.length === 1
         ? "specifique_norm = ?"
@@ -1540,7 +1492,6 @@ export async function adresseVerify(
       odoCandidates.set(Number(o.id), { odo: o, isFuzzy: false, odoScore: sc });
     }
 
-    // 2B) Recherche FTS5 (renvois historiques Odonymes_renvois.csv ou mots partiels)
     const ftsTokens = parsed.specifiqueNorm
       .split(" ")
       .filter((t) => t.length >= 2)
@@ -1581,7 +1532,6 @@ export async function adresseVerify(
       }
     }
 
-    // 2C) Tolérance aux fautes de frappe : squelette consonantique + trigrammes FTS5
     if (odoCandidates.size === 0) {
       const fuzzyRows: RawOdoRow[] = [];
       if (consKeyVariants.length > 0) {
@@ -1655,7 +1605,6 @@ export async function adresseVerify(
     }
   }
 
-  // Charger les municipalités manquantes des odonymes retenus
   const missingMunCodes = Array.from(
     new Set(
       Array.from(odoCandidates.values())
@@ -1691,7 +1640,6 @@ export async function adresseVerify(
     });
   }
 
-  // 3) Cas sans numéro civique fourni -> `street_only_no_civic_match`
   if (parsed.civicNumber === null) {
     const streetCandidates: z.infer<typeof CandidatAdresseSchema>[] = [];
     for (const { odo } of rankedOdos.slice(0, maxCandidates)) {
@@ -1760,9 +1708,6 @@ export async function adresseVerify(
     });
   }
 
-  // 4) Vérifier le numéro civique (et l'unité éventuelle) dans `adresses_civiques`
-  //    Prioriser explicitement l'unité demandée et le point bâtiment principal (`numero_unite = ''`)
-  //    avant le plafond `LIMIT 80` pour ne jamais tronquer les tours à plus de 80 bureaux/logements.
   const odoIds = rankedOdos.map((r) => r.odo.id);
   const requestedUnitUpper = parsed.unitNumber.toUpperCase();
   const civRes = await db
@@ -1800,7 +1745,6 @@ export async function adresseVerify(
       const meta = odoMetaById.get(Number(c.odo_id));
       if (!meta) continue;
 
-      // Si un suffixe civique explicite a été demandé (p. ex. 123A), pénaliser l'absence de suffixe
       let sc = meta.odoScore;
       if (parsed.civicSuffix) {
         if (c.suffixe.toUpperCase() === parsed.civicSuffix) sc += 25;
@@ -1815,15 +1759,12 @@ export async function adresseVerify(
           sc += 35;
           unitConfirmed = true;
         } else if (c.numero_unite === "" && c.suffixe.toUpperCase() === parsed.unitNumber) {
-          // Certaines municipalités RQA encodent le numéro de local/bureau dans `suffixe` (p. ex. Gaspé 11, suffixe '101')
           sc += 30;
           unitConfirmed = true;
         } else if (c.numero_unite === "") {
-          // Point bâtiment principal sans subdivision d'unité au RQA
           sc += 5;
           unitConfirmed = false;
         } else {
-          // Autre unité du même immeuble -> ne pas retenir en priorité s'il existe l'unité ou le bâtiment
           sc -= 15;
           unitConfirmed = false;
         }
@@ -1847,7 +1788,6 @@ export async function adresseVerify(
 
     scoredCivics.sort((a, b) => b.totalScore - a.totalScore);
 
-    // Dédupliquer si plusieurs unités non demandées coexistent sur le même immeuble
     const deduped: ScoredCivic[] = [];
     const seenKeys = new Set<string>();
     const confirmedBuildings = new Set<string>();
@@ -2144,7 +2084,6 @@ export async function adresseVerify(
     });
   }
 
-  // 5) L'odonyme existe, mais CE numéro civique n'existe pas sur la rue -> `street_only_no_civic_match`
   const noCivicCandidates: z.infer<typeof CandidatAdresseSchema>[] = [];
   for (const { odo, isFuzzy } of rankedOdos.slice(0, maxCandidates)) {
     const mun = munMap.get(odo.code_municipalite);

@@ -45,7 +45,7 @@ export const GARDE_CODES = [
   "TERMINOLOGIE_AIDE_REDACTION_NON_NORMATIVE",
 ] as const;
 
-export const GardeCodeSchema = z.enum(GARDE_CODES);
+const GardeCodeSchema = z.enum(GARDE_CODES);
 export type GardeCode = z.infer<typeof GardeCodeSchema>;
 
 export const GardeSchema = z.object({
@@ -68,7 +68,7 @@ export const ProvenanceSchema = z.object({
 });
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 
-export const GARDE_MESSAGES: Record<GardeCode, string> = {
+const GARDE_MESSAGES: Record<GardeCode, string> = {
   SAMEDI_CONGE_LOI_INTERPRETATION_QC:
     "Sous le régime de la Loi d'interprétation (RLRQ, c. I-16), le samedi n'est pas un jour férié au sens de l'art. 61 par. 23° et l'art. 52 al. 1 ne prolonge que les délais expirant un jour férié : le report du samedi n'est donc pas appliqué par défaut sous 'qc_li'. L'art. 52 al. 2 L.I. prolonge toutefois au jour ouvrable suivant les délais expirant un samedi pour l'inscription d'un droit au bureau de la publicité des droits (activer rollover_saturday=true) ; pour la prescription, utiliser le régime 'qc_prescription' (art. 2879 al. 2 C.c.Q.).",
   SAMEDI_CONGE_LOI_INTERPRETATION_CA:

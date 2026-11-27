@@ -25,7 +25,6 @@ describe("interets_1619", () => {
   });
 
   it("calcule une année civile complète (2025) au cent exact sans perte de jours aux bornes de trimestres", () => {
-    // 2024-12-31 exclu -> 2025-12-31 inclus : 365 jours en 2025 (90 + 91 + 92 + 92)
     const legalOnly = ComputeInterest1619OutputSchema.parse(
       computeInterest1619({
         mode: "legal_only",
@@ -34,12 +33,10 @@ describe("interets_1619", () => {
       }),
     );
     expect(legalOnly.tranches[0]!.accrued_days).toBe(365);
-    expect(legalOnly.total_legal_interest_cents).toBe(500_000); // 5 000,00 $ exact
+    expect(legalOnly.total_legal_interest_cents).toBe(500_000);
     expect(legalOnly.total_additional_indemnity_cents).toBe(0);
     expect(legalOnly.total_contractual_interest_cents).toBe(0);
 
-    // En mode legal_plus_1619 sur 2025 : T1=900 bps (400 add), T2-T4=800 bps (300 add)
-    // Add = 10_000_000 * (90*400 + 275*300) / (365 * 10000) = 1000 * 118500 / 365 = 324_657.5342... -> 324_658 cents
     const with1619 = ComputeInterest1619OutputSchema.parse(
       computeInterest1619({
         mode: "legal_plus_1619",
@@ -56,7 +53,6 @@ describe("interets_1619", () => {
   });
 
   it("utilise 366 jours pour l'année bissextile 2024 et découpe correctement le passage 2024 -> 2025", () => {
-    // 2023-12-31 exclu -> 2024-12-31 inclus : 366 jours en 2024 (tous à 1000 bps -> 5% légal + 5% add.)
     const fullLeap = computeInterest1619({
       mode: "legal_plus_1619",
       end_date: "2024-12-31",
@@ -67,7 +63,6 @@ describe("interets_1619", () => {
     expect(fullLeap.total_additional_indemnity_cents).toBe(500_000);
     expect(fullLeap.total_interest_cents).toBe(1_000_000);
 
-    // 2024-01-01 exclu -> 2025-01-01 inclus : 365 jours en 2024 (/366) + 1 jour en 2025 (/365)
     const crossNewYear = computeInterest1619({
       mode: "legal_plus_1619",
       end_date: "2025-01-01",
@@ -75,7 +70,7 @@ describe("interets_1619", () => {
     });
     const periods = crossNewYear.tranches[0]!.periods;
     expect(periods.reduce((acc, p) => acc + p.days, 0)).toBe(366);
-    expect(periods[0]!.days).toBe(90); // 2 janv..31 mars 2024 (bissextile)
+    expect(periods[0]!.days).toBe(90);
     expect(periods[0]!.year_days).toBe(366);
     expect(periods[4]!.period_label).toBe("2025-Q1");
     expect(periods[4]!.days).toBe(1);
@@ -87,7 +82,6 @@ describe("interets_1619", () => {
     expect(roundHalfAwayFromZero(4n, 2n)).toBe(2n);
     expect(roundHalfAwayFromZero(-5n, 2n)).toBe(-3n);
 
-    // 100 000 000,00 $ (= 10_000_000_000 cents) sur 366 jours en 2024 à 5% légal exact -> 5 000 000,00 $
     const huge = computeInterest1619({
       mode: "legal_only",
       end_date: "2024-12-31",
@@ -116,7 +110,7 @@ describe("interets_1619", () => {
     );
     expect(out.total_legal_interest_cents).toBe(0);
     expect(out.total_additional_indemnity_cents).toBe(0);
-    // 50 000 * 12% + 25 000 * 10% = 6 000 + 2 500 = 8 500 $
+
     expect(out.total_contractual_interest_cents).toBe(850_000);
     expect(out.total_interest_cents).toBe(850_000);
     expect(out.grand_total_cents).toBe(8_350_000);
@@ -156,7 +150,6 @@ describe("interets_1619", () => {
     expect(periods.find((p) => p.period_label === "2026-Q4")?.overridden).toBe(false);
     expect(periods.find((p) => p.period_label === "2027-Q1")?.overridden).toBe(true);
 
-    // A-N1 : rate_overrides interdit sur un trimestre déjà publié dans la table embarquée
     expect(() =>
       computeInterest1619({
         mode: "legal_plus_1619",
@@ -174,7 +167,6 @@ describe("interets_1619", () => {
     });
     expect(sameDay.total_interest_cents).toBe(0);
 
-    // 2021 avait LAF = 500 bps toute l'année -> indemnité additionnelle = 0
     const year2021 = computeInterest1619({
       end_date: "2021-12-31",
       tranches: [{ principal_cents: 10_000_000, start_date: "2020-12-31" }],
@@ -250,7 +242,6 @@ describe("interets_1619", () => {
     expect(out.total_contractual_interest_cents).toBe(expectedCents);
     expect(out.total_interest_cents).toBe(expectedCents);
 
-    // Couverture dès le 2001-01-01 grâce à la graine 2000-12-27 = 750 bps
     const jan2001 = computeInterest1619({
       mode: "prime_plus_margin",
       end_date: "2001-01-05",
@@ -260,7 +251,6 @@ describe("interets_1619", () => {
     expect(jan2001.tranches[0]!.periods[0]!.prime_rate_bps).toBe(750);
     expect(jan2001.tranches[0]!.periods[0]!.spread_bps).toBe(0);
 
-    // Marge négative supérieure au taux préférentiel -> plancher à 0 bps effectif
     const negativeFloor = computeInterest1619({
       mode: "prime_plus_margin",
       end_date: "2026-11-18",

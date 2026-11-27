@@ -1,16 +1,3 @@
-"""Orchestrateur de bascule bleu-vert hors ligne pour les 4 bases D1 de `MCP-Outils`.
-
-Modèle d'exploitation sans interruption ni corruption de production :
-1. Provisionner une nouvelle base D1 datée (p. ex. `outils-registres-20261115`, région `enam`).
-2. Y charger par lots l'instantané SQLite validé localement.
-3. Vérifier sur la base distante les comptes de lignes, la taille (< 10 Go) et les index `FTS5`.
-4. Basculer atomiquement `database_name` et `database_id` dans `wrangler.jsonc` (`--swap`),
-   de sorte que la base active en production reste intacte jusqu'au `wrangler deploy` explicite.
-
-Usage :
-  python -m pipeline.common.blue_green --list
-  python -m pipeline.common.blue_green --swap --binding DB_REGISTRES --db-name outils-registres --db-id <uuid>
-"""
 from __future__ import annotations
 
 import argparse

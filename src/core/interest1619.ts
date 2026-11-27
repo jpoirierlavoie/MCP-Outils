@@ -13,24 +13,24 @@ import {
   parseIsoDate,
   quarterKey,
 } from "./dates.js";
+import { assertSafeInt, formatMicros6 } from "./format.js";
 import { Garde, GardeCode, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
 const ISO_DATE_FORMAT_RE = /^\d{4}-\d{2}-\d{2}$/;
 const QUARTER_RE = /^\d{4}-Q[1-4]$/;
 
-// lcm(365, 366) * 10_000 basis points = 133_590 * 10_000
 export const EXACT_EXACT_COMMON_DENOMINATOR = 1_335_900_000n;
-export const LEGAL_INTEREST_RATE_BPS = lafRatesJson.metadata.legal_rate_bps;
+const LEGAL_INTEREST_RATE_BPS = lafRatesJson.metadata.legal_rate_bps;
 
-export const InterestModeSchema = z.enum([
+const InterestModeSchema = z.enum([
   "legal_plus_1619",
   "legal_only",
   "contractual",
   "prime_plus_margin",
 ]);
-export type InterestMode = z.infer<typeof InterestModeSchema>;
+type InterestMode = z.infer<typeof InterestModeSchema>;
 
-export const RateOverrideSchema = z.strictObject({
+const RateOverrideSchema = z.strictObject({
   quarter: z
     .string()
     .regex(QUARTER_RE)
@@ -44,9 +44,9 @@ export const RateOverrideSchema = z.strictObject({
       "Taux annuel total fixé sous l'art. 28 L.A.F. en points de base (p. ex. 700 pour 7,00 %).",
     ),
 });
-export type RateOverride = z.infer<typeof RateOverrideSchema>;
+type RateOverride = z.infer<typeof RateOverrideSchema>;
 
-export const CapitalTrancheInputSchema = z.strictObject({
+const CapitalTrancheInputSchema = z.strictObject({
   label: z
     .string()
     .min(1)
@@ -91,7 +91,6 @@ export const CapitalTrancheInputSchema = z.strictObject({
       "Marge en points de base ajoutée au taux préférentiel BDC V80691311 propre à cette tranche (mode 'prime_plus_margin', p. ex. 200 pour +2,00 %, -50 pour -0,50 %).",
     ),
 });
-export type CapitalTrancheInput = z.infer<typeof CapitalTrancheInputSchema>;
 
 export const ComputeInterest1619InputSchema = z.strictObject({
   mode: InterestModeSchema.optional().describe(
@@ -132,9 +131,9 @@ export const ComputeInterest1619InputSchema = z.strictObject({
     .max(50)
     .describe("Liste d'une à 50 tranches de capital datées à calculer en intérêt simple."),
 });
-export type ComputeInterest1619Input = z.infer<typeof ComputeInterest1619InputSchema>;
+type ComputeInterest1619Input = z.infer<typeof ComputeInterest1619InputSchema>;
 
-export const InterestPeriodSliceSchema = z.object({
+const InterestPeriodSliceSchema = z.object({
   period_label: z.string(),
   start_date_included: z.string(),
   end_date_included: z.string(),
@@ -153,9 +152,9 @@ export const InterestPeriodSliceSchema = z.object({
   contractual_interest_cad_exact_6dec: z.string(),
   total_interest_cad_exact_6dec: z.string(),
 });
-export type InterestPeriodSlice = z.infer<typeof InterestPeriodSliceSchema>;
+type InterestPeriodSlice = z.infer<typeof InterestPeriodSliceSchema>;
 
-export const TrancheResultSchema = z.object({
+const TrancheResultSchema = z.object({
   index: z.number().int(),
   label: z.string(),
   principal_cents: z.number().int(),
@@ -178,7 +177,7 @@ export const TrancheResultSchema = z.object({
   total_with_principal_cad: z.string(),
   periods: z.array(InterestPeriodSliceSchema),
 });
-export type TrancheResult = z.infer<typeof TrancheResultSchema>;
+type TrancheResult = z.infer<typeof TrancheResultSchema>;
 
 export const ComputeInterest1619OutputSchema = z.object({
   mode: InterestModeSchema,
@@ -225,27 +224,16 @@ export function formatCentsToCad(cents: bigint | number): string {
   return `${neg ? "-" : ""}${whole.toString()}.${frac}`;
 }
 
-/**
- * Formats an exact rational cent value `(num / EXACT_EXACT_COMMON_DENOMINATOR)`
- * as dollars with 6 decimal places (pure audit formatting).
- */
 function formatRationalCentsAsCad6(numerator: bigint): string {
   const scaledMicroDollars = roundHalfAwayFromZero(
     numerator * 10_000n,
     EXACT_EXACT_COMMON_DENOMINATOR,
   );
-  const neg = scaledMicroDollars < 0n;
-  const abs = neg ? -scaledMicroDollars : scaledMicroDollars;
-  const whole = abs / 1_000_000n;
-  const frac = (abs % 1_000_000n).toString().padStart(6, "0");
-  return `${neg ? "-" : ""}${whole.toString()}.${frac}`;
+  return formatMicros6(scaledMicroDollars);
 }
 
 function assertSafeIntCents(val: bigint, label: string): number {
-  if (val > BigInt(Number.MAX_SAFE_INTEGER) || val < BigInt(-Number.MAX_SAFE_INTEGER)) {
-    throw new RangeError(`Dépassement de capacité entière sécuritaire pour ${label}.`);
-  }
-  return Number(val);
+  return assertSafeInt(val, `pour ${label}`);
 }
 
 function buildLafRateMap(overrides?: RateOverride[]): {
