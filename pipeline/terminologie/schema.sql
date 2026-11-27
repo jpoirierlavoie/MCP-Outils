@@ -1,5 +1,3 @@
--- Schéma de base DB_TERMINOLOGIE (outils-terminologie) — strictement en lecture seule à la requête.
-
 DROP TABLE IF EXISTS meta_sources;
 DROP TABLE IF EXISTS regles_contamination;
 DROP TABLE IF EXISTS fiches_fts;
@@ -21,7 +19,7 @@ CREATE TABLE meta_sources (
 CREATE TABLE fiches_terminologiques (
   id                      INTEGER PRIMARY KEY,
   slug                    TEXT,
-  rang_source             INTEGER NOT NULL, -- 1: Glossaire QC, 2: Législation QC/CA, 3: TERMIUM Plus, 4: OQLF
+  rang_source             INTEGER NOT NULL,
   source_nom              TEXT NOT NULL,
   licence_source          TEXT NOT NULL,
   terme_fr                TEXT NOT NULL,
@@ -32,7 +30,7 @@ CREATE TABLE fiches_terminologiques (
   synonymes_en_json       TEXT NOT NULL DEFAULT '[]',
   termes_deconseilles_json TEXT NOT NULL DEFAULT '[]',
   termes_recherche        TEXT NOT NULL,
-  systeme_juridique       TEXT NOT NULL, -- 'droit_civil_qc' | 'common_law' | 'bijuridique_federal' | 'procedure_qc' | 'general'
+  systeme_juridique       TEXT NOT NULL,
   domaine                 TEXT NOT NULL,
   note_ou_definition      TEXT NOT NULL DEFAULT '',
   base_legale             TEXT,
@@ -42,7 +40,7 @@ CREATE TABLE fiches_terminologiques (
 
 CREATE TABLE lois_bilingues (
   law_id           TEXT PRIMARY KEY,
-  jurisdiction     TEXT NOT NULL, -- 'qc' | 'ca'
+  jurisdiction     TEXT NOT NULL,
   name_fr          TEXT NOT NULL,
   name_en          TEXT NOT NULL,
   official_cite    TEXT NOT NULL,
@@ -63,12 +61,12 @@ CREATE TABLE articles_bilingues (
 CREATE TABLE regles_contamination (
   id                    INTEGER PRIMARY KEY,
   code_regle            TEXT NOT NULL UNIQUE,
-  lang                  TEXT NOT NULL, -- 'fr' | 'en'
+  lang                  TEXT NOT NULL,
   pattern_term          TEXT NOT NULL,
   pattern_norm          TEXT NOT NULL,
   case_sensitive        INTEGER NOT NULL DEFAULT 0,
-  risk_category         TEXT NOT NULL, -- 'francisme_france' | 'anglicisme_ou_common_law' | 'archaisme_qc' | 'omission_bijuridique'
-  allowed_in_bijural_if TEXT,          -- terme compagnon autorisant le doublet fédéral en contexte bijuridique_federal
+  risk_category         TEXT NOT NULL,
+  allowed_in_bijural_if TEXT,
   reason_fr             TEXT NOT NULL,
   suggested_replacement TEXT NOT NULL,
   legal_basis           TEXT NOT NULL

@@ -2,8 +2,8 @@ name: Synchronisation DB_ECONOMIE (taux BdC, change, IPC StatCan et loyers SCHL)
 
 on:
   schedule:
-    - cron: "15 22 * * 1-5" # Jours ouvrables : FX_RATES_DAILY + V39079/V122530/V80691311
-    - cron: "30 14 20 * *"  # Mensuel (le 20) : IPC StatCan 18-10-0004-01/05 + SCHL 34-10-0133-01
+    - cron: "15 22 * * 1-5"
+    - cron: "30 14 20 * *"
   workflow_dispatch:
     inputs:
       mode:

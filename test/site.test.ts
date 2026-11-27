@@ -206,7 +206,7 @@ describe("page publique GET / et fichiers de découverte", () => {
     expect(html).toContain("openWorldHint: false");
   });
 
-  it("dérive les issues du parseur, les juridictions, les 56 greffes, 36 districts et les gardes", () => {
+  it("dérive les issues du parseur, les juridictions, les 57 greffes, 36 districts et les gardes", () => {
     const html = pagePubliqueHtml();
     expect(html).toContain(analyserNumeroDossier("500-05-123456-241").greffe!.palais_de_justice);
     for (const code of Object.keys(JURIDICTIONS)) {

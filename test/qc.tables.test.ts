@@ -1,12 +1,3 @@
-/**
- * Tables de référence du Québec — invariants de forme.
- *
- * Ces tests ne vérifient pas une fonctionnalité : ils empêchent une DÉRIVE. Les tables
- * sont un relevé daté d'une source extérieure, et une ligne recopiée de travers ne se
- * signale par aucune erreur — elle rend simplement une mauvaise adresse, ce qui, pour
- * une signification, est pire qu'une panne. Portés de Pallas Athéna
- * (`athena/tests/test_reference_addresses.py`, `test_reference_forums.py`).
- */
 import { describe, expect, it } from "vitest";
 
 import { FORUMS, INDEX_PREFIXE_FORUM } from "../src/qc/forums.js";
@@ -23,7 +14,6 @@ import {
 } from "../src/qc/lookup.js";
 import { PALAIS, RELEVE_LE } from "../src/qc/palais.js";
 
-/** Greffes itinérants sans adresse civique fixe résolvable — ensemble ATTENDU. */
 const GREFFES_SANS_ADRESSE = ["614", "625", "640", "652"];
 
 describe("comptes — le relevé du 2026-11-17", () => {
@@ -38,8 +28,6 @@ describe("comptes — le relevé du 2026-11-17", () => {
   });
 
   it("57 greffes, 27 juridictions, 20 forums", () => {
-    // 57 et non 56 : la reconciliation du 2026-07-30 a AJOUTE le greffe 625
-    // (Senneterre), absent de la table portee d'Athena.
     expect(Object.keys(GREFFES)).toHaveLength(57);
     expect(Object.keys(JURIDICTIONS)).toHaveLength(27);
     expect(Object.keys(FORUMS)).toHaveLength(20);
@@ -127,10 +115,6 @@ describe("adresses — complètes ou franchement absentes", () => {
   });
 
   it("plus AUCUN palais orphelin : Kuujjuaq est rattache par le MJQ", () => {
-    // Athena laissait Kuujjuaq volontairement orphelin, refusant de le rattacher au
-    // juge a un greffe itinerant du Nunavik. La page officielle tranche : greffe 635,
-    // et il n'y est PAS itinerant — c'est le siege fixe. Le rattachement repose donc
-    // sur une SOURCE, non sur une conjecture.
     expect(palaisOrphelins()).toEqual([]);
     expect(greffesDuPalais("kuujjuaq").map((g) => g.numero)).toEqual(["635"]);
     expect(siegeFixe("635")?.clef).toBe("kuujjuaq");
@@ -140,7 +124,6 @@ describe("adresses — complètes ou franchement absentes", () => {
 
 describe("jointure greffe -> palais", () => {
   it("aucun palais n'est revendiqué par deux greffes", () => {
-    // Un doublon signalerait un appariement de noms erroné, pas un vrai bâtiment partagé.
     const clefs = Object.values(GREFFES)
       .map((g) => g.palais_key)
       .filter((k): k is string => k !== null);
@@ -155,7 +138,6 @@ describe("jointure greffe -> palais", () => {
   });
 
   it("la jointure tient MALGRÉ des noms qui diffèrent", () => {
-    // C'est exactement pourquoi on joint par palais_key et jamais par le nom.
     expect(GREFFES["615"]!.palais_de_justice).toBe("Val d'Or");
     expect(PALAIS["val-dor"]!.name).toBe("Val-d'Or");
     expect(adresseDuGreffe("615")!.name).toBe("Val-d'Or");
@@ -177,16 +159,13 @@ describe("les deux pièges à NE PAS corriger", () => {
   });
 
   it("point_de_service ne désigne PAS la même chose des deux côtés", () => {
-    // Côté greffe : les quatre cours ITINÉRANTES.
     const itinerants = Object.entries(GREFFES)
       .filter(([, g]) => g.point_de_service)
       .map(([n]) => n)
       .sort();
-    // 625 (Senneterre) s'ajoute depuis la reconciliation du 2026-07-30.
+
     expect(itinerants).toEqual(["614", "625", "635", "640", "652"]);
 
-    // Côté palais : les neuf points de service du MJQ — que la table des greffes
-    // marque tous `false`. Les deux divergent PAR CONSTRUCTION.
     const pointsMjq = Object.entries(PALAIS)
       .filter(([, p]) => p.location_type === "point_de_service")
       .map(([k]) => k);
@@ -199,13 +178,12 @@ describe("les deux pièges à NE PAS corriger", () => {
   });
 
   it("les localites desservies viennent du MJQ, plus completes qu'Athena", () => {
-    // Athena n'en couvrait que quatre greffes ; le releve officiel en nomme davantage.
     expect(localitesItinerantes("614")).toContain("Mistissini");
     expect(localitesItinerantes("652")).toContain("Fermont");
-    // Deux que la liste d'Athena ignorait entierement :
+
     expect(localitesItinerantes("760")).toEqual(["Vaudreuil-Dorion"]);
-    expect(localitesItinerantes("625")).toEqual([]); // Senneterre EST le chef-lieu
-    // Un greffe ordinaire n'a aucune localite itinerante.
+    expect(localitesItinerantes("625")).toEqual([]);
+
     expect(localitesItinerantes("500")).toEqual([]);
   });
 });
@@ -242,9 +220,6 @@ describe("index de préfixe des forums", () => {
   });
 
   it("les tribunaux du flux judiciaire sont délibérément ABSENTS", () => {
-    // Tribunal des droits de la personne et Tribunal des professions relèvent de la
-    // Cour du Québec : le parseur les couvre par les juridictions 53 et 07. Les
-    // ajouter ici créerait deux réponses concurrentes pour un même dossier.
     const noms = Object.values(FORUMS).map((f) => f.name);
     expect(noms).not.toContain("Tribunal des droits de la personne");
     expect(noms).not.toContain("Tribunal des professions");
@@ -255,16 +230,14 @@ describe("index de préfixe des forums", () => {
 
 describe("juridictions", () => {
   it("le tiret cadratin de 46, 72 et 73 est une valeur RÉELLE", () => {
-    // Ces séries ne relèvent d'aucun tribunal nommé. Ce n'est pas un champ vide.
     for (const code of ["46", "72", "73"]) {
       expect(JURIDICTIONS[code]!.tribunal, code).toBe("—");
     }
   });
 
   it("porte les libellés CORRIGÉS, non les périmés", () => {
-    // Régression contre la réapparition d'une copie ancienne (Athéna, commit d1575bd).
-    expect(JURIDICTIONS["17"]!.competence).toBe("Chambre civile"); // ex- « Voie allégée »
-    expect(JURIDICTIONS["09"]!.competence).toBe("Chambre civile"); // ex- « Affaires civiles »
+    expect(JURIDICTIONS["17"]!.competence).toBe("Chambre civile");
+    expect(JURIDICTIONS["09"]!.competence).toBe("Chambre civile");
     expect(JURIDICTIONS["11"]!.competence).toBe("Chambre commerciale");
     expect(JURIDICTIONS["61"]!.competence).toBe("Chambre criminelle et pénale");
   });

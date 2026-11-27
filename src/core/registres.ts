@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
+import {
+  expandLigatureFtsTokenVariants,
+  foldAsciiAlnum,
+  foldLatinDiacritics,
+} from "./normalize.js";
 
 const FLAG_RBQ = 1;
 const FLAG_OPC = 2;
@@ -73,46 +78,15 @@ function isCorporateForm(forme: string | null | undefined): boolean {
 const DOTTED_ACRONYM_RE =
   /(?<![\p{L}\p{N}])(?:\p{L}\.){2,}\p{L}?(?![\p{L}\p{N}])|(?<![\p{L}\p{N}])(?:\p{L}\.)+\p{L}(?![\p{L}\p{N}])/gu;
 
-function expandLigatures(raw: string): string {
-  return raw
-    .replace(/Œ/g, "OE")
-    .replace(/œ/g, "oe")
-    .replace(/Æ/g, "AE")
-    .replace(/æ/g, "ae")
-    .replace(/ß/g, "ss");
-}
-
-function expandLigatureFtsTokenVariants(tok: string): string[] {
-  const out = new Set<string>([tok]);
-  if (tok.includes("oe")) out.add(tok.replace(/oe/g, "œ"));
-  if (tok.includes("ae")) out.add(tok.replace(/ae/g, "æ"));
-  if (tok.includes("œ")) out.add(tok.replace(/œ/g, "oe"));
-  if (tok.includes("æ")) out.add(tok.replace(/æ/g, "ae"));
-  return Array.from(out);
-}
-
-export function normalizeEntitySearch(raw: string): string {
-  // Recomposer les sigles ponctués (p. ex. S.E.N.C.R.L. -> sencrl, S.A. -> sa, C.É.G.E.P. -> cegep)
+function normalizeEntitySearch(raw: string): string {
   const collapsedAcronyms = raw.replace(DOTTED_ACRONYM_RE, (m) => m.replace(/\./g, ""));
-  return expandLigatures(collapsedAcronyms)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\u2018\u2019\u02bc]/g, " ")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
+  return foldAsciiAlnum(collapsedAcronyms);
 }
 
 function buildRegistreFtsQuery(rawQuery: string): string | null {
   const collapsed = rawQuery.replace(DOTTED_ACRONYM_RE, (m) => m.replace(/\./g, ""));
-  const folded = expandLigatures(collapsed)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\u2018\u2019\u02bc]/g, " ")
-    .toLowerCase();
+  const folded = foldLatinDiacritics(collapsed);
 
-  // Détecter les sociétés à numéro québécoises : « 9123-4567 » ou « 91234567 »
   const groups: string[] = [];
   let working = folded;
 
@@ -143,7 +117,6 @@ function buildRegistreFtsQuery(rawQuery: string): string | null {
     }
   }
 
-  // Repli si la dénomination est composée uniquement d'initiales d'un caractère (p. ex. « A&W », « H&M »)
   if (groups.length === 0 && chosenTokens.length > 0) {
     for (const tok of chosenTokens) {
       groups.push(`"${tok}"`);
@@ -152,8 +125,6 @@ function buildRegistreFtsQuery(rawQuery: string): string | null {
 
   return groups.length > 0 ? groups.join(" AND ") : null;
 }
-
-// ── Schémas d'entrée et de sortie ────────────────────────────────────────────
 
 export const RegistreSearchEntitiesInputSchema = z.strictObject({
   query: z
@@ -184,9 +155,9 @@ export const RegistreSearchEntitiesInputSchema = z.strictObject({
     .optional()
     .describe("Nombre maximal de candidats retournés (1 à 25, défaut 10)."),
 });
-export type RegistreSearchEntitiesInput = z.infer<typeof RegistreSearchEntitiesInputSchema>;
+type RegistreSearchEntitiesInput = z.infer<typeof RegistreSearchEntitiesInputSchema>;
 
-export const CandidatRegistreSchema = z.object({
+const CandidatRegistreSchema = z.object({
   jurisdiction: z.enum(["qc", "ca", "gleif"]),
   neq: z.string().nullable(),
   corporation_number: z.string().nullable(),
@@ -217,7 +188,7 @@ export const RegistreSearchEntitiesOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type RegistreSearchEntitiesOutput = z.infer<typeof RegistreSearchEntitiesOutputSchema>;
+type RegistreSearchEntitiesOutput = z.infer<typeof RegistreSearchEntitiesOutputSchema>;
 
 export const RegistreGetEntityInputSchema = z.strictObject({
   neq: z
@@ -257,9 +228,9 @@ export const RegistreGetEntityInputSchema = z.strictObject({
       "Identifiant d'entité juridique GLEIF (LEI ISO 17442 à 20 caractères alphanumériques, p. ex. '5493001KJTIIGC8Y1R12'). Fournir exactement l'un des quatre identifiants : neq, corporation_number, bn_ne ou lei.",
     ),
 });
-export type RegistreGetEntityInput = z.infer<typeof RegistreGetEntityInputSchema>;
+type RegistreGetEntityInput = z.infer<typeof RegistreGetEntityInputSchema>;
 
-export const RbqLicenceSchema = z.object({
+const RbqLicenceSchema = z.object({
   numero_licence: z.string(),
   statut: z.string(),
   type_licence: z.string(),
@@ -271,7 +242,7 @@ export const RbqLicenceSchema = z.object({
   cautionnement_montant: z.string().nullable(),
 });
 
-export const OpcPermisSchema = z.object({
+const OpcPermisSchema = z.object({
   numero_permis: z.string(),
   categorie_permis: z.string(),
   nom_commercant: z.string(),
@@ -281,7 +252,7 @@ export const OpcPermisSchema = z.object({
   autres_noms: z.string().nullable(),
 });
 
-export const RenaInscriptionSchema = z.object({
+const RenaInscriptionSchema = z.object({
   nom_entreprise: z.string(),
   categorie: z.string().nullable(),
   adresse: z.string().nullable(),
@@ -291,7 +262,7 @@ export const RenaInscriptionSchema = z.object({
   decision_amp: z.string().nullable(),
 });
 
-export const ProfilQuebecSchema = z.object({
+const ProfilQuebecSchema = z.object({
   neq: z.string(),
   nom_officiel: z.string(),
   is_active: z.boolean(),
@@ -378,7 +349,7 @@ export const ProfilQuebecSchema = z.object({
   rena_inscriptions: z.array(RenaInscriptionSchema),
 });
 
-export const ProfilFederalSchema = z.object({
+const ProfilFederalSchema = z.object({
   corporation_number: z.string(),
   bn_ne: z.string().nullable(),
   nom_officiel: z.string(),
@@ -405,7 +376,7 @@ export const ProfilFederalSchema = z.object({
   }),
 });
 
-export const GleifParentSchema = z.object({
+const GleifParentSchema = z.object({
   lei: z.string(),
   nom_legal: z.string().nullable(),
   pays: z.string().nullable(),
@@ -421,13 +392,13 @@ export const GleifParentSchema = z.object({
   matched_corporation_number: z.string().nullable(),
 });
 
-export const GleifExceptionSchema = z.object({
+const GleifExceptionSchema = z.object({
   categorie: z.string(),
   raisons: z.array(z.string()),
   libelle_fr: z.string(),
 });
 
-export const GleifFilialeSchema = z.object({
+const GleifFilialeSchema = z.object({
   lei: z.string(),
   nom_legal: z.string(),
   type_lien: z.enum(["direct", "ultime", "direct_et_ultime"]),
@@ -437,7 +408,7 @@ export const GleifFilialeSchema = z.object({
   matched_corporation_number: z.string().nullable(),
 });
 
-export const ProfilGleifSchema = z.object({
+const ProfilGleifSchema = z.object({
   lei: z.string(),
   is_canadian: z.boolean(),
   nom_legal: z.string(),
@@ -468,7 +439,7 @@ export const ProfilGleifSchema = z.object({
   filiales_canadiennes_total: z.number().int(),
 });
 
-export const PortailOfficielLienSchema = z.object({
+const PortailOfficielLienSchema = z.object({
   url: z.string(),
   portal_info_url: z.string().optional(),
   search_url: z.string().optional(),
@@ -476,7 +447,7 @@ export const PortailOfficielLienSchema = z.object({
   objet_fr: z.string(),
 });
 
-export const PortailsOfficielsSchema = z.object({
+const PortailsOfficielsSchema = z.object({
   req: PortailOfficielLienSchema.nullable(),
   corporations_canada: PortailOfficielLienSchema.nullable(),
   isc_pisc: PortailOfficielLienSchema.nullable(),
@@ -494,9 +465,7 @@ export const RegistreGetEntityOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type RegistreGetEntityOutput = z.infer<typeof RegistreGetEntityOutputSchema>;
-
-// ── Accès base D1 en lecture seule ───────────────────────────────────────────
+type RegistreGetEntityOutput = z.infer<typeof RegistreGetEntityOutputSchema>;
 
 interface RawEntiteRow {
   id: number;
@@ -648,7 +617,7 @@ async function loadDomaineValeurForPairs(
   if (unique.length === 0) {
     return map;
   }
-  // Tranches de <= 40 paires (<= 80 paramètres liés) utilisant la clé primaire (typ_dom_val, cod_dom_val)
+
   for (let i = 0; i < unique.length; i += 40) {
     const chunk = unique.slice(i, i + 40);
     const whereClause = chunk.map(() => "(typ_dom_val = ? AND cod_dom_val = ?)").join(" OR ");
@@ -683,12 +652,7 @@ const QC_UNIT_OR_FLOOR_FOLDED_RE =
 
 function isUnitOrFloorLine(raw: string): boolean {
   if (/^\s*#\s*\d+/.test(raw)) return true;
-  const folded = expandLigatures(raw)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+  const folded = foldAsciiAlnum(raw);
   return !folded || QC_UNIT_OR_FLOOR_FOLDED_RE.test(folded);
 }
 
@@ -848,7 +812,6 @@ export async function registreSearchEntities(
   const isLeiQuery = /^[A-Z0-9]{20}$/.test(alnumOnly);
   const byId = new Map<number, { row: RawEntiteRow; score: number }>();
 
-  // 1) Recherche directe par identifiant numérique (NEQ 10 ch., NE 9 ch., n° fédéral)
   if (/^\d{5,10}$/.test(digitsOnly)) {
     let idSql = `
       SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
@@ -868,7 +831,6 @@ export async function registreSearchEntities(
     }
   }
 
-  // 1b) Recherche directe par LEI à 20 caractères (ISO 17442)
   if (isLeiQuery && caps.hasEntitesLeiCol) {
     let leiSql = `
       SELECT id, juridiction, identifiant_principal, bn_ne, is_active, nom_officiel,
@@ -913,7 +875,6 @@ export async function registreSearchEntities(
     }
   }
 
-  // 2) Recherche plein texte FTS5 (avec normalisation des accents, suffixes et sociétés à numéro)
   const ftsQuery = buildRegistreFtsQuery(input.query);
   if (ftsQuery) {
     let ftsSql = `
@@ -949,7 +910,6 @@ export async function registreSearchEntities(
     }
   }
 
-  // 2b) Repli additif sur `gleif_entites` pour les entités canadiennes titulaires d'un LEI sans ligne `juridiction='lei'` dans `entites`
   if (caps.hasGleifEntites && (jurisdiction === "gleif" || jurisdiction === "all") && !isLeiQuery) {
     const qNormFull = normalizeEntitySearch(input.query);
     const rawTokens = qNormFull.split(" ").filter(Boolean);
@@ -1131,7 +1091,6 @@ export async function registreSearchEntities(
     }
   }
 
-  // Résolution transversale de la dispense d'adresse LPLE (da=1) pour les lignes fédérales/LEI liées à une fiche QC
   const daMaskedLeis = new Set<string>();
   const daMaskedNeqs = new Set<string>();
   const checkLeisSet = new Set<string>();
@@ -1458,7 +1417,6 @@ export async function registreGetEntity(
       .first<RawGleifEntiteRow>();
   }
 
-  // Résolution croisée entre REQ (qc), Corporations Canada (ca) et GLEIF
   if (caps.hasGleifEntites && !gleifRow) {
     if (qcRow?.lei) {
       gleifRow = await db
@@ -1534,7 +1492,6 @@ export async function registreGetEntity(
     }
   }
 
-  // Cas où un NEQ n'est pas dans entites (p. ex. req.zip non chargé) mais figure dans RBQ/OPC/RENA
   let rbqRows: Array<{ numero_licence: string; payload_json: string }> = [];
   let opcRows: Array<{ numero_permis: string; payload_json: string }> = [];
   let renaRows: Array<{ nom_entreprise: string; payload_json: string }> = [];
@@ -1575,7 +1532,6 @@ export async function registreGetEntity(
     };
   }
 
-  // Calcul de la dispense d'adresse LPLE (da=1) AVANT toute sérialisation QC, fédérale ou GLEIF
   const qcFiche = parseJsonSafe<QcFicheCompact>(qcRow?.fiche_json ?? null, {});
   const dispenseAdresse = qcFiche.da === 1;
 

@@ -1,15 +1,7 @@
-/**
- * Chaînes ANGLAISES de la page publique (`GET /`).
- *
- * Ce dépôt est francophone : les titres d'outils, descriptions, schémas et
- * réserves (`GARDE_*`) n'existent qu'en français, langue canonique reçue par le
- * modèle. Ce fichier ne porte QUE les traductions anglaises de la page publique.
- */
-
 import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 
-export interface OutilEn {
+interface OutilEn {
   readonly titre: string;
   readonly resume: readonly string[];
   readonly texte: string;
@@ -231,7 +223,6 @@ export const EN = {
       "sources before serving or filing.",
   ],
 
-  // ── Les six familles d'outils ──────────────────────────────────────────────
   outilsIntro: [
     "You never need to run these tools manually: your AI assistant calls them automatically behind " +
       "the scenes when calculating dates, interest, or TAL rents, verifying party details or addresses, " +
@@ -278,7 +269,6 @@ export const EN = {
       "market rents 34-10-0133-01) with embedded Tribunal administratif du logement schedules (CQLR, c. T-15.01, r. 2).",
   ],
 
-  // ── Schémas ────────────────────────────────────────────────────────────────
   schemaTexte: [
     "Technical reference for developers and automated scripts: every tool accepts only the " +
       "parameters listed below, generated directly from the server's validation rules.",
@@ -292,7 +282,6 @@ export const EN = {
   colDescription: "Description",
   requis: "required",
 
-  // ── Numéro de dossier ──────────────────────────────────────────────────────
   dossierTexte: [
     "A Québec judicial file number reads NNN-NN-NNNNNN-NNN. Positions 1–3 identify the registry " +
       "(courthouse and judicial district), and positions 5–6 identify the jurisdiction (court, " +
@@ -309,7 +298,6 @@ export const EN = {
   colEntree: "Input",
   colIssue: "Outcome",
 
-  // ── Greffes et palais ──────────────────────────────────────────────────────
   greffesTexte: [
     "Québec court registries, indexed by the three-digit number at the start of a court file " +
       "number. A registry is an administrative register and a courthouse is a building: a single " +
@@ -341,7 +329,6 @@ export const EN = {
   colCompetence: "Competence",
   colGreffeType: "Registry type",
 
-  // ── Accès & pied ───────────────────────────────────────────────────────────
   acces: [
     "Public connector — no Barreau account, login, or API key required.",
     "If you install the droit-civil-quebecois plugin, this connector is included automatically. You " +
@@ -353,7 +340,7 @@ export const EN = {
     "Public endpoint: https://outils.poirierlavoie.ca/mcp. The MCP Server Card is published at " +
       "https://outils.poirierlavoie.ca/mcp/server-card, and the repository includes standalone " +
       "manifests for Google Antigravity and Gemini CLI. Zero-logging health check: " +
-      "https://outils.poirierlavoie.ca/healthz (rate limit: 240 requests per minute per IP).",
+      "https://outils.poirierlavoie.ca/health (rate limit: 240 requests per minute per IP).",
     "The source code and civil-law glossary are free and open-source under Apache-2.0 (see " +
       "LICENSE), while integrated public datasets remain governed by their publishers' licenses " +
       "documented in NOTICE (including CC BY-NC-SA 4.0 for REQ and OQLF).",

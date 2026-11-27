@@ -1,29 +1,3 @@
-/**
- * Palais de justice et points de service de justice du Québec — table PURE.
- *
- * ⚠ FICHIER GÉNÉRÉ par `scripts/extraire-palais-mjq.mjs` depuis l'instantané
- *   officiel `sources-officielles/mjq-palais-2026-11-17.json`.
- *
- * ⚠ PROVENANCE ET PÉREMPTION. Relevé auprès du ministère de la Justice du Québec
- *   (« Trouver un palais de justice ») le 2026-11-17 : 44 palais de justice
- *   (incluant la Chambre de la jeunesse de Montréal, greffe 525) et 9 points de
- *   service (incluant Sainte-Agathe-des-Monts, greffe 715). **Les palais déménagent.**
- *   Aucune sortie d'outil ne rend ces adresses sans la réserve de `GARDE_PALAIS`
- *   (src/qc/format.ts) — un praticien qui signifie à une ancienne adresse rate son délai.
- *
- * Porté initialement de Pallas Athéna (`athena/models/reference.py`, `_PALAIS`), puis
- * enrichi des coordonnées (téléphones par chambre/service, télécopieurs, courriels et
- * heures d'ouverture) relevées sur les fiches officielles du MJQ le 2026-11-17.
- *
- * `province` et `country` ne sont pas stockés : ils valent « Québec » et « Canada »
- * pour les 53 lignes, et une constante répétée 53 fois est une occasion de divergence.
- *
- * ⚠ `location_type` (« palais » / « point_de_service ») N'EST PAS la même notion que
- *   le drapeau `point_de_service` d'un GREFFE, qui marque les cours itinérantes. Les
- *   deux divergent délibérément sur les points de service du MJQ. Voir greffes.ts.
- */
-
-/** Coordonnée d'un service ou d'une chambre publié par le MJQ. */
 export interface Contact {
   readonly service: string;
   readonly tel?: string;
@@ -46,11 +20,9 @@ export interface Palais {
   readonly contacts: readonly Contact[];
 }
 
-/** Constantes non stockées : elles valent ceci pour les 53 lignes. */
 export const PROVINCE = "Québec";
 export const PAYS = "Canada";
 
-/** Date du relevé auprès du MJQ. Rendue dans la réserve : elle date la donnée. */
 export const RELEVE_LE = "2026-11-17";
 
 export const PALAIS: Readonly<Record<string, Palais>> = {

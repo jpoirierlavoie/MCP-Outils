@@ -1,24 +1,4 @@
-/**
- * Juridictions — table PURE. Clef : le code à 2 chiffres en positions 5-6 d'un
- * numéro de dossier de cour (« 500-05-… » ⇒ juridiction 05, Cour supérieure,
- * division générale).
- *
- * Porté de Pallas Athéna (`athena/models/reference.py`, `_JURIDICTIONS`).
- *
- * ⚠ TREIZE de ces 27 libellés ont été CORRIGÉS chez Athéna (commit d1575bd). Si une
- *   copie plus ancienne réapparaît, ce sont les valeurs PÉRIMÉES : 04 « Séparation et
- *   autres requêtes », 09 « Affaires civiles », 10 « Affaires pénales », 11 « Division
- *   des faillites », 12 « Division des divorces », 13 « Mariages civils », 17 « Voie
- *   allégée », 19 « Chambre civile, divers », 22 « Voie allégée », 34 « Chambre civile,
- *   expropriation », 38 « Chambre criminelle et pénale (divers) », 01 « Matières
- *   criminelles », 61 « Infractions statutaires provinciales ». Ne pas les restaurer.
- *
- * Le tiret cadratin « — » de 46, 72 et 73 est une valeur RÉELLE : ces séries ne sont
- * rattachées à aucun tribunal nommé. Il ne s'agit pas d'un champ vide.
- */
-
-/** GC = greffe civil · GP = greffe pénal et criminel · GI = infractions statutaires. */
-export type TypeGreffe = "GC" | "GP" | "GI";
+type TypeGreffe = "GC" | "GP" | "GI";
 
 export interface Juridiction {
   readonly tribunal: string;

@@ -21,13 +21,13 @@ describe("calendrier_holidays", () => {
     expect(out.saturday_triggers_deadline_rollover).toBe(true);
     expect(dates).toContain("2026-01-01");
     expect(dates).toContain("2026-01-02");
-    expect(dates).toContain("2026-04-03"); // Vendredi saint
-    expect(dates).toContain("2026-04-06"); // Lundi de Pâques
-    expect(dates).toContain("2026-05-18"); // Lundi précédant le 25 mai (25 mai 2026 est lundi)
-    expect(dates).toContain("2026-06-24"); // Fête nationale
+    expect(dates).toContain("2026-04-03");
+    expect(dates).toContain("2026-04-06");
+    expect(dates).toContain("2026-05-18");
+    expect(dates).toContain("2026-06-24");
     expect(dates).toContain("2026-07-01");
-    expect(dates).toContain("2026-09-07"); // Fête du Travail
-    expect(dates).toContain("2026-10-12"); // Action de grâces
+    expect(dates).toContain("2026-09-07");
+    expect(dates).toContain("2026-10-12");
     expect(dates).toContain("2026-12-25");
     expect(dates).toContain("2026-12-26");
     expect(dates).not.toContain("2026-09-30");

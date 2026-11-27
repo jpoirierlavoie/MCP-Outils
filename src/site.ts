@@ -1,15 +1,3 @@
-/**
- * Page publique du serveur MCP (`GET /`) et fichiers publics de découverte
- * (`/robots.txt`, `/sitemap.xml`, `/llms.txt`).
- *
- * TOUT LE CONTENU DÉRIVE DES DONNÉES VIVES : les outils viennent de
- * `listToolDescriptors()`, les schémas de `z.toJSONSchema(...)`, les issues du vrai
- * parseur exécuté au rendu, les palais des tables `src/qc/` et la dernière période
- * tarifaire de `laf_art28_rates.json`.
- *
- * Aucune dépendance ni requête tierce. Sans JavaScript, le français reste affiché.
- */
-
 import bocPrimeRatesJson from "./data/boc_prime_rates.json" with { type: "json" };
 import lafRatesJson from "./data/laf_art28_rates.json" with { type: "json" };
 import {
@@ -45,7 +33,7 @@ export function bi(fr: string, en: string): string {
   return `<span data-l="fr">${esc(fr)}</span><span data-l="en" lang="en">${esc(en)}</span>`;
 }
 
-export function biP(fr: readonly string[], en: readonly string[]): string {
+function biP(fr: readonly string[], en: readonly string[]): string {
   return (
     `<div data-l="fr">${fr.map((p) => `<p>${esc(p)}</p>`).join("")}</div>\n` +
     `<div data-l="en" lang="en">${en.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`
@@ -60,7 +48,7 @@ export const SECTIONS = [
   { id: "schema", fr: "Les schémas (technique)", en: "The schemas (technical)" },
 ] as const;
 
-export type SectionId = (typeof SECTIONS)[number]["id"];
+type SectionId = (typeof SECTIONS)[number]["id"];
 
 const TITRE_SECTION = new Map<SectionId, { fr: string; en: string }>(
   SECTIONS.map((s) => [s.id, { fr: s.fr, en: s.en }]),
@@ -79,8 +67,6 @@ function compacterBloc(code: string): string {
     .filter(Boolean)
     .join("\n");
 }
-
-// ── Thème (identique aux connecteurs jumeaux) ─────────────────────────────────
 
 const CLAIR =
   "color-scheme:light;--f:#0f172a;--m:#475569;--b:#cbd5e1;--bi:#64748b;--a:#1d4ed8;--bg:#f8fafc;--card:#fff;" +
@@ -190,8 +176,7 @@ html.l-fr [data-l=en],html.l-en [data-l=fr]{display:none}
 }
 `;
 
-// biome-ignore lint/complexity/noUselessStringRaw: parade délibérée
-const BOOT = String.raw`
+const BOOT = `
 try{
   var r=document.documentElement, c=[];
   var p=localStorage.getItem('outilsLang')||(navigator.language||'fr').slice(0,2);
@@ -578,7 +563,7 @@ function contraintes(s: JsonSchemaProperty): string {
 
 function schemas(): string {
   const bloc = (d: ToolDescriptor) => {
-    const schema = d.inputSchemaJson as {
+    const schema = d.inputSchema as {
       properties?: Record<string, JsonSchemaProperty>;
       required?: string[];
     };
@@ -838,7 +823,7 @@ ${biP(
       "La fiche publique de découverte MCP est publiée sur " +
       "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut aussi les manifestes " +
       "autonomes pour Google Antigravity et Gemini CLI. Vérification de santé sans journalisation : " +
-      "https://outils.poirierlavoie.ca/healthz (limite de 240 requêtes par minute et par adresse IP).",
+      "https://outils.poirierlavoie.ca/health (limite de 240 requêtes par minute et par adresse IP).",
     "Le code source et le glossaire de droit civil sont libres et gratuits sous licence Apache-2.0 " +
       "(voir LICENSE), tandis que les jeux de données publics intégrés demeurent soumis aux " +
       "licences de leurs éditeurs respectifs décrites dans NOTICE (dont CC BY-NC-SA 4.0 pour " +
@@ -917,7 +902,7 @@ function construireJsonLd(): string {
           "Tables judiciaires MJQ, taux art. 28 L.A.F., taux BdC, IPC StatCan, critères TAL, registres d'entreprises, adresses RQA et terminologie bijuridique",
           "MJQ judicial directories, art. 28 T.A.A. rates, BoC rates, StatCan CPI/CMHC, TAL rent criteria, business registries, RQA addresses, and bijural terminology",
         ],
-        description: `56 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, Bank of Canada rates through ${bocPrimeRatesJson.metadata.last_verified_date}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, StatCan (10-10-0008-01, 18-10-0004-01, 18-10-0005-01, 34-10-0133-01), TAL T-15.01 r. 2, and bijural terminology snapshots.`,
+        description: `57 registries across 36 judicial districts (MJQ surveyed ${RELEVE_LE}, registry attachments ${MJQ_MAJ}), art. 28 L.A.F. rates through ${lafRatesJson.metadata.last_quarter}, Bank of Canada rates through ${bocPrimeRatesJson.metadata.last_verified_date}, and read-only REQ/RBQ/OPC/RENA, Corporations Canada, GLEIF (CC0 1.0), RQA, StatCan (10-10-0008-01, 18-10-0004-01, 18-10-0005-01, 34-10-0133-01), TAL T-15.01 r. 2, and bijural terminology snapshots.`,
         url: `${ORIGINE_SITE}/#greffes`,
         inLanguage: ["fr-CA", "en-CA"],
         dateModified: RELEVE_LE,
@@ -928,7 +913,7 @@ function construireJsonLd(): string {
   return JSON.stringify(graphe).replace(/</g, "\\u003c");
 }
 
-export function renderSite(): string {
+function renderSite(): string {
   const corps = [entete(), outils(), dossier(), greffes(), acces(), schemas(), pied()].join("\n");
   const titrePage = "MCP Outils — Délais, intérêts, greffes, registres et économie";
   const titrePageEn = "MCP Tools — Deadlines, Interest, Registries, Terms, Economy";
@@ -976,10 +961,8 @@ export function pagePubliqueHtml(): string {
   return memo;
 }
 
-// ── Découverte publique (/robots.txt, /sitemap.xml, /llms.txt) ───────────────
-
 export const CHEMINS_DECOUVERTE_PUBLIQUE = ["/robots.txt", "/sitemap.xml", "/llms.txt"] as const;
-export type CheminDecouvertePublique = (typeof CHEMINS_DECOUVERTE_PUBLIQUE)[number];
+type CheminDecouvertePublique = (typeof CHEMINS_DECOUVERTE_PUBLIQUE)[number];
 
 export function estCheminDecouvertePublique(
   pathname: string,
@@ -991,7 +974,7 @@ const ROBOTS_TXT = [
   "User-agent: *",
   "Allow: /",
   "Disallow: /mcp",
-  "Disallow: /healthz",
+  "Disallow: /health",
   `Sitemap: ${ORIGINE_SITE}/sitemap.xml`,
   "",
 ].join("\n");

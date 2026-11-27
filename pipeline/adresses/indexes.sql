@@ -1,5 +1,3 @@
--- Index secondaires et tables virtuelles FTS5 (uniquement sur les ~80 000 odonymes, jamais sur les 5M d'adresses)
-
 CREATE INDEX IF NOT EXISTS idx_mun_nom_norm
   ON municipalites(nom_normalise);
 

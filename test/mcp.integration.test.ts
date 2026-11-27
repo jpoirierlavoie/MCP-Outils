@@ -79,9 +79,9 @@ async function mcpPost(
 }
 
 describe("Worker HTTP & intégration MCP", () => {
-  it("répond sur GET /healthz, GET /, HEAD /, rejette POST / en 405 et renvoie 404 hors route", async () => {
+  it("répond sur GET /health (et alias /healthz), GET /, HEAD /, rejette POST / en 405 et renvoie 404 hors route", async () => {
     const health = await worker.fetch(
-      new Request("https://outils.poirierlavoie.ca/healthz"),
+      new Request("https://outils.poirierlavoie.ca/health"),
       {},
       dummyCtx,
     );
@@ -89,12 +89,22 @@ describe("Worker HTTP & intégration MCP", () => {
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("2.2.2");
+    expect(healthJson.version).toBe("2.2.3");
     expect(healthJson.commit).toBe("inconnu");
     expect(healthJson.request_payload_logging).toBe(false);
 
-    const healthWithCommit = await worker.fetch(
+    const healthAlias = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/healthz"),
+      {},
+      dummyCtx,
+    );
+    expect(healthAlias.status).toBe(200);
+    const healthAliasJson = (await healthAlias.json()) as Record<string, unknown>;
+    expect(healthAliasJson.status).toBe("ok");
+    expect(healthAliasJson.version).toBe("2.2.3");
+
+    const healthWithCommit = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/health"),
       { COMMIT: "abc1234" },
       dummyCtx,
     );
@@ -164,7 +174,6 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(notFound.status).toBe(404);
 
-    // SEP-2127 : fiche publique de découverte /mcp/server-card (GET, HEAD, OPTIONS, 405, 404 hors exactitude)
     const cardRes = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/mcp/server-card", {
         headers: { Origin: "https://exemple.invalide" },
@@ -199,7 +208,7 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("2.2.2");
+    expect(cardBody.version).toBe("2.2.3");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",
@@ -431,7 +440,6 @@ describe("Worker HTTP & intégration MCP", () => {
       "Grand total (capital + intérêts) [CALCUL TRONQUÉ AU 2026-12-31 — TAUX ART. 28 L.A.F. NON PUBLIÉ AU-DELÀ]",
     );
 
-    // Date invalide via MCP -> isError: true sans plantage HTTP 500
     const badDateCall = await mcpPost("tools/call", {
       name: "calendrier_deadlines",
       arguments: {
@@ -590,7 +598,7 @@ describe("Worker HTTP & intégration MCP", () => {
       };
 
       const healthBound = await worker.fetch(
-        new Request("https://outils.poirierlavoie.ca/healthz"),
+        new Request("https://outils.poirierlavoie.ca/health"),
         boundEnv,
         dummyCtx,
       );
@@ -627,7 +635,6 @@ describe("Worker HTTP & intégration MCP", () => {
       expect(rGetParsed.gleif).toBeNull();
       expect(rGetParsed.portails_officiels.req?.url).toContain("registreentreprises.gouv.qc.ca");
 
-      // Requête par LEI sur registre sans lignes GLEIF + erreur 4-XOR / format LEI invalide (isError: true, jamais -32602)
       for (const badRegArgs of [
         { neq: "1170123456", lei: "549300QC912345670001" },
         { lei: "NOT_VALID" },
@@ -750,7 +757,6 @@ describe("Worker HTTP & intégration MCP", () => {
       params: {},
     });
 
-    // 1. Accept: application/json
     const reqJson = new Request("https://outils.poirierlavoie.ca/mcp", {
       method: "POST",
       headers: {
@@ -768,7 +774,6 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(bodyJson.id).toBe(42);
     expect(bodyJson.result).toBeDefined();
 
-    // 2. Accept omis
     const reqOmitted = new Request("https://outils.poirierlavoie.ca/mcp", {
       method: "POST",
       headers: {
@@ -785,7 +790,6 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(bodyOmitted.id).toBe(42);
     expect(bodyOmitted.result).toBeDefined();
 
-    // 3. Accept: */*
     const reqWildcard = new Request("https://outils.poirierlavoie.ca/mcp", {
       method: "POST",
       headers: {
@@ -803,7 +807,6 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(bodyWildcard.id).toBe(42);
     expect(bodyWildcard.result).toBeDefined();
 
-    // 4. Accept: application/json, text/event-stream
     const reqSse = new Request("https://outils.poirierlavoie.ca/mcp", {
       method: "POST",
       headers: {
@@ -815,15 +818,8 @@ describe("Worker HTTP & intégration MCP", () => {
     });
     const resSse = await worker.fetch(reqSse, {}, dummyCtx);
     expect(resSse.status).toBe(200);
-    expect(resSse.headers.get("content-type")).toContain("text/event-stream");
-    const rawSse = await resSse.text();
-    expect(rawSse).toContain("data: ");
-    const parsedSse = JSON.parse(
-      rawSse
-        .split(/\r?\n/)
-        .find((l) => l.startsWith("data: "))!
-        .slice(6),
-    ) as JsonRpcResponseBody;
+    expect(resSse.headers.get("content-type")).toContain("application/json");
+    const parsedSse = (await resSse.json()) as JsonRpcResponseBody;
     expect(parsedSse.jsonrpc).toBe("2.0");
     expect(parsedSse.id).toBe(42);
     expect(parsedSse.result).toBeDefined();
@@ -912,10 +908,28 @@ describe("Worker HTTP & intégration MCP", () => {
       const badIdJson = (await badIdReq.json()) as JsonRpcResponseBody;
       expect(badIdJson.error?.code).toBe(-32600);
     }
+
+    const deleteMcp = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "DELETE",
+        headers: { Host: "outils.poirierlavoie.ca" },
+      }),
+      {},
+      dummyCtx,
+    );
+    expect(deleteMcp.status).toBe(405);
+    expect(deleteMcp.headers.get("allow")).toBe("POST, OPTIONS");
+
+    const unknownMethod = await mcpPost("method/inexistante_xyz", {});
+    expect(unknownMethod.status).toBe(200);
+    expect(unknownMethod.body.error?.code).toBe(-32601);
+
+    const unknownTool = await mcpPost("tools/call", { name: "outil_fantome", arguments: {} });
+    expect(unknownTool.status).toBe(200);
+    expect(unknownTool.body.result?.isError).toBe(true);
   });
 
   it("A-N5, A-N6, B-N14 : messages Zod en français, format taux LAF < 5 %, bannière surcharge, note d'arrondi et omission > 10 tranches", async () => {
-    // 1) Erreur Zod localisée en français
     const badZod = await mcpPost("tools/call", {
       name: "calendrier_holidays",
       arguments: { year: 1800 },
@@ -926,7 +940,6 @@ describe("Worker HTTP & intégration MCP", () => {
       (badZod.body.result?.content as Array<{ text: string }> | undefined)?.[0]?.text ?? "";
     expect(badText).toMatch(/Trop petit/i);
 
-    // 2) Taux LAF surchargé < 5 % (400 bps sur 2027-Q1) : note surcharge + libellé exact + arrondi
     const lowLaf = await mcpPost("tools/call", {
       name: "interets_1619",
       arguments: {
@@ -942,7 +955,6 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(lowText).toContain("[surcharge]");
     expect(lowText).toContain("arrondi au cent UNE fois par tranche");
 
-    // 3) Plus de 10 tranches : ventilation détaillée omise du résumé texte mais présente dans structuredContent
     const manyTranches = Array.from({ length: 11 }, (_, i) => ({
       label: `Facture #${i + 1}`,
       principal_cents: 100_000,
@@ -1088,7 +1100,7 @@ describe("Worker HTTP & intégration MCP", () => {
       const boundEnv: Env = { DB_ECONOMIE: ecoHarness.d1 };
 
       const healthRes = await worker.fetch(
-        new Request("https://outils.poirierlavoie.ca/healthz"),
+        new Request("https://outils.poirierlavoie.ca/health"),
         boundEnv,
         dummyCtx,
       );

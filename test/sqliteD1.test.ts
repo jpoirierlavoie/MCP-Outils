@@ -69,7 +69,6 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
       expect(batchRes).toHaveLength(2);
       expect(batchRes[0]!.results).toEqual([{ c: 2 }]);
 
-      // Toute tentative d'écriture doit échouer grâce à PRAGMA query_only = ON
       await expect(
         harness.d1.prepare("INSERT INTO items (id, term_fr, term_en) VALUES (3, 'a', 'b')").run(),
       ).rejects.toThrow(/readonly|attempt to write/i);
@@ -78,9 +77,9 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
     }
   });
 
-  it("expose l'état booléen des 4 bindings D1 sur GET /healthz et couvre les nouvelles gardes", async () => {
+  it("expose l'état booléen des 4 bindings D1 sur GET /health et couvre les nouvelles gardes", async () => {
     const hEmpty = await worker.fetch(
-      new Request("https://outils.poirierlavoie.ca/healthz"),
+      new Request("https://outils.poirierlavoie.ca/health"),
       {},
       dummyCtx,
     );
@@ -95,7 +94,7 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
     const harness = createSqliteD1Harness();
     try {
       const hBound = await worker.fetch(
-        new Request("https://outils.poirierlavoie.ca/healthz"),
+        new Request("https://outils.poirierlavoie.ca/health"),
         { DB_TERMINOLOGIE: harness.d1 },
         dummyCtx,
       );

@@ -1,9 +1,3 @@
-"""Génère le glossaire curé initial de pratique civile et commerciale québécoise (Rang 1).
-
-Produit `src/data/glossaire_bijuridique_qc.json` (>100 entrées vérifiées contre le C.c.Q.,
-le C.p.c., la L.S.A.Q. et les art. 8.1–8.2 de la Loi d'interprétation fédérale).
-Aucune donnée issue du Dictionnaire de droit privé (Crépeau), de Juriterm ou du Juridictionnaire.
-"""
 from __future__ import annotations
 
 import json
@@ -43,7 +37,6 @@ def e(
 
 
 ENTRIES: list[dict] = [
-    # --- Sûretés et publicité des droits ---
     e(
         "hypotheque",
         "hypothèque",
@@ -169,7 +162,6 @@ ENTRIES: list[dict] = [
         deconseilles_en=[{"terme": "PPSA registry", "origine": "common_law", "motif": "Propre aux provinces de common law ; au Québec, « register of personal and movable real rights (RPMRR / RDPRM) »."}],
     ),
 
-    # --- Obligations et contrats ---
     e(
         "obligation-solidaire",
         "obligation solidaire",
@@ -535,7 +527,6 @@ ENTRIES: list[dict] = [
         deconseilles_en=[{"terme": "indemnify, defend and hold harmless", "origine": "common_law", "motif": "Triplet redondant de common law américaine ; privilégier en rédaction québécoise « indemnify and take up the defence » ou « hold harmless » clairement circonscrit."}],
     ),
 
-    # --- Biens, fiducies et personnes ---
     e(
         "patrimoine",
         "patrimoine",
@@ -677,7 +668,6 @@ ENTRIES: list[dict] = [
         "Procédure devant le tribunal ou un notaire pour vérifier les testaments olographes ou devant témoins (le testament notarié en minute est dispensé de vérification). Noter que la version anglaise du C.c.Q. emploie officiellement « probate » à l'art. 772.",
     ),
 
-    # --- Prescription et preuve ---
     e(
         "prescription-extinctive",
         "prescription extinctive",
@@ -761,7 +751,6 @@ ENTRIES: list[dict] = [
         syn_en=["res judicata"],
     ),
 
-    # --- Procédure civile québécoise (C.p.c.) ---
     e(
         "demande-introductive-instance",
         "demande introductive d'instance",
@@ -1035,7 +1024,6 @@ ENTRIES: list[dict] = [
         deconseilles_fr=[{"terme": "recours collectif", "origine": "archaïsme_qc", "motif": "Ancien terme de l'ancien C.p.c. ; depuis 2016, le Livre VI du C.p.c. emploie « action collective » (art. 571 C.p.c.)."}],
     ),
 
-    # --- Pratique, correspondance et pièces ---
     e(
         "en-liasse",
         "en liasse",
@@ -1091,7 +1079,6 @@ ENTRIES: list[dict] = [
         ],
     ),
 
-    # --- Droit des sociétés et droit commercial ---
     e(
         "societe-par-actions",
         "société par actions",
@@ -1197,7 +1184,6 @@ ENTRIES: list[dict] = [
         syn_en=["NEQ"],
     ),
 
-    # --- Bijuridisme fédéral (Art. 8.1 et 8.2 Loi d'interprétation, L.R.C. (1985), ch. I-21) ---
     e(
         "bijuridisme-principe-complementarite",
         "complémentarité du droit civil et de la common law",
@@ -1262,7 +1248,6 @@ ENTRIES: list[dict] = [
         "Doublet bijuridique employé dans les contrats pancanadiens pour viser simultanément le cautionnement du C.c.Q. (« suretyship ») et la « guarantee » de common law.",
     ),
 
-    # --- Louage, travail, assurances, famille patrimoniale et contrats spéciaux ---
     e(
         "louage",
         "louage",

@@ -1,35 +1,10 @@
 import { z } from "zod";
 import { type Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
-
-function expandLigatures(input: string): string {
-  return input
-    .replace(/Œ/g, "OE")
-    .replace(/œ/g, "oe")
-    .replace(/Æ/g, "AE")
-    .replace(/æ/g, "ae")
-    .replace(/ß/g, "ss");
-}
-
-function expandLigatureFtsTokenVariants(tok: string): string[] {
-  const out = new Set<string>([tok]);
-  const lower = tok.toLowerCase();
-  if (lower.includes("oe")) out.add(lower.replace(/oe/g, "œ"));
-  if (lower.includes("ae")) out.add(lower.replace(/ae/g, "æ"));
-  if (lower.includes("œ")) out.add(lower.replace(/œ/g, "oe"));
-  if (lower.includes("æ")) out.add(lower.replace(/æ/g, "ae"));
-  return Array.from(out);
-}
-
-export function normalizeFold(input: string): string {
-  return expandLigatures(input)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\u2018\u2019\u02bc]/g, "'")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
+import {
+  expandLigatureFtsTokenVariants,
+  expandLigatures,
+  foldAsciiAlnum as normalizeFold,
+} from "./normalize.js";
 
 const INVARIABLE_WORDS = new Set([
   "frais",
@@ -98,7 +73,7 @@ function buildNormalizedQueryVariants(qNorm: string, lang: "fr" | "en" | "auto")
   const primarySingular = words
     .map((w) => {
       const vars = singularizeFoldedTokenVariants(w, lang);
-      // En anglais ou auto, préférer -y pour -ies, sinon le premier variant singulier s'il existe
+
       return vars.length > 1 ? vars[1]! : vars[0]!;
     })
     .join(" ");
@@ -115,13 +90,13 @@ function buildNormalizedQueryVariants(qNorm: string, lang: "fr" | "en" | "auto")
   );
 }
 
-export function extractSafeFtsTokens(input: string): string[] {
+function extractSafeFtsTokens(input: string): string[] {
   const normalized = input.replace(/[\u2018\u2019\u02bc]/g, " ").normalize("NFC");
   const matches = normalized.match(/[\p{L}\p{N}]+/gu);
   return matches ? matches.filter((t) => t.length > 0).slice(0, 16) : [];
 }
 
-export function buildFtsPhraseQuery(input: string): string | null {
+function buildFtsPhraseQuery(input: string): string | null {
   const tokens = extractSafeFtsTokens(input).map((t) => t.replace(/"/g, ""));
   if (tokens.length === 0) return null;
   let phrases: string[][] = [[]];
@@ -141,10 +116,7 @@ export function buildFtsPhraseQuery(input: string): string | null {
   return uniquePhrases.join(" OR ");
 }
 
-export function buildFtsAndPrefixQuery(
-  input: string,
-  lang: "fr" | "en" | "auto" = "auto",
-): string | null {
+function buildFtsAndPrefixQuery(input: string, lang: "fr" | "en" | "auto" = "auto"): string | null {
   const tokens = extractSafeFtsTokens(input);
   if (tokens.length === 0) return null;
   return tokens
@@ -160,8 +132,6 @@ export function buildFtsAndPrefixQuery(
     })
     .join(" AND ");
 }
-
-// ── 1. terminologie_lookup ───────────────────────────────────────────────────
 
 export const TerminologieLookupInputSchema = z.strictObject({
   query: z
@@ -195,16 +165,16 @@ export const TerminologieLookupInputSchema = z.strictObject({
     .optional()
     .describe("Nombre maximal de fiches retournées (1 à 25, défaut 10)."),
 });
-export type TerminologieLookupInput = z.infer<typeof TerminologieLookupInputSchema>;
+type TerminologieLookupInput = z.infer<typeof TerminologieLookupInputSchema>;
 
-export const TermeDeconseilleSchema = z.object({
+const TermeDeconseilleSchema = z.object({
   terme: z.string(),
   langue: z.string().optional(),
   origine: z.string().optional(),
   motif: z.string(),
 });
 
-export const FicheTerminologiqueSchema = z.object({
+const FicheTerminologiqueSchema = z.object({
   id: z.number().int(),
   rang_source: z.number().int().min(1).max(4),
   source_nom: z.string(),
@@ -221,7 +191,7 @@ export const FicheTerminologiqueSchema = z.object({
   url_fiche: z.string().nullable(),
   date_verification: z.string(),
 });
-export type FicheTerminologique = z.infer<typeof FicheTerminologiqueSchema>;
+type FicheTerminologique = z.infer<typeof FicheTerminologiqueSchema>;
 
 export const TerminologieLookupOutputSchema = z.object({
   query: z.string(),
@@ -231,7 +201,7 @@ export const TerminologieLookupOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type TerminologieLookupOutput = z.infer<typeof TerminologieLookupOutputSchema>;
+type TerminologieLookupOutput = z.infer<typeof TerminologieLookupOutputSchema>;
 
 interface RawFicheRow {
   id: number;
@@ -298,7 +268,6 @@ export async function terminologieLookup(
 
   const byId = new Map<number, { row: RawFicheRow; exactTier: number }>();
 
-  // 1) Correspondances exactes sur termes normalisés (incluant la lemmatisation singulière régulière)
   const qVariants = buildNormalizedQueryVariants(qNorm, sourceLang);
   const qVariantSet = new Set(qVariants);
   const sqlVariants = Array.from(
@@ -346,7 +315,6 @@ export async function terminologieLookup(
     }
   }
 
-  // 2) Recherche plein texte FTS5 (incluant synonymes, pluriels et faux amis déconseillés)
   const ftsQuery = buildFtsAndPrefixQuery(input.query, sourceLang);
   if (ftsQuery) {
     const ftsSelectSql = `SELECT t.id, t.rang_source, t.source_nom, t.licence_source, t.terme_fr, t.terme_en,
@@ -471,8 +439,6 @@ export async function terminologieLookup(
   return { structured, text };
 }
 
-// ── 2. termino_attestations ─────────────────────────────────────────────
-
 export const TerminologieAttestationsInputSchema = z.strictObject({
   term: z
     .string()
@@ -504,9 +470,9 @@ export const TerminologieAttestationsInputSchema = z.strictObject({
     .optional()
     .describe("Nombre maximal d'extraits bilingues FR/EN alignés à retourner (1 à 20, défaut 10)."),
 });
-export type TerminologieAttestationsInput = z.infer<typeof TerminologieAttestationsInputSchema>;
+type TerminologieAttestationsInput = z.infer<typeof TerminologieAttestationsInputSchema>;
 
-export const AttestationParLoiSchema = z.object({
+const AttestationParLoiSchema = z.object({
   law_id: z.string(),
   official_cite: z.string(),
   law_title_fr: z.string(),
@@ -515,7 +481,7 @@ export const AttestationParLoiSchema = z.object({
   article_count: z.number().int(),
 });
 
-export const AttestationExtraitSchema = z.object({
+const AttestationExtraitSchema = z.object({
   law_id: z.string(),
   official_cite: z.string(),
   article_number: z.string(),
@@ -534,7 +500,7 @@ export const TerminologieAttestationsOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type TerminologieAttestationsOutput = z.infer<typeof TerminologieAttestationsOutputSchema>;
+type TerminologieAttestationsOutput = z.infer<typeof TerminologieAttestationsOutputSchema>;
 
 function normalizeQuotesAndSpaces(s: string): string {
   return s.replace(/[\u2018\u2019\u02bc]/g, "'").replace(/\s+/g, " ");
@@ -610,7 +576,6 @@ export async function terminologieAttestations(
   const targetCol = input.lang === "fr" ? "text_fr" : "text_en";
   const lawFilter = input.law_filter?.trim() ?? null;
 
-  // Charger les 97 lois une seule fois afin d'éviter toute répétition de métadonnées et tout plafond arbitraire
   let lawRows: LoiBilingueRow[];
   if (!lawFilter) {
     lawRows = (
@@ -622,7 +587,6 @@ export async function terminologieAttestations(
         .all<LoiBilingueRow>()
     ).results;
   } else {
-    // 1) Correspondance exacte sur identifiant ou cote officielle (évite p. ex. que 'ccq' tire 'ccq-r.6' ou que 'b-1' tire 'b-1.1')
     lawRows = (
       await db
         .prepare(
@@ -638,7 +602,6 @@ export async function terminologieAttestations(
         .all<LoiBilingueRow>()
     ).results;
 
-    // 2) Repli par sous-chaîne échappée si aucun identifiant/cote exact ne correspond
     if (lawRows.length === 0) {
       const escapedLike = `%${lawFilter.replace(/[\\%_]/g, "\\$&")}%`;
       lawRows = (
@@ -745,7 +708,6 @@ export async function terminologieAttestations(
     (a, b) => b.article_count - a.article_count || a.law_id.localeCompare(b.law_id),
   );
 
-  // Ne rapatrier les deux colonnes complètes `text_fr` et `text_en` que pour les `limit` (<= 20) extraits retenus
   const topSlice = verifiedRows.slice(0, limit);
   const bilingualById = new Map<number, { text_fr: string; text_en: string }>();
   if (topSlice.length > 0) {
@@ -837,8 +799,6 @@ export async function terminologieAttestations(
   return { structured, text };
 }
 
-// ── 3. terminologie_scan ────────────────────────────────────────────────
-
 export const TerminologieScanTextInputSchema = z.strictObject({
   text: z
     .string()
@@ -859,9 +819,9 @@ export const TerminologieScanTextInputSchema = z.strictObject({
       "Cadre juridique visé : 'droit_civil_qc' (défaut, droit privé et procédure du Québec) ou 'bijuridique_federal' (tolère un terme de common law s'il est dûment jumelé à son doublet civiliste à proximité).",
     ),
 });
-export type TerminologieScanTextInput = z.infer<typeof TerminologieScanTextInputSchema>;
+type TerminologieScanTextInput = z.infer<typeof TerminologieScanTextInputSchema>;
 
-export const ScanOccurrenceSchema = z.object({
+const ScanOccurrenceSchema = z.object({
   offset_start: z.number().int(),
   offset_end: z.number().int(),
   matched_text: z.string(),
@@ -876,7 +836,7 @@ export const ScanOccurrenceSchema = z.object({
   suggested_replacement: z.string(),
   legal_basis: z.string(),
 });
-export type ScanOccurrence = z.infer<typeof ScanOccurrenceSchema>;
+type ScanOccurrence = z.infer<typeof ScanOccurrenceSchema>;
 
 export const TerminologieScanTextOutputSchema = z.object({
   lang: z.enum(["fr", "en"]),
@@ -887,7 +847,7 @@ export const TerminologieScanTextOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type TerminologieScanTextOutput = z.infer<typeof TerminologieScanTextOutputSchema>;
+type TerminologieScanTextOutput = z.infer<typeof TerminologieScanTextOutputSchema>;
 
 interface RawRegleRow {
   code_regle: string;
@@ -1565,7 +1525,6 @@ function inflectScanWordPattern(rawToken: string, lang: string, caseSensitive: n
     return `${prefix}${escapeScanLiteral(core)}s?`;
   }
 
-  // Français : pluriels réguliers (-s, -aux, -eaux)
   if (/al$/i.test(core) && core.length >= 5) {
     const stem = escapeScanLiteral(core.slice(0, -2));
     return `${prefix}(?:${stem}al|${stem}aux)`;
@@ -1644,9 +1603,6 @@ export async function terminologieScanText(
       ? await reglesStmt.all<RawRegleRow>()
       : await reglesStmt.bind(input.lang).all<RawRegleRow>();
 
-  // En mode français, exclure les faux amis purement homographes (ex. « tort » dans « à tort »)
-  // provenant des règles anglaises ; les autres anglicismes / termes de common law insérés en
-  // français (ex. « joint and several », « hold harmless », « estoppel », « mortgage ») restent détectés.
   const baseRegles: RawRegleRow[] = reglesRes.results.filter(
     (r) =>
       !(
@@ -1656,7 +1612,6 @@ export async function terminologieScanText(
       ),
   );
 
-  // Fusionner sans doublon les règles de la base avec les marqueurs complémentaires haute précision
   const seenPatternKeys = new Set(baseRegles.map((r) => normalizeFold(r.pattern_term)));
   const mergedRegles: RawRegleRow[] = [...baseRegles];
   for (const sup of SUPPLEMENTAL_SCAN_RULES) {
@@ -1699,7 +1654,6 @@ export async function terminologieScanText(
       const start = m.index ?? 0;
       const end = start + m[0].length;
 
-      // Éviter de signaler deux fois un segment chevauchant déjà une locution plus longue
       if (occupiedRanges.some(([s, e]) => start < e && end > s)) {
         continue;
       }
@@ -1708,7 +1662,6 @@ export async function terminologieScanText(
       const prefixWindow = input.text.slice(Math.max(0, start - 45), start);
       const suffixWindow = input.text.slice(end, Math.min(input.text.length, end + 45));
 
-      // Exceptions du C.p.c. : « avis d'assignation », « répondre / répond à l'assignation », « délai / mode d'assignation » (art. 145, 149 C.p.c.)
       if (normPattern === "assignation") {
         if (
           /\b(?:avis\s+d|r[ée]pond\p{L}*\s+[àa]\s+l|r[ée]ponses?\s+[àa]\s+l|d[ée]lai\s+d|mode\s+d)['\u2018\u2019\u02bc]\s*$/iu.test(
@@ -1719,15 +1672,12 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception québécoise : « tribunaux judiciaires » (Loi sur les tribunaux judiciaires, RLRQ c. T-16 ; art. 2807 C.c.Q.)
-      // et emploi générique indéfini (« un / autre / tout / aucun tribunal judiciaire » par opposition à administratif)
       if (normPattern === "tribunal judiciaire") {
         if (/tribunaux/iu.test(m[0]) || /\b(?:un|autre|tout|aucun)\s+$/iu.test(prefixWindow)) {
           continue;
         }
       }
 
-      // Exception dénomination statutaire fédérale : « Canada Mortgage and Housing Corporation » (art. 1339 C.c.Q. EN)
       if (normPattern === "mortgage") {
         const around = input.text.slice(
           Math.max(0, start - 20),
@@ -1738,7 +1688,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception verbe « se référer / référer à » vs institution procédurale française « référé »
       if (normPattern === "refere") {
         if (
           /\b(?:s['\u2018\u2019\u02bc]\s*est|s['\u2018\u2019\u02bc]\s*[ée]tait|sont|est|[ée]tait|[ée]taient|a|ai|as|avons|avez|ont|avait|avaient|aura|aurait|[ée]t[ée]|[êe]tre|avoir|y\s+est|y\s+a)\s+$/iu.test(
@@ -1750,7 +1699,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception témoin / indemnité / présence physique : « comparution » (art. 269 C.p.c.)
       if (normPattern === "comparution") {
         if (
           /\b(?:indemnit[ée]s?\s+d['\u2018\u2019\u02bc]|frais\s+de|allocation\s+de)\s*$/iu.test(
@@ -1764,7 +1712,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception citation à comparaître / témoin / présence physique : « comparaître » (art. 269 C.p.c.)
       if (normPattern === "comparaitre") {
         if (
           /\b(?:citation|cit[ée]e?s?|sommation|ordre|ordonn[ée]e?s?)\s+[àa]\s+$/iu.test(
@@ -1778,7 +1725,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception pronominale « s'appliquer pour » / « l'appliquer pour » (sens français normal)
       if (normPattern === "appliquer pour") {
         if (
           /\b(?:s['\u2018\u2019\u02bc]|se|l['\u2018\u2019\u02bc]|le|la|les)\s*$/iu.test(
@@ -1789,7 +1735,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exceptions OQLF légitimes : « comme / faire / donner suite à » et « la suite à donner »
       if (normPattern === "suite a") {
         if (
           /\b(?:comme|faire|fait(?:es|s)?|faisant|faisons|faisaient|faisait|fera(?:i[ts]?|ient)?|feront|ferons|ferez|fit|firent|fasse(?:nt)?|donner|donne(?:nt|s|ait|aient)?|donn[ée]e?s?|donnant|donnera(?:i[ts]?|ient)?|donneront|donnons|donnez)\s+$/iu.test(
@@ -1801,7 +1746,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception « chargé des intérêts des créanciers / mineurs / clients » (administration du bien d'autrui)
       if (normPattern === "charger des frais") {
         if (
           /^\s+(?:de|du|des)\s+(?:mineurs?|cr[ée]anciers?|parties?|clients?|actionnaires?|b[ée]n[ée]ficiaires?|h[ée]ritiers?)\b/iu.test(
@@ -1812,7 +1756,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception « prime / nomination / avancement au mérite »
       if (normPattern === "au merite") {
         if (
           /\b(?:prime|avancement|promotion|promu[es]?|nomination|nomm[ée]e?s?|r[ée]mun[ée]ration|s[ée]lection|embauche|recrutement|bourse|prix|m[ée]daille|ordre|concours|r[ée]compense|[ée]valuation)\s+$/iu.test(
@@ -1823,7 +1766,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Exception en anglais : emplois non contractuels de « consideration » (« take into consideration », « for consideration by the Court »)
       if (normPattern === "consideration") {
         if (
           /\b(?:into|under|careful|serious|due|further|preliminary|main|primary|major|key|important|sole|only|judicial|court['\u2018\u2019\u02bc]s|for\s+the)\s+$/iu.test(
@@ -1837,7 +1779,6 @@ export async function terminologieScanText(
         }
       }
 
-      // Contexte bijuridique fédéral : tolérer si le terme compagnon civiliste figure dans la fenêtre ±80 car.
       let riskCat = regle.risk_category;
       if (contextSystem === "bijuridique_federal" && regle.allowed_in_bijural_if) {
         const winStart = Math.max(0, start - 80);

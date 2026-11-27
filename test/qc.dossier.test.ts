@@ -1,11 +1,3 @@
-/**
- * Analyse d'un numéro de dossier de cour — port des cas d'Athéna
- * (`athena/tests/test_mcp_tools.py:1229-1267` et la matrice de `reference.py`).
- *
- * Ces cas ne sont pas décoratifs : plusieurs consignent un défaut réel déjà corrigé
- * une fois. Un test qui échoue ici se répare en rétablissant le comportement, pas en
- * ajustant l'attente.
- */
 import { describe, expect, it } from "vitest";
 
 import { analyserNumeroDossier } from "../src/qc/dossier.js";
@@ -25,15 +17,12 @@ describe("numéro judiciaire bien formé", () => {
   });
 
   it("n'exige PAS les segments de séquence et de contrôle", () => {
-    // Il n'existe ni somme de contrôle ni règle d'année : « 500-05 » suffit.
     const r = analyserNumeroDossier("500-05");
     expect(r.parse_error).toBeNull();
     expect(r.greffe?.district_judiciaire).toBe("Montréal");
   });
 
   it("n'analyse ni ne valide les positions 7 et suivantes", () => {
-    // Conséquence assumée : une queue absurde passe. Inventer une validation
-    // rejetterait des numéros valides, ce qui est le pire des deux défauts.
     const r = analyserNumeroDossier("500-05-zzzzzz-!!!");
     expect(r.parse_error).toBeNull();
     expect(r.greffe_number).toBe("500");
@@ -42,8 +31,6 @@ describe("numéro judiciaire bien formé", () => {
 
 describe("préfixe alphabétique — le préfixe EST le tribunal", () => {
   it("TAL résout son tribunal, sans erreur", () => {
-    // Défaut PA-D09 : « TAL-594531 » rendait huit nuls alors que le préfixe est la
-    // réponse à la question posée.
     const r = analyserNumeroDossier("TAL-594531");
     expect(r.forum?.name).toBe("Tribunal administratif du logement");
     expect(r.is_administrative).toBe(true);
@@ -68,8 +55,6 @@ describe("préfixe alphabétique — le préfixe EST le tribunal", () => {
   });
 
   it("un préfixe alphabétique n'est JAMAIS une erreur de format", () => {
-    // « n'importe quoi » commence par une lettre : il prend la branche du préfixe
-    // et ne voit jamais le message « Format invalide ».
     const r = analyserNumeroDossier("n'importe quoi");
     expect(r.parse_error).toBeNull();
     expect(r.is_administrative).toBe(true);
@@ -103,7 +88,6 @@ describe("entrées refusées", () => {
   });
 
   it("les espaces internes ne sont PAS tolérés", () => {
-    // .trim() seulement : on ne « répare » pas un numéro en silence.
     expect(analyserNumeroDossier("500 - 05 - 123456").parse_error).toContain("greffe");
   });
 

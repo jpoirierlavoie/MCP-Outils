@@ -2,13 +2,13 @@ const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_RE = /^(\d{2}):(\d{2})(?::(\d{2}))?$/;
 const MS_PER_DAY = 86_400_000;
 
-export interface ParsedIsoDate {
+interface ParsedIsoDate {
   year: number;
   month: number;
   day: number;
 }
 
-export interface ParsedTimeHHMM {
+interface ParsedTimeHHMM {
   hour: number;
   minute: number;
   second: number;
@@ -17,7 +17,7 @@ export interface ParsedTimeHHMM {
   hasExplicitSeconds: boolean;
 }
 
-export const FRENCH_WEEKDAYS = [
+const FRENCH_WEEKDAYS = [
   "dimanche",
   "lundi",
   "mardi",
@@ -27,7 +27,7 @@ export const FRENCH_WEEKDAYS = [
   "samedi",
 ] as const;
 
-export function isLeapYear(year: number): boolean {
+function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
@@ -75,15 +75,6 @@ export function parseIsoDate(iso: string): ParsedIsoDate {
   return { year, month, day };
 }
 
-export function isValidIsoDate(iso: string): boolean {
-  try {
-    parseIsoDate(iso);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function formatIsoDate(year: number, month: number, day: number): string {
   const y = String(year).padStart(4, "0");
   const m = String(month).padStart(2, "0");
@@ -93,12 +84,12 @@ export function formatIsoDate(year: number, month: number, day: number): string 
   return iso;
 }
 
-export function toUtcMs(iso: string): number {
+function toUtcMs(iso: string): number {
   const { year, month, day } = parseIsoDate(iso);
   return Date.UTC(year, month - 1, day);
 }
 
-export function fromUtcMs(ms: number): string {
+function fromUtcMs(ms: number): string {
   const d = new Date(ms);
   const year = d.getUTCFullYear();
   const month = d.getUTCMonth() + 1;
@@ -157,10 +148,6 @@ export function minIsoDate(a: string, b: string): string {
   return compareIsoDates(a, b) <= 0 ? a : b;
 }
 
-export function maxIsoDate(a: string, b: string): string {
-  return compareIsoDates(a, b) >= 0 ? a : b;
-}
-
 export function parseTimeHHMM(timeStr: string): ParsedTimeHHMM {
   const match = TIME_RE.exec(timeStr);
   if (!match) {
@@ -183,15 +170,6 @@ export function parseTimeHHMM(timeStr: string): ParsedTimeHHMM {
   };
 }
 
-export function isValidTimeHHMM(hhmm: string): boolean {
-  try {
-    parseTimeHHMM(hhmm);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function getQuarter(month: number): 1 | 2 | 3 | 4 {
   if (month < 1 || month > 12) {
     throw new RangeError(`Mois invalide : ${month}`);
@@ -201,16 +179,4 @@ export function getQuarter(month: number): 1 | 2 | 3 | 4 {
 
 export function quarterKey(year: number, month: number): string {
   return `${year}-Q${getQuarter(month)}`;
-}
-
-export function quarterDateRange(
-  year: number,
-  quarter: 1 | 2 | 3 | 4,
-): { start: string; end: string } {
-  const startMonth = (quarter - 1) * 3 + 1;
-  const endMonth = startMonth + 2;
-  return {
-    start: formatIsoDate(year, startMonth, 1),
-    end: formatIsoDate(year, endMonth, daysInMonth(year, endMonth)),
-  };
 }

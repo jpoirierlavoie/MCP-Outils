@@ -2,11 +2,11 @@ import { z } from "zod";
 import { addDays, dayOfWeek, formatIsoDate, frenchWeekday, parseIsoDate } from "./dates.js";
 import { Garde, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 
-export const REGIMES = ["qc_cpc", "qc_prescription", "qc_li", "ca_li"] as const;
+const REGIMES = ["qc_cpc", "qc_prescription", "qc_li", "ca_li"] as const;
 export const RegimeSchema = z.enum(REGIMES);
 export type HolidayRegime = z.infer<typeof RegimeSchema>;
 
-export const PROVINCES = [
+const PROVINCES = [
   "QC",
   "ON",
   "BC",
@@ -35,7 +35,7 @@ export const REGIME_LABELS_FR: Record<HolidayRegime, string> = {
 
 export const VERIFIED_CALENDAR_AT = "2026-11-19";
 
-export const HolidayEntrySchema = z.object({
+const HolidayEntrySchema = z.object({
   date: z.string().describe("Date du jour férié ou non juridique au format ISO YYYY-MM-DD."),
   weekday_fr: z.string().describe("Jour de la semaine en français."),
   name_fr: z.string().describe("Nom officiel ou usuel du jour férié."),
@@ -53,7 +53,7 @@ export const ListHolidaysInputSchema = z.strictObject({
     "Province ou territoire canadien optionnel (p. ex. 'QC', 'ON', 'BC') : sous 'ca_li' avec 'QC', ajoute le 24 juin (Fête nationale du Québec) en vertu de l'art. 35(1) al. a) L.I. CA.",
   ),
 });
-export type ListHolidaysInput = z.infer<typeof ListHolidaysInputSchema>;
+type ListHolidaysInput = z.infer<typeof ListHolidaysInputSchema>;
 
 export const ListHolidaysOutputSchema = z.object({
   year: z.number().int(),
@@ -69,9 +69,6 @@ export const ListHolidaysOutputSchema = z.object({
 });
 export type ListHolidaysOutput = z.infer<typeof ListHolidaysOutputSchema>;
 
-/**
- * Anonymous Gregorian algorithm (Meeus/Jones/Butcher) for Easter Sunday.
- */
 export function computeEasterSunday(year: number): string {
   if (!Number.isInteger(year) || year < 1583) {
     throw new RangeError(`Année grégorienne invalide pour Pâques : ${year}`);
@@ -111,7 +108,7 @@ function secondMondayOfMonth(year: number, month: number): string {
   return addDays(firstMondayOfMonth(year, month), 7);
 }
 
-export function getStatutoryHolidaysForYear(
+function getStatutoryHolidaysForYear(
   year: number,
   regime: HolidayRegime,
   province?: Province,
@@ -204,7 +201,6 @@ export function getStatutoryHolidaysForYear(
       });
     }
   } else {
-    // ca_li: federal Interpretation Act, art. 35(1) + Holidays Act, s. 2(2)
     items.push(
       {
         date: formatIsoDate(year, 1, 1),

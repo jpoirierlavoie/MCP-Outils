@@ -102,7 +102,7 @@ jobs:
               "",
               "Mettre à jour `src/data/boc_prime_rates.json` depuis l'API Valet de la Banque du Canada, puis exécuter :",
               "```bash",
-              "npm run typecheck && npm run lint && npm test && npm run build",
+              "npm run type-check && npm run lint && npm test && npm run build",
               "```",
             ].join("\n");
 

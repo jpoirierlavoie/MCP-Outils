@@ -1,17 +1,5 @@
 name: deploy
 
-# Déploiement continu vers Cloudflare Workers (`outils.poirierlavoie.ca`).
-#
-# Gardes stricts :
-#   1. 3 contrôles préalables en LECTURE SEULE sur `api.cloudflare.com` (jeton présent sans
-#      espace ni retour chariot, reconnu actif par Cloudflare, compte unique).
-#   2. Porte complète hors réseau (`npm run typecheck`, `npm test`, `npm run build`,
-#      `npx wrangler deploy --dry-run`).
-#   3. Déploiement supervisé (`npx wrangler deploy --tag <sha7> --message ...`) ciblant
-#      l'environnement GitHub `production` avec file `deploy-production` sérialisée.
-#   4. Vérification vivante post-déploiement sur `/healthz` et `POST /mcp` (`initialize`).
-#
-# Aucune expression `${{ }}` n'apparaît dans un `run:` : tout passe par `env:`.
 on:
   push:
     branches: [main]
@@ -37,7 +25,6 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # ── LES TROIS CONTRÔLES PRÉALABLES (lecture seule) ──────────────────────
       - name: Contrôle 1/3 — le secret CLOUDFLARE_API_TOKEN parvient-il au job ?
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -129,7 +116,10 @@ jobs:
       - run: npm ci
 
       - name: Type-check
-        run: npm run typecheck
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
 
       - name: Tests unitaires
         run: npm test
@@ -137,8 +127,8 @@ jobs:
       - name: Build de production
         run: npm run build
 
-      - name: Paquet de déploiement (à blanc)
-        run: npx wrangler deploy --dry-run
+      - name: Audit des dépendances
+        run: npm run audit
 
       - name: Déploiement sur Cloudflare Workers (wrangler deploy)
         id: deploy
@@ -151,11 +141,11 @@ jobs:
           tag="${ATTENDU_LONG:0:7}"
           npx wrangler deploy --var "COMMIT:${tag}" --tag "$tag" --message "Deploy ${tag} (GitHub Actions)"
 
-      - name: Vérification vivante (/healthz, /mcp/server-card et /mcp initialize)
+      - name: Vérification vivante (/health, /mcp/server-card et /mcp initialize)
         if: success()
         env:
           ATTENDU_LONG: ${{ github.sha }}
-          SANTE: https://outils.poirierlavoie.ca/healthz
+          SANTE: https://outils.poirierlavoie.ca/health
           CARTE: https://outils.poirierlavoie.ca/mcp/server-card
           MCP_URL: https://outils.poirierlavoie.ca/mcp
         run: |
@@ -163,18 +153,18 @@ jobs:
           attendu="${ATTENDU_LONG:0:7}"
           ok=0
           for i in $(seq 1 12); do
-            code=$(curl -sS --max-time 20 -o /tmp/healthz.json -w '%{http_code}' "$SANTE" || echo 000)
-            enligne=$(jq -r '.commit // "absent"' /tmp/healthz.json 2>/dev/null || echo absent)
+            code=$(curl -sS --max-time 20 -o /tmp/health.json -w '%{http_code}' "$SANTE" || echo 000)
+            enligne=$(jq -r '.commit // "absent"' /tmp/health.json 2>/dev/null || echo absent)
             if [ "$code" = "200" ] && [ "$enligne" = "$attendu" ]; then
-              echo "Production alignée sur /healthz : HTTP 200, commit=${enligne} (tentative ${i}/12)."
+              echo "Production alignée sur /health : HTTP 200, commit=${enligne} (tentative ${i}/12)."
               ok=1
               break
             fi
-            echo "Tentative ${i}/12 : /healthz HTTP ${code}, commit=${enligne} (attendu ${attendu})."
+            echo "Tentative ${i}/12 : /health HTTP ${code}, commit=${enligne} (attendu ${attendu})."
             sleep 5
           done
           if [ "$ok" -ne 1 ]; then
-            echo "::error title=Vérification /healthz échouée::${SANTE} n'a pas rendu HTTP 200 avec commit=${attendu}."
+            echo "::error title=Vérification /health échouée::${SANTE} n'a pas rendu HTTP 200 avec commit=${attendu}."
             exit 1
           fi
           code_carte=$(curl -sS --max-time 20 -o /tmp/server-card.json -w '%{http_code}' "$CARTE" || echo 000)
@@ -196,4 +186,4 @@ jobs:
             echo "::error title=Réponse MCP inattendue::serverInfo absent dans la réponse d'initialisation."
             exit 1
           fi
-          echo "Vérification vivante complète : /healthz=200, /mcp/server-card=200, POST /mcp initialize=200."
+          echo "Vérification vivante complète : /health=200, /mcp/server-card=200, POST /mcp initialize=200."

@@ -246,7 +246,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
   });
 
   it("registre_search normalise accents, suffixes juridiques (inc./ltée/S.E.N.C.R.L.) et sociétés à numéro sans tiret", async () => {
-    // Recherche d'une société à numéro sans tiret et avec « Ltée » au lieu de « Inc. »
     const numSearch = await registreSearchEntities(harness.d1, {
       query: "91234567 Quebec Ltee",
     });
@@ -265,14 +264,12 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       ]),
     );
 
-    // Recherche par autre nom utilisé au Québec
     const altSearch = await registreSearchEntities(harness.d1, {
       query: "Constructions Tremblay Grand Nord",
       jurisdiction: "qc",
     });
     expect(altSearch.structured.entities[0]!.neq).toBe("1170123456");
 
-    // Recherche S.E.N.C.R.L. sans points ni accents
     const sencrl = await registreSearchEntities(harness.d1, {
       query: "Cabinet Belanger sencrl",
     });
@@ -281,7 +278,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       "Société en nom collectif à responsabilité limitée",
     );
 
-    // Filtre active_only: true exclut la société radiée d'office
     const radieeExcluded = await registreSearchEntities(harness.d1, {
       query: "Gestion Vieux-Port",
       active_only: true,
@@ -296,7 +292,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     expect(radieeIncluded.structured.entities[0]!.statut).toBe("Radiée d'office");
     expect(radieeIncluded.structured.entities[0]!.faillite_declaree).toBe(true);
 
-    // Recherche fédérale par NE à 9 chiffres
     const fedByBn = await registreSearchEntities(harness.d1, {
       query: "801423500",
       jurisdiction: "ca",
@@ -335,7 +330,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(fullQc.text).toContain("REGISTRE_ABSENCE_PERSONNES_PHYSIQUES");
     }
 
-    // Dispense d'adresse au REQ : ni l'adresse, ni la ville, ni le code postal ne doivent être exposés
     const disp = await registreGetEntity(harness.d1, { neq: "3340987654" });
     expect(disp.ok).toBe(true);
     if (disp.ok) {
@@ -345,7 +339,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(disp.structured.quebec?.domicile_declare.code_postal).toBeNull();
     }
 
-    // Fiche fédérale par numéro de société (incluant format avec tirets) et par NE (BN)
     const fedByHyphen = await registreGetEntity(harness.d1, { corporation_number: "828-408-3" });
     expect(fedByHyphen.ok).toBe(true);
     if (fedByHyphen.ok) {
@@ -380,7 +373,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
   });
 
   it("occulte intégralement toute adresse sous dispense LPLE (établissements/fusions/OPC/RENA), résout les ligatures 'Sœurs'/'Soeurs' et évite le balayage complet de domaine_valeur", async () => {
-    // 1) Maison d'hébergement avec da=1 : aucune fuite d'adresse ni dans les établissements ni dans les volets annexes
     const shelter = await registreGetEntity(harness.d1, { neq: "1144118263" });
     expect(shelter.ok).toBe(true);
     if (shelter.ok) {
@@ -400,7 +392,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(dumped).not.toContain("G8H");
     }
 
-    // 2) Recherche bidirectionnelle avec ou sans ligature « œ »
     const withLigature = await registreSearchEntities(harness.d1, {
       query: "Fondation Sœurs de Notre-Dame",
     });
@@ -412,7 +403,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     expect(withLigature.structured.entities[0]?.neq).toBe("1165554444");
     expect(withoutLigature.structured.entities[0]?.neq).toBe("1165554444");
 
-    // 3) Aucune requête sur domaine_valeur en périmètre fédéral pur, et requête indexée ciblée en périmètre québécois
     const sqlSeen: string[] = [];
     const spyD1: D1Database = {
       prepare(query: string) {
@@ -460,20 +450,17 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
   });
 
   it("D27 & B-N13 : une entité radiée homonyme ou nom commercial sur une société d'État n'active jamais exact_match_found", async () => {
-    // 'GESTION VIEUX-PORT LTÉE' est radiée (is_active = 0) dans le jeu de test
     const inactiveMatch = RegistreSearchEntitiesOutputSchema.parse(
       (await registreSearchEntities(harness.d1, { query: "GESTION VIEUX-PORT LTÉE" })).structured,
     );
     expect(inactiveMatch.entities.length).toBeGreaterThanOrEqual(1);
     expect(inactiveMatch.exact_match_found).toBe(false);
 
-    // Une société par loi spéciale (Hydro-Québec) homonyme d'une fiche non corporative ou inactive reste à exact_match_found = false
     const hydroRes = RegistreSearchEntitiesOutputSchema.parse(
       (await registreSearchEntities(harness.d1, { query: "Hydro-Québec" })).structured,
     );
     expect(hydroRes.exact_match_found).toBe(false);
 
-    // Une personne morale constituée par loi spéciale au statut REQ « Non immatriculée » active exact_match_found = true
     const barreauRes = RegistreSearchEntitiesOutputSchema.parse(
       (await registreSearchEntities(harness.d1, { query: "Barreau du Québec" })).structured,
     );
@@ -498,7 +485,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       "REGISTRE_GLEIF_DECLARATIF_CONSOLIDATION",
     );
 
-    // Entité canadienne autonome (banque sans fiche REQ/CorpCan) sous jurisdiction='all' et 'gleif'
     const bankAll = RegistreSearchEntitiesOutputSchema.parse(
       (await registreSearchEntities(harness.d1, { query: "Banque Royale du Nord" })).structured,
     );
@@ -509,7 +495,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     expect(bankAll.entities[0]?.has_lei).toBe(true);
     expect(bankAll.entities[0]?.lei).toBe("549300CABANKROYALE06");
 
-    // Recherche directe par LEI à 20 caractères (insensible à la casse)
     const directLei = RegistreSearchEntitiesOutputSchema.parse(
       (
         await registreSearchEntities(harness.d1, {
@@ -522,7 +507,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     expect(directLei.exact_match_found).toBe(true);
     expect(directLei.entities[0]?.neq).toBe("1170123456");
 
-    // La société mère étrangère (is_canadian = 0) ne pollue pas registre_search
     const foreign = RegistreSearchEntitiesOutputSchema.parse(
       (await registreSearchEntities(harness.d1, { query: "Nordic Global Holdings" })).structured,
     );
@@ -530,7 +514,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
   });
 
   it("GLEIF PR 2 : valide le XOR à 4 clés, la normalisation LEI, la hiérarchie Level 2, REPEX, filiales, portails officiels et masquage LPLE da=1", async () => {
-    // XOR 4 clés + format LEI invalide -> erreurs françaises (ok=false)
     const xorErr = await registreGetEntity(harness.d1, {
       neq: "1170123456",
       lei: "549300QC912345670001",
@@ -546,7 +529,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(badLei.text).toContain("Format de LEI invalide");
     }
 
-    // Lookup par LEI (minuscules + tirets) sur société fédérale avec mère directe canadienne, mère ultime étrangère et filiale canadienne
     const fedByLei = await registreGetEntity(harness.d1, { lei: "549300ca-828408300002" });
     expect(fedByLei.ok).toBe(true);
     if (fedByLei.ok) {
@@ -580,7 +562,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(parsed.provenance.source).toContain("GLEIF");
     }
 
-    // Exceptions REPEX (NO_LEI + NATURAL_PERSONS) et portail REQ sur entité québécoise
     const qcWithRepex = await registreGetEntity(harness.d1, { neq: "1170123456" });
     expect(qcWithRepex.ok).toBe(true);
     if (qcWithRepex.ok) {
@@ -598,7 +579,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       );
     }
 
-    // Garde conditionnelle omise lorsqu'aucun LEI n'est associé
     const noGleif = await registreGetEntity(harness.d1, { neq: "1165554444" });
     expect(noGleif.ok).toBe(true);
     if (noGleif.ok) {
@@ -608,7 +588,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       );
     }
 
-    // Masquage LPLE da=1 transversal : requête par NEQ et par LEI masque QC + CorpCan + GLEIF
     for (const queryArgs of [{ neq: "3340987654" }, { lei: "549300BELANGERDA1007" }] as const) {
       const masked = await registreGetEntity(harness.d1, queryArgs);
       expect(masked.ok).toBe(true);
@@ -634,7 +613,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
   });
 
   it("GLEIF PR 2 : masque ville sur les fiches fédérales liées à une dispense LPLE da=1 dans registre_search et normalise les zéros initiaux à 7 chiffres", async () => {
-    // 1) Recherche par LEI partagé (jurisdiction: 'gleif') : qc (3340987654) ET ca (9990001) ont ville=null sans fuite dans content[0].text
     const byLei = await registreSearchEntities(harness.d1, {
       query: "549300BELANGERDA1007",
       jurisdiction: "gleif",
@@ -646,7 +624,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     const byLeiBody = byLei.text.split("\n\nDates d'instantanés :")[0] ?? "";
     expect(byLeiBody).not.toContain("Québec");
 
-    // 2) Recherche par dénomination fédérale (jurisdiction: 'all' et 'ca') : ville=null sur la fiche ca liée
     for (const jur of ["all", "ca"] as const) {
       const caSearch = await registreSearchEntities(harness.d1, {
         query: "9990001 CANADA",
@@ -662,7 +639,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(caSearch.text).not.toContain("(LCSA), Québec");
     }
 
-    // 3) Repli à 7 chiffres avec zéro initial dans registre_get_entity (463116 <-> 0463116 et 0463117 <-> 463117)
     const unpaddedOnPadded = await registreGetEntity(harness.d1, {
       corporation_number: "463116",
     });
@@ -724,7 +700,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
     `;
     const addHarness = createSqliteD1Harness({ seedSql: [additiveSchema], enforceQueryOnly: true });
     try {
-      // 1) Recherche par nom sans accents sur entité autonome uniquement présente dans gleif_entites
       const byName = RegistreSearchEntitiesOutputSchema.parse(
         (await registreSearchEntities(addHarness.d1, { query: "Societe Generale Additive" }))
           .structured,
@@ -734,7 +709,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(byName.entities[0]?.jurisdiction).toBe("gleif");
       expect(byName.entities[0]?.lei).toBe("549300SOCGENADD00009");
 
-      // 2) Recherche directe par LEI à 20 caractères sur cette entité autonome
       const byLei = RegistreSearchEntitiesOutputSchema.parse(
         (
           await registreSearchEntities(addHarness.d1, {
@@ -747,7 +721,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(byLei.exact_match_found).toBe(true);
       expect(byLei.entities[0]?.lei).toBe("549300SOCGENADD00009");
 
-      // 3) Aucune duplication d'une entité déjà appariée dans entites (9123-4567 QUÉBEC INC.)
       const noDup = RegistreSearchEntitiesOutputSchema.parse(
         (await registreSearchEntities(addHarness.d1, { query: "9123-4567 Québec inc." }))
           .structured,
@@ -755,7 +728,6 @@ describe("Domaine B — Registres d'entreprises du Québec et du Canada", () => 
       expect(noDup.count).toBe(1);
       expect(noDup.entities[0]?.jurisdiction).toBe("qc");
 
-      // 4) Entité étrangère (is_canadian = 0) toujours exclue
       const foreign = RegistreSearchEntitiesOutputSchema.parse(
         (await registreSearchEntities(addHarness.d1, { query: "Société Mère Étrangère" }))
           .structured,

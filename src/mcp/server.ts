@@ -1,65 +1,46 @@
-import { McpServer } from "@modelcontextprotocol/server";
+import { err, ok, type ToolResult } from "@poirierlavoie/mcp-socle";
 import { z } from "zod";
 
 z.config(z.locales.fr());
 
-import {
-  AdresseVerifyInputSchema,
-  AdresseVerifyOutputSchema,
-  adresseVerify,
-} from "../core/adresses.js";
+import { AdresseVerifyInputSchema, adresseVerify } from "../core/adresses.js";
 import {
   ComputeDeadlinesInputSchema,
   type ComputeDeadlinesOutput,
-  ComputeDeadlinesOutputSchema,
   computeDeadlines,
 } from "../core/deadlines.js";
-import {
-  TauxBocRatesInputSchema,
-  TauxBocRatesOutputSchema,
-  tauxBocRates,
-} from "../core/economie.js";
+import { TauxBocRatesInputSchema, tauxBocRates } from "../core/economie.js";
 import type { Garde } from "../core/gardes.js";
 import {
   ListHolidaysInputSchema,
   type ListHolidaysOutput,
-  ListHolidaysOutputSchema,
   listHolidays,
 } from "../core/holidays.js";
 import {
   ComputeInterest1619InputSchema,
   type ComputeInterest1619Output,
-  ComputeInterest1619OutputSchema,
   computeInterest1619,
 } from "../core/interest1619.js";
-import { IndiceIpcInputSchema, IndiceIpcOutputSchema, indiceIpc } from "../core/ipc.js";
+import { IndiceIpcInputSchema, indiceIpc } from "../core/ipc.js";
 import {
   PalaisGetInputSchema,
-  PalaisGetOutputSchema,
   PalaisListInputSchema,
-  PalaisListOutputSchema,
   ParseCourtFileInputSchema,
-  ParseCourtFileOutputSchema,
   palaisGet,
   palaisList,
   parseCourtFile,
 } from "../core/qcTools.js";
 import {
   RegistreGetEntityInputSchema,
-  RegistreGetEntityOutputSchema,
   RegistreSearchEntitiesInputSchema,
-  RegistreSearchEntitiesOutputSchema,
   registreGetEntity,
   registreSearchEntities,
 } from "../core/registres.js";
-import { LoyerTalInputSchema, LoyerTalOutputSchema, loyerTal } from "../core/tal.js";
+import { LoyerTalInputSchema, loyerTal } from "../core/tal.js";
 import {
   TerminologieAttestationsInputSchema,
-  TerminologieAttestationsOutputSchema,
   TerminologieLookupInputSchema,
-  TerminologieLookupOutputSchema,
   TerminologieScanTextInputSchema,
-  TerminologieScanTextOutputSchema,
   terminologieAttestations,
   terminologieLookup,
   terminologieScanText,
@@ -67,7 +48,7 @@ import {
 
 export const SERVER_NAME = "mcp-outils";
 export const SERVER_TITLE = "MCP Outils";
-export const SERVER_VERSION = "2.2.2";
+export const SERVER_VERSION = "2.2.3";
 export const SERVER_DESCRIPTION =
   "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F., taux préférentiel BDC), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses civiques et lots RQA, terminologie bijuridique, taux Banque du Canada, IPC StatCan et calculateur TAL (RLRQ, c. T-15.01, r. 2).";
 
@@ -87,7 +68,7 @@ const READ_ONLY_LOCAL_ANNOTATIONS = {
   openWorldHint: false,
 } as const;
 
-export type ToolFamily = "calcul" | "greffe" | "registre" | "adresse" | "terminologie" | "economie";
+type ToolFamily = "calcul" | "greffe" | "registre" | "adresse" | "terminologie" | "economie";
 
 export interface OutilsBindings {
   DB_TERMINOLOGIE?: D1Database;
@@ -101,7 +82,7 @@ export interface ToolDescriptor {
   readonly title: string;
   readonly description: string;
   readonly family: ToolFamily;
-  readonly inputSchemaJson: Record<string, unknown>;
+  readonly inputSchema: Record<string, unknown>;
   readonly annotations: typeof READ_ONLY_LOCAL_ANNOTATIONS;
 }
 
@@ -243,43 +224,23 @@ export function listToolDescriptors(): readonly ToolDescriptor[] {
       title: spec.title,
       description: spec.description,
       family: spec.family,
-      inputSchemaJson: z.toJSONSchema(spec.inputSchema) as Record<string, unknown>,
+      inputSchema: z.toJSONSchema(spec.inputSchema) as Record<string, unknown>,
       annotations: READ_ONLY_LOCAL_ANNOTATIONS,
     }));
   }
   return cachedDescriptors;
 }
 
+export function listMcpToolDescriptors(): Array<Record<string, unknown>> {
+  return listToolDescriptors().map(({ family: _family, ...rest }) => rest);
+}
+
 const TOOL_SPEC_BY_NAME = new Map(TOOL_SPECS.map((spec) => [spec.name, spec]));
 
-function specFor(name: string) {
-  const spec = TOOL_SPEC_BY_NAME.get(name);
-  if (!spec) {
-    throw new Error(`Descripteur d'outil manquant : ${name}`);
-  }
-  return spec;
-}
-
-function toolConfig<TOutput extends z.ZodType>(name: string, outputSchema: TOutput) {
-  const spec = specFor(name);
-  return {
-    title: spec.title,
-    description: spec.description,
-    outputSchema,
-    annotations: { ...READ_ONLY_LOCAL_ANNOTATIONS },
-  };
-}
-
-function missingDatabaseError(bindingName: string, domainLabel: string) {
-  return {
-    isError: true as const,
-    content: [
-      {
-        type: "text" as const,
-        text: `Base D1 en lecture seule (${bindingName} — ${domainLabel}) non liée dans cet environnement d'exécution.`,
-      },
-    ],
-  };
+function missingDatabaseError(bindingName: string, domainLabel: string): ToolResult {
+  return err(
+    `Base D1 en lecture seule (${bindingName} — ${domainLabel}) non liée dans cet environnement d'exécution.`,
+  );
 }
 
 function formatGardesSection(gardes: Garde[]): string {
@@ -409,341 +370,200 @@ function formatInterestText(out: ComputeInterest1619Output): string {
     .join("\n");
 }
 
-export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
-  const server = new McpServer(
-    {
-      name: SERVER_NAME,
-      title: SERVER_TITLE,
-      version: SERVER_VERSION,
-      description: SERVER_DESCRIPTION,
-    },
-    {
-      capabilities: {
-        tools: {},
-      },
-      instructions: INSTRUCTIONS,
-    },
-  );
+export async function callOutilsTool(
+  env: OutilsBindings,
+  nom: unknown,
+  argsBruts: unknown,
+): Promise<ToolResult> {
+  const spec = typeof nom === "string" ? TOOL_SPEC_BY_NAME.get(nom) : undefined;
+  if (!spec) {
+    const label = typeof nom === "string" && nom.length > 0 ? nom.slice(0, 80) : "(sans nom)";
+    return err(`Outil inconnu : ${label}.`);
+  }
 
-  server.registerTool(
-    "calendrier_holidays",
-    {
-      ...toolConfig("calendrier_holidays", ListHolidaysOutputSchema),
-      inputSchema: ListHolidaysInputSchema,
-    },
-    async (args) => {
+  const raw = argsBruts ?? {};
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return err("« arguments » doit être un objet.");
+  }
+
+  const parsed = spec.inputSchema.safeParse(raw);
+  if (!parsed.success) {
+    return err(`Arguments invalides pour ${spec.name} : ${z.prettifyError(parsed.error)}`);
+  }
+
+  switch (spec.name) {
+    case "calendrier_holidays": {
       try {
-        const result = listHolidays(args);
-        return {
-          structuredContent: result,
-          content: [{ type: "text", text: formatHolidaysText(result) }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de calcul : ${msg}` }],
-        };
+        const result = listHolidays(parsed.data as z.infer<typeof ListHolidaysInputSchema>);
+        return ok(formatHolidaysText(result), result as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de calcul : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "calendrier_deadlines",
-    {
-      ...toolConfig("calendrier_deadlines", ComputeDeadlinesOutputSchema),
-      inputSchema: ComputeDeadlinesInputSchema,
-    },
-    async (args) => {
+    case "calendrier_deadlines": {
       try {
-        const result = computeDeadlines(args);
-        return {
-          structuredContent: result,
-          content: [{ type: "text", text: formatDeadlinesText(result) }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de validation ou de calcul : ${msg}` }],
-        };
+        const result = computeDeadlines(parsed.data as z.infer<typeof ComputeDeadlinesInputSchema>);
+        return ok(formatDeadlinesText(result), result as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de validation ou de calcul : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "interets_1619",
-    {
-      ...toolConfig("interets_1619", ComputeInterest1619OutputSchema),
-      inputSchema: ComputeInterest1619InputSchema,
-    },
-    async (args) => {
+    case "interets_1619": {
       try {
-        const result = computeInterest1619(args);
-        return {
-          structuredContent: result,
-          content: [{ type: "text", text: formatInterestText(result) }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de validation ou de calcul : ${msg}` }],
-        };
+        const result = computeInterest1619(
+          parsed.data as z.infer<typeof ComputeInterest1619InputSchema>,
+        );
+        return ok(formatInterestText(result), result as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de validation ou de calcul : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "greffe_parse_number",
-    {
-      ...toolConfig("greffe_parse_number", ParseCourtFileOutputSchema),
-      inputSchema: ParseCourtFileInputSchema,
-    },
-    async (args) => {
+    case "greffe_parse_number": {
       try {
-        const { structured, text } = parseCourtFile(args);
-        return {
-          structuredContent: structured,
-          content: [{ type: "text", text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur d'analyse de dossier : ${msg}` }],
-        };
+        const { structured, text } = parseCourtFile(
+          parsed.data as z.infer<typeof ParseCourtFileInputSchema>,
+        );
+        return ok(text, structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur d'analyse de dossier : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "palais_list",
-    {
-      ...toolConfig("palais_list", PalaisListOutputSchema),
-      inputSchema: PalaisListInputSchema,
-    },
-    async (args) => {
+    case "palais_list": {
       try {
-        const { structured, text } = palaisList(args);
-        return {
-          structuredContent: structured,
-          content: [{ type: "text", text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de répertoire des palais : ${msg}` }],
-        };
+        const { structured, text } = palaisList(
+          parsed.data as z.infer<typeof PalaisListInputSchema>,
+        );
+        return ok(text, structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de répertoire des palais : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "palais_get",
-    {
-      ...toolConfig("palais_get", PalaisGetOutputSchema),
-      inputSchema: PalaisGetInputSchema,
-    },
-    async (args) => {
+    case "palais_get": {
       try {
-        const result = palaisGet(args);
+        const result = palaisGet(parsed.data as z.infer<typeof PalaisGetInputSchema>);
         if (!result.ok) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: result.text }],
-          };
+          return err(result.text);
         }
-        return {
-          structuredContent: result.structured,
-          content: [{ type: "text", text: result.text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de consultation de palais : ${msg}` }],
-        };
+        return ok(result.text, result.structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de consultation de palais : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "registre_search",
-    {
-      ...toolConfig("registre_search", RegistreSearchEntitiesOutputSchema),
-      inputSchema: RegistreSearchEntitiesInputSchema,
-    },
-    async (args) => {
+    case "registre_search": {
       if (!env.DB_REGISTRES) {
         return missingDatabaseError("DB_REGISTRES", "registres d'entreprises");
       }
       try {
-        const { structured, text } = await registreSearchEntities(env.DB_REGISTRES, args);
-        return {
-          structuredContent: structured,
-          content: [{ type: "text", text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de recherche aux registres : ${msg}` }],
-        };
+        const { structured, text } = await registreSearchEntities(
+          env.DB_REGISTRES,
+          parsed.data as z.infer<typeof RegistreSearchEntitiesInputSchema>,
+        );
+        return ok(text, structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de recherche aux registres : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "registre_get_entity",
-    {
-      ...toolConfig("registre_get_entity", RegistreGetEntityOutputSchema),
-      inputSchema: RegistreGetEntityInputSchema,
-    },
-    async (args) => {
+    case "registre_get_entity": {
       if (!env.DB_REGISTRES) {
         return missingDatabaseError("DB_REGISTRES", "registres d'entreprises");
       }
       try {
-        const result = await registreGetEntity(env.DB_REGISTRES, args);
+        const result = await registreGetEntity(
+          env.DB_REGISTRES,
+          parsed.data as z.infer<typeof RegistreGetEntityInputSchema>,
+        );
         if (!result.ok) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: result.text }],
-          };
+          return err(result.text);
         }
-        return {
-          structuredContent: result.structured,
-          content: [{ type: "text", text: result.text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de consultation aux registres : ${msg}` }],
-        };
+        return ok(result.text, result.structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de consultation aux registres : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "adresse_verify",
-    {
-      ...toolConfig("adresse_verify", AdresseVerifyOutputSchema),
-      inputSchema: AdresseVerifyInputSchema,
-    },
-    async (args) => {
+    case "adresse_verify": {
       if (!env.DB_ADRESSES) {
         return missingDatabaseError("DB_ADRESSES", "référentiel québécois des adresses");
       }
       try {
-        const result = await adresseVerify(env.DB_ADRESSES, args);
+        const result = await adresseVerify(
+          env.DB_ADRESSES,
+          parsed.data as z.infer<typeof AdresseVerifyInputSchema>,
+        );
         if (!result.ok) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: result.text }],
-          };
+          return err(result.text);
         }
-        return {
-          structuredContent: result.structured,
-          content: [{ type: "text", text: result.text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de vérification d'adresse : ${msg}` }],
-        };
+        return ok(result.text, result.structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de vérification d'adresse : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "terminologie_lookup",
-    {
-      ...toolConfig("terminologie_lookup", TerminologieLookupOutputSchema),
-      inputSchema: TerminologieLookupInputSchema,
-    },
-    async (args) => {
+    case "terminologie_lookup": {
       if (!env.DB_TERMINOLOGIE) {
         return missingDatabaseError("DB_TERMINOLOGIE", "terminologie juridique");
       }
       try {
-        const { structured, text } = await terminologieLookup(env.DB_TERMINOLOGIE, args);
-        return {
-          structuredContent: structured,
-          content: [{ type: "text", text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de recherche terminologique : ${msg}` }],
-        };
+        const { structured, text } = await terminologieLookup(
+          env.DB_TERMINOLOGIE,
+          parsed.data as z.infer<typeof TerminologieLookupInputSchema>,
+        );
+        return ok(text, structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de recherche terminologique : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "termino_attestations",
-    {
-      ...toolConfig("termino_attestations", TerminologieAttestationsOutputSchema),
-      inputSchema: TerminologieAttestationsInputSchema,
-    },
-    async (args) => {
+    case "termino_attestations": {
       if (!env.DB_TERMINOLOGIE) {
         return missingDatabaseError("DB_TERMINOLOGIE", "terminologie juridique");
       }
       try {
-        const { structured, text } = await terminologieAttestations(env.DB_TERMINOLOGIE, args);
-        return {
-          structuredContent: structured,
-          content: [{ type: "text", text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur d'attestations statutaires : ${msg}` }],
-        };
+        const { structured, text } = await terminologieAttestations(
+          env.DB_TERMINOLOGIE,
+          parsed.data as z.infer<typeof TerminologieAttestationsInputSchema>,
+        );
+        return ok(text, structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur d'attestations statutaires : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "terminologie_scan",
-    {
-      ...toolConfig("terminologie_scan", TerminologieScanTextOutputSchema),
-      inputSchema: TerminologieScanTextInputSchema,
-    },
-    async (args) => {
+    case "terminologie_scan": {
       if (!env.DB_TERMINOLOGIE) {
         return missingDatabaseError("DB_TERMINOLOGIE", "terminologie juridique");
       }
       try {
-        const { structured, text } = await terminologieScanText(env.DB_TERMINOLOGIE, args);
-        return {
-          structuredContent: structured,
-          content: [{ type: "text", text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur d'analyse terminologique : ${msg}` }],
-        };
+        const { structured, text } = await terminologieScanText(
+          env.DB_TERMINOLOGIE,
+          parsed.data as z.infer<typeof TerminologieScanTextInputSchema>,
+        );
+        return ok(text, structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur d'analyse terminologique : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "taux_boc_rates",
-    {
-      ...toolConfig("taux_boc_rates", TauxBocRatesOutputSchema),
-      inputSchema: TauxBocRatesInputSchema,
-    },
-    async (args) => {
+    case "taux_boc_rates": {
       if (!env.DB_ECONOMIE) {
         return missingDatabaseError(
           "DB_ECONOMIE",
@@ -751,34 +571,21 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
         );
       }
       try {
-        const result = await tauxBocRates(env.DB_ECONOMIE, args);
+        const result = await tauxBocRates(
+          env.DB_ECONOMIE,
+          parsed.data as z.infer<typeof TauxBocRatesInputSchema>,
+        );
         if (!result.ok) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: result.text }],
-          };
+          return err(result.text);
         }
-        return {
-          structuredContent: result.structured,
-          content: [{ type: "text", text: result.text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de consultation des taux BoC : ${msg}` }],
-        };
+        return ok(result.text, result.structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de consultation des taux BoC : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "indice_ipc",
-    {
-      ...toolConfig("indice_ipc", IndiceIpcOutputSchema),
-      inputSchema: IndiceIpcInputSchema,
-    },
-    async (args) => {
+    case "indice_ipc": {
       if (!env.DB_ECONOMIE) {
         return missingDatabaseError(
           "DB_ECONOMIE",
@@ -786,58 +593,38 @@ export function createOutilsMcpServer(env: OutilsBindings = {}): McpServer {
         );
       }
       try {
-        const result = await indiceIpc(env.DB_ECONOMIE, args);
+        const result = await indiceIpc(
+          env.DB_ECONOMIE,
+          parsed.data as z.infer<typeof IndiceIpcInputSchema>,
+        );
         if (!result.ok) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: result.text }],
-          };
+          return err(result.text);
         }
-        return {
-          structuredContent: result.structured,
-          content: [{ type: "text", text: result.text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de consultation IPC : ${msg}` }],
-        };
+        return ok(result.text, result.structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de consultation IPC : ${msg}`);
       }
-    },
-  );
+    }
 
-  server.registerTool(
-    "loyer_tal",
-    {
-      ...toolConfig("loyer_tal", LoyerTalOutputSchema),
-      inputSchema: LoyerTalInputSchema,
-    },
-    async (args) => {
+    case "loyer_tal": {
+      const args = parsed.data as z.infer<typeof LoyerTalInputSchema>;
       if (args.mode === "schl" && !env.DB_ECONOMIE) {
         return missingDatabaseError("DB_ECONOMIE", "loyers moyens du marché SCHL");
       }
       try {
         const result = await loyerTal(env.DB_ECONOMIE ?? null, args);
         if (!result.ok) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: result.text }],
-          };
+          return err(result.text);
         }
-        return {
-          structuredContent: result.structured,
-          content: [{ type: "text", text: result.text }],
-        };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Erreur de calcul ou de consultation TAL : ${msg}` }],
-        };
+        return ok(result.text, result.structured as unknown as Record<string, unknown>);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return err(`Erreur de calcul ou de consultation TAL : ${msg}`);
       }
-    },
-  );
+    }
 
-  return server;
+    default:
+      return err(`Outil inconnu : ${spec.name}.`);
+  }
 }

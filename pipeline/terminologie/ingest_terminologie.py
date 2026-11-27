@@ -1,19 +1,3 @@
-"""Pipeline d'ingestion et de chargement D1 — Domaine A : Terminologie juridique bilingue.
-
-Sources par rang d'autorité :
-  Rang 1 : `src/data/glossaire_bijuridique_qc.json` (glossaire curé QC)
-  Rang 2 : Concordancier législatif FR/EN et doublets bijuridiques extraits en LECTURE SEULE
-           de `MCP-Legislation` (D1 `82779d59-480f-4847-9716-6f4d7c62af5b` — zéro écriture)
-  Rang 3 : TERMIUM Plus® — Domaine « Droit et justice / Law and Justice » (`OGL-Canada`)
-  Rang 4 : OQLF — Données linguistiques résolues dynamiquement via CKAN (`CC BY-NC-SA 4.0`),
-           filtrées strictement sur la hiérarchie `droit` / `droit > ...`
-
-Exclut strictement toute source protégée (Crépeau/McGill, Juriterm, Juridictionnaire).
-
-Usage :
-  python -m pipeline.terminologie.ingest_terminologie --build-local
-  python -m pipeline.terminologie.ingest_terminologie --build-local --push-remote --db-name outils-terminologie
-"""
 from __future__ import annotations
 
 import argparse
@@ -300,10 +284,6 @@ def _extract_legal_oqlf_domain(domaines_str: str) -> str | None:
     return "; ".join(legal_branches) if legal_branches else None
 
 
-def _is_legal_oqlf_domain(domaines_str: str) -> bool:
-    return _extract_legal_oqlf_domain(domaines_str) is not None
-
-
 def _detect_termium_system(row: dict[str, str]) -> str:
     blob = " ".join(
         [
@@ -372,7 +352,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
             return False
         seen_fiches.add(key)
 
-        # Interdiction stricte : aucune source Crépeau / Juriterm / Juridictionnaire
         forbidden_check = f"{source_nom} {url_fiche or ''} {note_ou_definition}".lower()
         for banned in ("crépeau", "crepeau", "juriterm", "juridictionnaire"):
             if banned in forbidden_check:
@@ -423,7 +402,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
         )
         return True
 
-    # ── RANG 1 : Glossaire curé QC + Règles de détection des contaminations ──
     glossaire_raw = json.loads(GLOSSAIRE_PATH.read_text(encoding="utf-8"))
     r1_count = 0
     regles_seen: set[tuple[str, str]] = set()
@@ -568,7 +546,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     )
     print(f"[Rang 1] {r1_count} fiches curées et {regle_id} règles de contamination.")
 
-    # ── RANG 2 : Concordancier législatif FR/EN depuis MCP-Legislation (lecture seule) ──
     r2_fiches = 0
     aligned_articles_count = 0
 
@@ -630,7 +607,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
             ):
                 r2_fiches += 1
 
-        # Divisions alignées FR/EN sur (law_id, path)
         div_fr: dict[tuple[str, str], str] = {}
         div_en: dict[tuple[str, str], str] = {}
         last_div_id = -1
@@ -683,7 +659,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
             ):
                 r2_fiches += 1
 
-        # Articles alignés FR/EN par (law_id, number)
         arts_fr: dict[tuple[str, str], tuple[int, str]] = {}
         arts_en: dict[tuple[str, str], tuple[int, str]] = {}
         last_art_id = -1
@@ -774,7 +749,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     )
     print(f"[Rang 2] {r2_fiches} fiches législatives et {aligned_articles_count} articles FR/EN alignés.")
 
-    # ── RANG 3 : TERMIUM Plus — Droit et justice (`OGL-Canada`) ──
     r3_count = 0
     if not sample_only:
         termium_zip = _download_if_missing(TERMIUM_ZIP_URL, WORK_DIR / "termium_droit.zip")
@@ -849,7 +823,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     )
     print(f"[Rang 3] {r3_count} fiches TERMIUM Plus® chargées.")
 
-    # ── RANG 4 : OQLF — Données linguistiques (résolution dynamique CKAN, filtrées `droit`) ──
     r4_count = 0
     if not sample_only:
         req_ckan = urllib.request.Request(
@@ -966,7 +939,6 @@ def build_local_sqlite(sample_only: bool = False) -> dict[str, int]:
     )
     print(f"[Rang 4] {r4_count} fiches juridiques OQLF chargées.")
 
-    # Création des index et peuplement FTS5 local
     conn.executescript((HERE / "indexes.sql").read_text(encoding="utf-8"))
     for stmt in build_fts_slice_statements(
         conn,
@@ -1151,7 +1123,6 @@ def push_to_remote_d1(db_name: str, location: str = "enam") -> str:
     print(f"[D1] Envoi de {len(batch_files)} lots SQL vers {db_name}...")
     execute_sql_files_remote(db_name, batch_files)
 
-    # Contrôle strict post-chargement (comptes de lignes + FTS5)
     rem_fiches = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM fiches_terminologiques")[0]["c"]
     rem_arts = d1_query_remote(db_id, "SELECT COUNT(*) AS c FROM articles_bilingues")[0]["c"]
     rem_bad_r4 = d1_query_remote(

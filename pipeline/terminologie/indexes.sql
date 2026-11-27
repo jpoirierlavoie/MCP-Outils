@@ -1,5 +1,3 @@
--- Index secondaires et tables virtuelles FTS5 pour DB_TERMINOLOGIE.
-
 CREATE INDEX IF NOT EXISTS idx_fiches_rang_fr ON fiches_terminologiques(terme_fr_norm, rang_source);
 CREATE INDEX IF NOT EXISTS idx_fiches_rang_en ON fiches_terminologiques(terme_en_norm, rang_source);
 CREATE INDEX IF NOT EXISTS idx_fiches_domaine ON fiches_terminologiques(domaine, rang_source);

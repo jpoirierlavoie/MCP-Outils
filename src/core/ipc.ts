@@ -1,30 +1,31 @@
 import { z } from "zod";
+import { assertSafeInt, formatMicros6, parseDecimalAmount, roundHalfUpSigned } from "./format.js";
 import { type GardeCode, GardeSchema, makeGarde, ProvenanceSchema } from "./gardes.js";
 import { formatCentsToCad, roundHalfAwayFromZero } from "./interest1619.js";
 
 const PERIOD_RE = /^\d{4}(?:-\d{2})?$/;
 const DECIMAL_AMOUNT_RE = /^\d+(?:\.\d{1,6})?$/;
 
-export const CpiGeoSchema = z.enum(["quebec", "montreal_rmr", "quebec_rmr", "canada"]);
-export type CpiGeo = z.infer<typeof CpiGeoSchema>;
+const CpiGeoSchema = z.enum(["quebec", "montreal_rmr", "quebec_rmr", "canada"]);
+type CpiGeo = z.infer<typeof CpiGeoSchema>;
 
-export const CpiProductSchema = z.enum([
+const CpiProductSchema = z.enum([
   "all_items",
   "shelter",
   "rented_accommodation",
   "rent",
   "health_care_services",
 ]);
-export type CpiProduct = z.infer<typeof CpiProductSchema>;
+type CpiProduct = z.infer<typeof CpiProductSchema>;
 
-export const CpiFrequencySchema = z.enum(["monthly", "annual"]);
-export type CpiFrequency = z.infer<typeof CpiFrequencySchema>;
+const CpiFrequencySchema = z.enum(["monthly", "annual"]);
+type CpiFrequency = z.infer<typeof CpiFrequencySchema>;
 
-export const CpiUomSchema = z.enum(["2002=100", "1992=100"]);
-export type CpiUom = z.infer<typeof CpiUomSchema>;
+const CpiUomSchema = z.enum(["2002=100", "1992=100"]);
+type CpiUom = z.infer<typeof CpiUomSchema>;
 
-export const CpiRoundingSchema = z.enum(["half_away_from_zero", "half_up"]);
-export type CpiRounding = z.infer<typeof CpiRoundingSchema>;
+const CpiRoundingSchema = z.enum(["half_away_from_zero", "half_up"]);
+type CpiRounding = z.infer<typeof CpiRoundingSchema>;
 
 export const IndiceIpcInputSchema = z.strictObject({
   geo: CpiGeoSchema.optional().describe(
@@ -96,9 +97,9 @@ export const IndiceIpcInputSchema = z.strictObject({
     .optional()
     .describe("Nombre maximal d'observations retournées sur une plage (1 à 500, défaut : 100)."),
 });
-export type IndiceIpcInput = z.infer<typeof IndiceIpcInputSchema>;
+type IndiceIpcInput = z.infer<typeof IndiceIpcInputSchema>;
 
-export const CpiObservationOutputSchema = z.object({
+const CpiObservationOutputSchema = z.object({
   period: z.string(),
   value_decimal: z.string(),
   value_milli: z.number().int(),
@@ -107,7 +108,7 @@ export const CpiObservationOutputSchema = z.object({
   yoy_percent: z.string().nullable(),
 });
 
-export const CpiEscalationOutputSchema = z.object({
+const CpiEscalationOutputSchema = z.object({
   input_amount: z.string(),
   start_period: z.string(),
   end_period: z.string(),
@@ -152,7 +153,7 @@ export const IndiceIpcOutputSchema = z.object({
   provenance: ProvenanceSchema,
   gardes: z.array(GardeSchema),
 });
-export type IndiceIpcOutput = z.infer<typeof IndiceIpcOutputSchema>;
+type IndiceIpcOutput = z.infer<typeof IndiceIpcOutputSchema>;
 
 interface CpiSeriesRow {
   id: number;
@@ -244,7 +245,7 @@ function formatPeriodInt(freq: "M" | "A", periodInt: number): string {
 function formatMilliIndex(milli: number): string {
   const whole = Math.floor(milli / 1000);
   const rem = milli % 1000;
-  // StatCan publie à 1 décimale, mais on préserve jusqu'à 3 décimales si non nulles
+
   if (rem % 100 === 0) {
     return `${whole}.${Math.floor(rem / 100)}`;
   }
@@ -254,14 +255,6 @@ function formatMilliIndex(milli: number): string {
   return `${whole}.${String(rem).padStart(3, "0")}`;
 }
 
-function formatMicros6(micros: bigint): string {
-  const neg = micros < 0n;
-  const abs = neg ? -micros : micros;
-  const whole = abs / 1_000_000n;
-  const frac = (abs % 1_000_000n).toString().padStart(6, "0");
-  return `${neg ? "-" : ""}${whole.toString()}.${frac}`;
-}
-
 function formatSignedBpsPercent(bps: bigint): string {
   const neg = bps < 0n;
   const abs = neg ? -bps : bps;
@@ -269,43 +262,6 @@ function formatSignedBpsPercent(bps: bigint): string {
   const frac = (abs % 100n).toString().padStart(2, "0");
   const sign = bps > 0n ? "+" : neg ? "-" : "";
   return `${sign}${whole.toString()}.${frac} %`;
-}
-
-function parseDecimalAmount(raw: string): { num: bigint; scale: bigint } {
-  const trimmed = raw.trim();
-  const dot = trimmed.indexOf(".");
-  if (dot === -1) {
-    return { num: BigInt(trimmed), scale: 1n };
-  }
-  const whole = trimmed.slice(0, dot);
-  const frac = trimmed.slice(dot + 1);
-  return {
-    num: BigInt(`${whole}${frac}`),
-    scale: 10n ** BigInt(frac.length),
-  };
-}
-
-function roundHalfUpSigned(numerator: bigint, denominator: bigint): bigint {
-  if (denominator <= 0n) {
-    throw new RangeError("Le dénominateur doit être strictement positif.");
-  }
-  const doubled = numerator * 2n;
-  if (doubled >= 0n) {
-    return (doubled + denominator) / (2n * denominator);
-  }
-  // Pour les nombres négatifs, half-up arrondit -0.5 vers 0 (+infini)
-  const absNum = -numerator;
-  const q = absNum / denominator;
-  const r = absNum % denominator;
-  const roundedAbs = r * 2n > denominator ? q + 1n : q;
-  return roundedAbs === 0n ? 0n : -roundedAbs;
-}
-
-function assertSafeCents(val: bigint): number {
-  if (val > BigInt(Number.MAX_SAFE_INTEGER) || val < BigInt(-Number.MAX_SAFE_INTEGER)) {
-    throw new RangeError("Dépassement de capacité entière sécuritaire lors de l'indexation IPC.");
-  }
-  return Number(val);
 }
 
 export async function indiceIpc(
@@ -419,7 +375,6 @@ export async function indiceIpc(
     }
   }
 
-  // Sous-indices absents au niveau RMR chez StatCan (vectorId=0)
   if (
     (geo === "montreal_rmr" || geo === "quebec_rmr") &&
     (product === "rent" || product === "health_care_services")
@@ -464,7 +419,6 @@ export async function indiceIpc(
     endSeries = foundEnd;
   }
 
-  // Garde-fou strict d'année de base sur indexation
   if (input.amount !== undefined && startSeries.uom !== endSeries.uom) {
     return {
       ok: false,
@@ -735,13 +689,12 @@ export async function indiceIpc(
           effective_change_bps: Number(effectiveBpsBig),
           effective_change_percent: formatSignedBpsPercent(effectiveBpsBig),
           rounding: roundingMode,
-          escalated_cents: assertSafeCents(escalatedCentsBig),
+          escalated_cents: assertSafeInt(escalatedCentsBig, "lors de l'indexation IPC"),
           escalated_amount_2dec: formatCentsToCad(escalatedCentsBig),
           escalated_amount_exact_6dec: formatMicros6(escalatedMicrosBig),
         };
       }
     } else {
-      // Plage multi-UOM sans indexation (startUom !== endUom)
       if (
         startInt < startSeries.first_period ||
         startInt > startSeries.last_period ||

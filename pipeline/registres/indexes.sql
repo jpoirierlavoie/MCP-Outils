@@ -1,5 +1,3 @@
--- Index secondaires et table virtuelle FTS5 — Domaine B : Registres d'entreprises
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_entites_jur_ident
   ON entites(juridiction, identifiant_principal);
 

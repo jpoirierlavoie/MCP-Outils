@@ -1,6 +1,3 @@
--- Schéma D1 normalisé en lecture seule — Domaine C : Référentiel québécois des adresses (RQA)
--- Conçu en 3 tables compactes afin de maintenir ~5M d'adresses sous ~1,5 à 2,2 Go (aucun FTS5 sur adresses_civiques).
-
 DROP TABLE IF EXISTS odonymes_trigram;
 DROP TABLE IF EXISTS odonymes_fts;
 DROP TABLE IF EXISTS lots_cadastraux_index;

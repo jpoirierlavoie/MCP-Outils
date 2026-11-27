@@ -7,7 +7,7 @@ Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`),
 Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
 Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`, `/.well-known/mcp/server-card.json`)
 
-## Outils exposés (v2.2.2 — 15 outils sur 6 familles)
+## Outils exposés (v2.2.3 — 15 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé
 - **Claude Research & [Gemini Deep Research](https://ai.google.dev/gemini-api/docs/deep-research) (Gemini API, via l'API Interactions — `deep-research-preview-04-2026`)** : raccordement direct au serveur MCP sans jeton ni OAuth côté `outils` (l'authentification à l'API Gemini ou à Claude demeure requise côté client), en tant que connecteur public en lecture seule (`openWorldHint: false`, `readOnlyHint: true`). Pour obtenir des jetons individuels ou connecter via OAuth 2.1 les serveurs complémentaires de sources primaires (`lois` et `juris`, réservés aux membres en règle du Barreau du Québec), consulter [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca) et le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois). Par prudence professionnelle en mode Deep Research autonome (où la recherche web et `store=True` peuvent s'exécuter), **n'inclure aucun nom de client ni fait confidentiel** dans les invites.
 - **Fiche de découverte publique SEP-2127** : `GET https://outils.poirierlavoie.ca/mcp/server-card` et `GET https://outils.poirierlavoie.ca/.well-known/mcp/server-card.json`
 - **Page documentaire publique** : `GET https://outils.poirierlavoie.ca/` (HTML bilingue FR/EN généré dynamiquement depuis les schémas et tables compilées)
-- **Vérification de santé** : `GET https://outils.poirierlavoie.ca/healthz`
+- **Vérification de santé** : `GET https://outils.poirierlavoie.ca/health` (alias `/healthz`)
 
 ## Architecture du dépôt
 
@@ -102,9 +102,9 @@ src/
   core/              Logique pure TypeScript + Zod (`holidays`, `deadlines`, `interest1619`, `qcTools`, `registres`, `adresses`, `terminologie`, `economie`, `ipc`, `tal`, `gardes`)
   data/              Tables statiques versionnées (`laf_art28_rates.json`, `boc_prime_rates.json`, `tal_criteres.json`, `glossaire_bijuridique_qc.json`)
   qc/                Tables et parseur de nomenclature judiciaire QC (dossiers, greffes, palais, lieux MJQ)
-  mcp/               Serveur McpServer agnostique du transport (`createOutilsMcpServer`, `listToolDescriptors`)
+  mcp/               Registre des 15 outils et exécuteur Zod (`callOutilsTool`, `listToolDescriptors`, `listMcpToolDescriptors`)
   site.ts            Page HTML publique (`GET /`) et traductions (`site.i18n.ts`)
-  index.ts           Entrée Cloudflare Worker (`createMcpHandler`, D1 lecture seule, `RATE_LIMITER`, `/mcp/server-card`, `/healthz`, `/`)
+  index.ts           Entrée Cloudflare Worker (`servirRequeteMcp` via `@poirierlavoie/mcp-socle`, D1 lecture seule, `RATE_LIMITER`, `/mcp/server-card`, `/health`, `/`)
 pipeline/
   common/            Exportateur SQL par lots et bascule bleu-vert D1 (`d1_batch.py`, `blue_green.py`)
   terminologie/      Schéma, index FTS5 et ingestion (`build_glossaire.py`, `ingest_terminologie.py`)
@@ -112,7 +112,7 @@ pipeline/
   adresses/          Schéma normalisé 3 tables, index FTS5 odonymes et ingestion RQA (`ingest_adresses.py`)
   economie/          Schéma compact `WITHOUT ROWID` et ingestion Valet BdC + StatCan `10-10-0008-01`, IPC `18-10-0004/05-01` et SCHL `34-10-0133-01` (`ingest_economie.py`)
 sources-officielles/ Instantanés officiels du ministère de la Justice (greffes/lieux et fiches des palais `mjq-palais-2026-11-17.json`)
-scripts/             Générateurs des tables MJQ (`extraire-lieux-mjq.mjs`, `extraire-palais-mjq.mjs`)
+scripts/             Générateurs MJQ (`extraire-lieux-mjq.mjs`, `extraire-palais-mjq.mjs`), déploiement (`deployer.mjs`) et audit (`verifier-audit.mjs`)
 test/                Suite de tests Vitest hors réseau (`node:sqlite` en mémoire avec `PRAGMA query_only = ON`, parité des manifestes)
 ```
 
@@ -120,10 +120,11 @@ test/                Suite de tests Vitest hors réseau (`node:sqlite` en mémoi
 
 ```powershell
 npm.cmd install
-npm.cmd run typecheck
+npm.cmd run type-check
 npm.cmd run lint
 npm.cmd test
 npm.cmd run build
+npm.cmd run audit
 ```
 
 ### Pipelines Python hors ligne et bascule bleu-vert D1 (`pipeline/`)
@@ -143,7 +144,7 @@ pipeline\.venv\Scripts\python.exe -m pipeline.economie.ingest_economie --build-l
 1. Consultez les taux publiés par Revenu Québec (`metadata.source_url` dans [`src/data/laf_art28_rates.json`](src/data/laf_art28_rates.json)). Le workflow [`.github/workflows/check-laf-rates.yml`](.github/workflows/check-laf-rates.yml) ouvre automatiquement un billet de rappel trimestriel lorsque le trimestre suivant manque.
 2. Pour le taux préférentiel et les taux directeurs de la Banque du Canada ([`src/data/boc_prime_rates.json`](src/data/boc_prime_rates.json)), le workflow [`.github/workflows/check-boc-rates.yml`](.github/workflows/check-boc-rates.yml) ouvre un billet de rappel `[Taux BdC]` en cas de variation ou de décalage `>= 28` jours, et [`.github/workflows/sync-economie.yml`](.github/workflows/sync-economie.yml) synchronise incrémentalement `DB_ECONOMIE` les jours ouvrables (FX/taux) et mensuellement le 20 (IPC StatCan et loyers SCHL) sans commit Git.
 3. Pour les critères annuels de fixation de loyer du TAL ([`src/data/tal_criteres.json`](src/data/tal_criteres.json)), le workflow [`.github/workflows/check-tal-criteres.yml`](.github/workflows/check-tal-criteres.yml) vérifie chaque 20 janvier et 20 février la couverture du cycle à venir.
-4. Après mise à jour des tables statiques, exécutez `npm.cmd run typecheck`, `npm.cmd test` et `npm.cmd run build`.
+4. Après mise à jour des tables statiques, exécutez `npm.cmd run type-check`, `npm.cmd test` et `npm.cmd run build`.
 
 ## Sécurité, confidentialité et licences
 
