@@ -207,7 +207,7 @@ export const EN = {
   titre: "MCP Tools — Deadlines, Interest, Registries, Legal Terminology & Economy",
 
   intro: [
-    "Free public connector for Québec civil and commercial litigation (no account or key required). " +
+    "Free connector reserved for active Barreau du Québec members in good standing for Québec civil and commercial litigation (via acces.poirierlavoie.ca, no CanLII API key required). " +
       "It lets your AI assistant compute statutory holidays, C.C.P. deadlines, art. 1619 C.C.Q. " +
       "interest, and TAL rent adjustments accurately, and look up court file numbers, courthouses, " +
       "business registries (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), civic addresses/lots (RQA), " +
@@ -331,12 +331,12 @@ export const EN = {
 
   acces: [
     "Free access reserved for active Barreau du Québec members in good standing — no CanLII API key required (this connector does not query CanLII).",
-    "Apply once at acces.poirierlavoie.ca/demande (CanLII key optional), then connect https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 in claude.ai, ChatGPT, Gemini, or Antigravity — or use https://outils.poirierlavoie.ca/mcp with your personal Bearer token from /moi.",
+    "Apply once at acces.poirierlavoie.ca/demande (CanLII API key optional on /demande and manageable in /moi; required only for juris), then connect https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 (default) in claude.ai, ChatGPT, Gemini, or Antigravity — or use https://outils.poirierlavoie.ca/mcp with your personal Bearer token from /moi for headless CLI/API use.",
   ],
   accesTechniqueTitre:
     "Technical details (OAuth 2.1, MCP discovery, quotas & open-source licences)",
   accesTechnique: [
-    "Endpoints: https://outils.poirierlavoie.ca/mcp/oauth (OAuth 2.1 PKCE S256 via acces.poirierlavoie.ca) and https://outils.poirierlavoie.ca/mcp (Bearer token or ?key=). RFC 9728 metadata: https://outils.poirierlavoie.ca/.well-known/oauth-protected-resource/mcp/oauth · MCP Server Card: https://outils.poirierlavoie.ca/mcp/server-card · Health check: https://outils.poirierlavoie.ca/health (shared daily local quota: 3,000 active / 300 limited; per-member rate limits: 300/min active, 20/min limited).",
+    "Endpoints: https://outils.poirierlavoie.ca/mcp/oauth (default OAuth 2.1 PKCE S256 via acces.poirierlavoie.ca; returns 401 RFC 9728 when unauthenticated) and https://outils.poirierlavoie.ca/mcp (personal Bearer token or ?key= for headless CLI/API; returns an empty 404 without a valid token; accepted scopes: tous, outils, and legacy les_deux). RFC 9728 metadata: https://outils.poirierlavoie.ca/.well-known/oauth-protected-resource/mcp/oauth · MCP Server Card: https://outils.poirierlavoie.ca/mcp/server-card · Health check: https://outils.poirierlavoie.ca/health (shared daily local quota: 3,000 active / 300 limited; per-member rate limits: 300/min active, 20/min limited).",
     "The source code and civil-law glossary are free and open-source under Apache-2.0 (see " +
       "LICENSE), while integrated public datasets remain governed by their publishers' licenses " +
       "documented in NOTICE (including CC BY-NC-SA 4.0 for REQ and OQLF).",
