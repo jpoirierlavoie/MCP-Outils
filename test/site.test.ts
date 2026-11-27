@@ -77,6 +77,17 @@ describe("page publique GET / et fichiers de découverte", () => {
       );
       expect(rDec.status, dec).toBe(200);
       expect(rDec.headers.get("access-control-allow-origin"), dec).toBeNull();
+      if (dec === "/llms.txt") {
+        const llms = await rDec.text();
+        expect(llms).toContain("https://outils.poirierlavoie.ca/mcp/oauth");
+        expect(llms).toContain("https://outils.poirierlavoie.ca/mcp");
+        expect(llms).toContain("404");
+        expect(llms).toContain("tous");
+        expect(llms).toContain("les_deux");
+        expect(llms).toContain("https://acces.poirierlavoie.ca/");
+        expect(llms).toContain("CanLII API key optional");
+        expect(llms).toContain("no CanLII key required");
+      }
 
       const rHead = await worker.fetch(
         new Request(`https://outils.poirierlavoie.ca${dec}`, { method: "HEAD" }),
@@ -127,6 +138,16 @@ describe("page publique GET / et fichiers de découverte", () => {
   it("toutes les URLs externes appartiennent à la liste blanche et aucune fuite CanLII", () => {
     const html = pagePubliqueHtml();
     expect(html).not.toContain("api.canlii.org");
+    expect(html).not.toMatch(/no account or key required/i);
+    expect(html).not.toMatch(/free public connector/i);
+    expect(html).not.toMatch(/sans compte/i);
+    expect(html).not.toMatch(/connecteur public/i);
+    expect(html).toContain("https://acces.poirierlavoie.ca/demande");
+    expect(html).toContain("https://outils.poirierlavoie.ca/mcp/oauth");
+    expect(html).toContain("https://outils.poirierlavoie.ca/mcp");
+    expect(html).toContain("404");
+    expect(html).toContain("tous");
+    expect(html).toContain("les_deux");
 
     const urls = html.match(/https?:\/\/[^\s"'<>)]+/g) ?? [];
     for (const u of urls) {
