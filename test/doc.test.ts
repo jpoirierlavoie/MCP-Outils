@@ -97,17 +97,19 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
     expect(plugin.homepage).toBe("https://outils.poirierlavoie.ca/");
     expect(plugin.repository).toBe("https://github.com/jpoirierlavoie/MCP-Outils");
     expect(card.repository.url).toBe("https://github.com/jpoirierlavoie/MCP-Outils");
+    expect(card.remotes).toHaveLength(2);
     expect(card.remotes[0]?.headers).toEqual([]);
+    expect(card.remotes[1]?.headers?.[0]?.name).toBe("Authorization");
   });
 
-  it("mcp_config.json et gemini-extension.json déclarent le connecteur public 'outils' sans secret ni eager", () => {
+  it("mcp_config.json et gemini-extension.json déclarent le connecteur OAuth 'outils' sans secret ni eager", () => {
     for (const brut of [mcpConfigRaw, geminiExtRaw]) {
       expect(brut).not.toMatch(/[0-9a-f]{32,}/i);
     }
 
     expect(Object.keys(mcpConfig.mcpServers)).toEqual(["outils"]);
     expect(mcpConfig.mcpServers.outils).toEqual({
-      url: "https://outils.poirierlavoie.ca/mcp",
+      url: "https://outils.poirierlavoie.ca/mcp/oauth",
     });
 
     expect(geminiExt.contextFileName).toEqual([]);
@@ -115,7 +117,7 @@ describe("Parité README, manifestes Antigravity / Gemini et fiche SEP-2127", ()
     expect(Object.keys(geminiExt.mcpServers)).toEqual(["outils"]);
     expect(geminiExt.mcpServers.outils).toEqual({
       type: "http",
-      url: "https://outils.poirierlavoie.ca/mcp",
+      url: "https://outils.poirierlavoie.ca/mcp/oauth",
     });
   });
 

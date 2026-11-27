@@ -42,7 +42,8 @@ describe("page publique GET / et fichiers de découverte", () => {
   it("sert du HTML sécurisé et les fichiers de découverte avant le limiteur de débit /mcp", async () => {
     let appelsLimiteur = 0;
     const envBloque: Env = {
-      RATE_LIMITER: {
+      MCP_ENABLED: "true",
+      RL_PRE_AUTH_IP: {
         limit: async () => {
           appelsLimiteur += 1;
           return { success: false };

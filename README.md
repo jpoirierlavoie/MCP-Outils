@@ -1,13 +1,13 @@
 # MCP-Outils
 
-Serveur MCP (**Model Context Protocol**) public en lecture seule (`mcp-outils`), sans authentification et sans journalisation, conçu pour la pratique du litige civil et commercial québécois et les compétences du greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois).
+Serveur MCP (**Model Context Protocol**) en lecture seule et sans journalisation (`mcp-outils`), conçu pour la pratique du litige civil et commercial québécois et les compétences du greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois). Accès réservé gratuitement aux membres actifs en règle du Barreau du Québec via [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca) (**aucune clé API CanLII requise**).
 
-> **In English:** Public, unauthenticated, read-only MCP server for Québec civil and commercial litigation (`outils.poirierlavoie.ca/mcp`). Provides deterministic C.C.P. holiday/deadline, art. 1619 C.C.Q. interest, and TAL rent-fixing calculators alongside offline lookups for court file numbers, courthouses, corporate registries and LEI hierarchies (REQ, Corporations Canada, GLEIF), Québec civic addresses and lots (RQA), bijural legal terminology, Bank of Canada FX/policy rates, StatCan CPI, and CMHC rents. Queries and inputs are never logged.
+> **In English:** Read-only, zero-logging MCP server for Québec civil and commercial litigation (`outils.poirierlavoie.ca`). Free access reserved for active members in good standing of the Barreau du Québec via [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca) (**no CanLII API key required**). Provides deterministic C.C.P. holiday/deadline, art. 1619 C.C.Q. interest, and TAL rent-fixing calculators alongside offline lookups for court file numbers, courthouses, corporate registries and LEI hierarchies (REQ, Corporations Canada, GLEIF), Québec civic addresses and lots (RQA), bijural legal terminology, Bank of Canada FX/policy rates, StatCan CPI, and CMHC rents. Queries and inputs are never logged.
 
-Point d'accès public (sans compte ni jeton) : `https://outils.poirierlavoie.ca/mcp`  
-Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/mcp/server-card`, `/.well-known/mcp/server-card.json`)
+Points d'accès : `https://outils.poirierlavoie.ca/mcp/oauth` (OAuth 2.1 PKCE par navigateur, défaut du greffon) et `https://outils.poirierlavoie.ca/mcp` (jeton `Bearer` ou `?key=` sans navigateur)  
+Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/.well-known/oauth-protected-resource/mcp/oauth`, `/mcp/server-card`, `/.well-known/mcp/server-card.json`)
 
-## Outils exposés (v2.2.3 — 15 outils sur 6 familles)
+## Outils exposés (v3.0.0 — 15 outils sur 6 familles)
 
 | Famille | Outil | Rôle | Sources et conventions |
 |---|---|---|---|
@@ -29,21 +29,22 @@ Page publique et schémas : <https://outils.poirierlavoie.ca/> (`/robots.txt`, `
 
 Chaque réponse réussie retourne un résumé lisible en français (`content[0].text`), des données structurées validées (`structuredContent`), la provenance des sources et des mises en garde (`gardes`) rappelant les limites documentaires à vérifier (tous les outils sont hors ligne et en lecture seule : `openWorldHint: false`, `readOnlyHint: true`).
 
-## Confidentialité et politique de journalisation zéro
+## Confidentialité, gouvernance d'accès et politique de journalisation zéro
 
-Ce serveur est public (sans secret ni compte requis) tout en protégeant la confidentialité des dossiers :
+L'accès est réservé aux membres du Barreau du Québec sans journalisation ni clé CanLII requise :
 
-- **Traitement local en lecture seule et zéro appel externe :** toutes les bases de données (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, `DB_ECONOMIE`) ne contiennent que des jeux de données ouvertes préchargés en lecture seule. Aucune écriture, aucun témoin de connexion et aucun appel réseau sortant n'a lieu lors d'une requête. Les données soumises (nom d'entreprise, adresse civique, extrait de projet d'acte) ne sont ni conservées ni transmises à un tiers.
+- **Accès approuvé sans clé CanLII :** déposez une demande unique sur [`acces.poirierlavoie.ca/demande`](https://acces.poirierlavoie.ca/demande) (champ clé API CanLII facultatif), puis autorisez le connecteur dans votre navigateur via OAuth 2.1 (`PKCE S256`) ou créez un jeton personnel universel (`tous`) dans `/moi` (rétrocompatible `les_deux`). Seuls les compteurs quotidiens sans contenu (`3 000` appels locaux/jour à l'état `actif`, `300` à l'état `limite`) et événements techniques sans paramètres sont inscrits dans `DB_IDENTITE`.
+- **Traitement local en lecture seule et zéro appel externe :** toutes les bases de données (`DB_TERMINOLOGIE`, `DB_REGISTRES`, `DB_ADRESSES`, `DB_ECONOMIE`) ne contiennent que des jeux de données ouvertes préchargés en lecture seule. Aucun témoin de connexion et aucun appel réseau sortant n'a lieu lors d'une requête. Les données soumises (nom d'entreprise, adresse civique, extrait de projet d'acte) ne sont ni conservées ni transmises à un tiers.
 - **Aucune journalisation des requêtes :** les journaux d'invocation Cloudflare (`observability`, `logs`, `logpush` dans [`wrangler.jsonc`](wrangler.jsonc)) sont désactivés et le serveur n'enregistre ni les requêtes, ni les paramètres, ni les adresses IP.
-- **Limitation de débit :** un plafond technique de 240 requêtes par minute et par adresse IP (`RATE_LIMITER`) protège la disponibilité du service sans stocker le contenu des appels.
+- **Limitation de débit et fermeture par défaut :** cinq limiteurs d'arête par `namespace_id` (`1041`–`1045`, dont `600 req/min/IP` pré-auth et `300 req/min` par titulaire actif) protègent le service, et `MCP_ENABLED !== "true"` coupe les points MCP et `/health`.
 
 ## Configuration dans les clients MCP
 
-> **Avec le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) :** si vous installez le greffon complet dans Claude Code, Claude Desktop, Antigravity ou Gemini CLI, le connecteur `outils` est configuré automatiquement sans étape supplémentaire. Les instructions ci-dessous servent à connecter `outils` seul ou sur le Web.
+> **Avec le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois) :** si vous installez le greffon complet dans Claude Code, Claude Desktop, Antigravity ou Gemini CLI, le connecteur `outils` pointe déjà vers `https://outils.poirierlavoie.ca/mcp/oauth` et déclenche la connexion OAuth 2.1 automatiquement. Les instructions ci-dessous servent à connecter `outils` seul ou sur le Web.
 
 ### `claude.ai` et ChatGPT (Web / Desktop)
 
-Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé sans authentification (*No authentication*).
+Ajouter `https://outils.poirierlavoie.ca/mcp/oauth` comme connecteur MCP personnalisé avec authentification **OAuth** (via [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca)), ou `https://outils.poirierlavoie.ca/mcp?key=<VOTRE_JETON>` sur `claude.ai`.
 
 ### Claude Desktop / Claude Code (`.mcp.json`)
 
@@ -52,7 +53,7 @@ Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé
   "mcpServers": {
     "outils": {
       "type": "http",
-      "url": "https://outils.poirierlavoie.ca/mcp"
+      "url": "https://outils.poirierlavoie.ca/mcp/oauth"
     }
   }
 }
@@ -64,7 +65,7 @@ Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé
 {
   "mcpServers": {
     "outils": {
-      "url": "https://outils.poirierlavoie.ca/mcp"
+      "url": "https://outils.poirierlavoie.ca/mcp/oauth"
     }
   }
 }
@@ -77,19 +78,28 @@ Ajouter `https://outils.poirierlavoie.ca/mcp` comme connecteur MCP personnalisé
   "mcpServers": {
     "outils": {
       "type": "http",
-      "url": "https://outils.poirierlavoie.ca/mcp"
+      "url": "https://outils.poirierlavoie.ca/mcp/oauth"
     }
   }
 }
 ```
 
-### Inspection avec MCP Inspector / Modes Deep Research
+### Modes sans navigateur (CLI / scripts / Gemini API Deep Research)
 
-- **URL Streamable HTTP** : `https://outils.poirierlavoie.ca/mcp`
-- **Claude Research & [Gemini Deep Research](https://ai.google.dev/gemini-api/docs/deep-research) (Gemini API, via l'API Interactions — `deep-research-preview-04-2026`)** : raccordement direct au serveur MCP sans jeton ni OAuth côté `outils` (l'authentification à l'API Gemini ou à Claude demeure requise côté client), en tant que connecteur public en lecture seule (`openWorldHint: false`, `readOnlyHint: true`). Pour obtenir des jetons individuels ou connecter via OAuth 2.1 les serveurs complémentaires de sources primaires (`lois` et `juris`, réservés aux membres en règle du Barreau du Québec), consulter [`acces.poirierlavoie.ca`](https://acces.poirierlavoie.ca) et le greffon [`droit-civil-quebecois`](https://github.com/jpoirierlavoie/droit-civil-quebecois). Par prudence professionnelle en mode Deep Research autonome (où la recherche web et `store=True` peuvent s'exécuter), **n'inclure aucun nom de client ni fait confidentiel** dans les invites.
+- **URL OAuth 2.1 (navigateur)** : `https://outils.poirierlavoie.ca/mcp/oauth` (`401` + RFC 9728 `/.well-known/oauth-protected-resource/mcp/oauth`)
+- **URL à jeton personnel (`Bearer` / `?key=`)** : `https://outils.poirierlavoie.ca/mcp` (`Authorization: Bearer <jeton>`, rend `404` vide sans jeton valide)
+- **Claude Research & [Gemini Deep Research](https://ai.google.dev/gemini-api/docs/deep-research) (`deep-research-preview-04-2026`)** : passer un jeton personnel (`tous`) émis sur `acces.poirierlavoie.ca/moi` dans `"headers": {"Authorization": f"Bearer {MCP_JETON}"}` sur `https://outils.poirierlavoie.ca/mcp`. Par prudence professionnelle en mode Deep Research autonome (où la recherche web et `store=True` peuvent s'exécuter), **n'inclure aucun nom de client ni fait confidentiel** dans les invites.
 - **Fiche de découverte publique SEP-2127** : `GET https://outils.poirierlavoie.ca/mcp/server-card` et `GET https://outils.poirierlavoie.ca/.well-known/mcp/server-card.json`
 - **Page documentaire publique** : `GET https://outils.poirierlavoie.ca/` (HTML bilingue FR/EN généré dynamiquement depuis les schémas et tables compilées)
 - **Vérification de santé** : `GET https://outils.poirierlavoie.ca/health` (alias `/healthz`)
+
+## Auto-hébergement d'une fourche autonome / Self-hosting a standalone fork
+
+Ce dépôt est entièrement autonome : vous pouvez le fourcher (*fork*) et le déployer seul **sans** fourcher `MCP-Acces`, `droit-civil-quebecois` ni créer de base `DB_IDENTITE`. / *This repository is self-contained: you can fork and self-host it **without** forking `MCP-Acces`, `droit-civil-quebecois`, or creating `DB_IDENTITE`.*
+
+1. **Créer vos 4 bases D1 et charger les données ouvertes / Create the 4 D1 databases & run pipelines :** exécutez `npx wrangler d1 create` pour `outils-terminologie`, `outils-registres`, `outils-adresses` et `outils-economie`, mettez à jour leurs `database_id` dans `wrangler.jsonc`, puis lancez les scripts Python sous `pipeline/` (`terminologie`, `registres`, `adresses`, `economie`) — les outils `calcul` et `greffe` fonctionnent même sans aucune base D1 liée.
+2. **Mode autonome sans `MCP-Acces` / Standalone auth without `DB_IDENTITE` :** retirez l'entrée `DB_IDENTITE` de `wrangler.jsonc` (optionnelle dans le code) et définissez votre propre secret Bearer statique (`npx wrangler secret put MCP_TOKEN` — `MCP_SHARED_SECRET` est aussi accepté).
+3. **Domaine `*.workers.dev` ou domaine personnalisé :** aucune liste figée d'hôtes (`ALLOWED_HOSTNAMES`) ne bloque les déploiements tiers ; activez `"workers_dev": true` (ou configurez `routes`) dans `wrangler.jsonc`, conservez `"MCP_ENABLED": "true"`, déployez (`npx wrangler deploy`), puis connectez `/mcp` avec `Authorization: Bearer <votre MCP_TOKEN>`.
 
 ## Architecture du dépôt
 

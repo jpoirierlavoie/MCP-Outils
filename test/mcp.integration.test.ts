@@ -1,5 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+  construireSchemaIdentiteD1,
+  empreinte,
+  QUOTAS_ACTIF_PAR_DEFAUT,
+} from "@poirierlavoie/mcp-socle";
 import { describe, expect, it } from "vitest";
 import { AdresseVerifyOutputSchema, computeConsonantKey } from "../src/core/adresses.js";
 import { ComputeDeadlinesOutputSchema } from "../src/core/deadlines.js";
@@ -22,8 +27,14 @@ import {
   TerminologieLookupOutputSchema,
   TerminologieScanTextOutputSchema,
 } from "../src/core/terminologie.js";
-import worker, { Env } from "../src/index.js";
+import worker, { Env, reinitialiserQuarantaineIpPourTests } from "../src/index.js";
 import { createSqliteD1Harness } from "./helpers/sqliteD1.js";
+
+const TEST_MCP_TOKEN = "test-secret-outils-integration-2026";
+const ENV_TEST: Env = {
+  MCP_ENABLED: "true",
+  MCP_TOKEN: TEST_MCP_TOKEN,
+};
 
 const dummyCtx = {
   waitUntil: () => {},
@@ -59,10 +70,12 @@ async function mcpPost(
   env: Env = {},
 ): Promise<{ status: number; body: JsonRpcResponseBody }> {
   const host = new URL(url).host;
+  const token = env.MCP_TOKEN ?? env.MCP_SHARED_SECRET ?? TEST_MCP_TOKEN;
   const req = new Request(url, {
     method: "POST",
     headers: {
       Host: host,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
     },
@@ -73,7 +86,7 @@ async function mcpPost(
       params,
     }),
   });
-  const res = await worker.fetch(req, env, dummyCtx);
+  const res = await worker.fetch(req, { ...ENV_TEST, ...env }, dummyCtx);
   const body = await parseMcpResponse(res);
   return { status: res.status, body };
 }
@@ -82,30 +95,30 @@ describe("Worker HTTP & intégration MCP", () => {
   it("répond sur GET /health (et alias /healthz), GET /, HEAD /, rejette POST / en 405 et renvoie 404 hors route", async () => {
     const health = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/health"),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
     expect(health.status).toBe(200);
     const healthJson = (await health.json()) as Record<string, unknown>;
     expect(healthJson.status).toBe("ok");
     expect(healthJson.service).toBe("mcp-outils");
-    expect(healthJson.version).toBe("2.2.3");
+    expect(healthJson.version).toBe("3.0.0");
     expect(healthJson.commit).toBe("inconnu");
     expect(healthJson.request_payload_logging).toBe(false);
 
     const healthAlias = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/healthz"),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
     expect(healthAlias.status).toBe(200);
     const healthAliasJson = (await healthAlias.json()) as Record<string, unknown>;
     expect(healthAliasJson.status).toBe("ok");
-    expect(healthAliasJson.version).toBe("2.2.3");
+    expect(healthAliasJson.version).toBe("3.0.0");
 
     const healthWithCommit = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/health"),
-      { COMMIT: "abc1234" },
+      { ...ENV_TEST, COMMIT: "abc1234" },
       dummyCtx,
     );
     expect(healthWithCommit.status).toBe(200);
@@ -208,17 +221,19 @@ describe("Worker HTTP & intégration MCP", () => {
     );
     expect(cardBody.name).toBe("ca.poirierlavoie.outils/mcp-outils");
     expect(cardBody.title).toBe("MCP Outils");
-    expect(cardBody.version).toBe("2.2.3");
+    expect(cardBody.version).toBe("3.0.0");
     expect(cardBody.websiteUrl).toBe("https://outils.poirierlavoie.ca/");
     expect(cardBody.repository).toEqual({
       url: "https://github.com/jpoirierlavoie/MCP-Outils",
       source: "github",
     });
-    expect(cardBody.remotes).toHaveLength(1);
+    expect(cardBody.remotes).toHaveLength(2);
     expect(cardBody.remotes[0]?.type).toBe("streamable-http");
-    expect(cardBody.remotes[0]?.url).toBe("https://outils.poirierlavoie.ca/mcp");
+    expect(cardBody.remotes[0]?.url).toBe("https://outils.poirierlavoie.ca/mcp/oauth");
     expect(cardBody.remotes[0]?.supportedProtocolVersions.length).toBeGreaterThanOrEqual(3);
     expect(cardBody.remotes[0]?.headers).toEqual([]);
+    expect(cardBody.remotes[1]?.url).toBe("https://outils.poirierlavoie.ca/mcp");
+    expect(cardBody.remotes[1]?.headers.length).toBe(1);
 
     const cardHead = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/mcp/server-card", { method: "HEAD" }),
@@ -271,54 +286,255 @@ describe("Worker HTTP & intégration MCP", () => {
     }
   });
 
-  it("valide Host header (accepte outils.poirierlavoie.ca et ALLOWED_HOSTNAMES, rejette un hôte tiers)", async () => {
-    const missingHost = await worker.fetch(
+  it("ferme par défaut si MCP_ENABLED !== 'true', protège /mcp (404) & /mcp/oauth (401 RFC 9728), permet les fourches *.workers.dev et applique DB_IDENTITE + quotas", async () => {
+    reinitialiserQuarantaineIpPourTests();
+    for (const off of [undefined, "false"]) {
+      const rOff = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${TEST_MCP_TOKEN}` },
+          body: "{}",
+        }),
+        { MCP_ENABLED: off, MCP_TOKEN: TEST_MCP_TOKEN },
+        dummyCtx,
+      );
+      expect(rOff.status).toBe(404);
+      expect(
+        (
+          await worker.fetch(
+            new Request("https://outils.poirierlavoie.ca/health"),
+            { MCP_ENABLED: off },
+            dummyCtx,
+          )
+        ).status,
+      ).toBe(404);
+      // Page publique / et server-card restent accessibles
+      expect(
+        (
+          await worker.fetch(
+            new Request("https://outils.poirierlavoie.ca/"),
+            { MCP_ENABLED: off },
+            dummyCtx,
+          )
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await worker.fetch(
+            new Request("https://outils.poirierlavoie.ca/mcp/server-card"),
+            { MCP_ENABLED: off },
+            dummyCtx,
+          )
+        ).status,
+      ).toBe(200);
+    }
+
+    const rMeta = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/.well-known/oauth-protected-resource/mcp/oauth"),
+      ENV_TEST,
+      dummyCtx,
+    );
+    expect(rMeta.status).toBe(200);
+    const metaJson = (await rMeta.json()) as {
+      resource: string;
+      authorization_servers: string[];
+      scopes_supported: string[];
+    };
+    expect(metaJson.resource).toBe("https://outils.poirierlavoie.ca/mcp/oauth");
+    expect(metaJson.authorization_servers).toEqual(["https://acces.poirierlavoie.ca"]);
+    expect(metaJson.scopes_supported).toEqual(["outils", "tous"]);
+
+    // Sans jeton : /mcp rend 404 vide, /mcp/oauth rend 401 + WWW-Authenticate
+    const r404 = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/mcp", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
-    expect(missingHost.status).toBe(403);
+    expect(r404.status).toBe(404);
+    expect(await r404.text()).toBe("");
 
-    const rejected = await worker.fetch(
-      new Request("https://evil.example.com/mcp", {
+    const r401 = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "https://claude.ai" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      }),
+      ENV_TEST,
+      dummyCtx,
+    );
+    expect(r401.status).toBe(401);
+    expect(r401.headers.get("www-authenticate")).toContain("Bearer resource_metadata=");
+    expect(r401.headers.get("access-control-allow-origin")).toBe("https://claude.ai");
+
+    // /mcp/oauth refuse un secret statique MCP_TOKEN (uniquement jetons OAuth D1)
+    const rStaticOnOauth = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
         method: "POST",
         headers: {
-          Host: "evil.example.com",
+          Authorization: `Bearer ${TEST_MCP_TOKEN}`,
           "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
         },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
-    expect(rejected.status).toBe(403);
+    expect(rStaticOnOauth.status).toBe(401);
 
-    const customAllowed = await mcpPost("tools/list", {}, 1, "https://staging.example.com/mcp", {
-      ALLOWED_HOSTNAMES: "staging.example.com",
+    // Fourche autonome *.workers.dev sans DB_IDENTITE et avec MCP_SHARED_SECRET : fonctionne (pas de 403 Host)
+    const forkRes = await mcpPost(
+      "tools/list",
+      {},
+      1,
+      "https://mon-fork-outils.moncompte.workers.dev/mcp",
+      {
+        MCP_TOKEN: undefined,
+        MCP_SHARED_SECRET: "secret_fourche_autonome_2026_123456",
+      },
+    );
+    expect(forkRes.status).toBe(200);
+    expect(Array.isArray(forkRes.body.result?.tools)).toBe(true);
+
+    // Intégration DB_IDENTITE : 'tous', rétrocompatibilité 'les_deux', rejet 'legislation', et QUOTA_EPUISE
+    const jetonTous = "jtn_outils_tous_valide_1234567890abcdef_001";
+    const jetonLesDeux = "jtn_outils_lesdeux_valide_1234567890abcd_02";
+    const jetonLegisSeul = "jtn_outils_legis_seul_1234567890abcdef_0003";
+    const [hTous, hLesDeux, hLegis] = await Promise.all([
+      empreinte(jetonTous),
+      empreinte(jetonLesDeux),
+      empreinte(jetonLegisSeul),
+    ]);
+    const idHarness = createSqliteD1Harness({
+      enforceQueryOnly: false,
+      seedSql: [
+        construireSchemaIdentiteD1(["legislation", "jurisprudence", "outils"]),
+        `
+          INSERT INTO titulaire (id, cree_le, etat, nom, numero_membre, section, courriel, attestation_le, attestation_ver, cgu_ver, hybride_permis)
+          VALUES
+            ('tit_a', '2026-11-18T00:00:00.000Z', 'actif', 'Me Actif', '2018001', 'Montréal', 'a@ex.ca', '2026-11-18T00:00:00.000Z', 'v1', 'v1', 1),
+            ('tit_q', '2026-11-18T00:00:00.000Z', 'actif', 'Me Quota', '2018002', 'Québec', 'q@ex.ca', '2026-11-18T00:00:00.000Z', 'v1', 'v1', 1);
+          INSERT INTO jeton (id, titulaire_id, empreinte, queue, libelle, portee, emis_le)
+          VALUES
+            ('j_tous', 'tit_a', '${hTous}', 'ef_001', 'Poste A', 'tous', '2026-11-18T00:00:00.000Z'),
+            ('j_ld', 'tit_a', '${hLesDeux}', 'bcd_02', 'Poste LD', 'les_deux', '2026-11-18T00:00:00.000Z'),
+            ('j_leg', 'tit_q', '${hLegis}', 'f_0003', 'Poste Leg', 'legislation', '2026-11-18T00:00:00.000Z');
+        `,
+      ],
     });
-    expect(customAllowed.status).toBe(200);
+    try {
+      const pending: Promise<unknown>[] = [];
+      const trackingCtx = {
+        waitUntil: (p: Promise<unknown>) => {
+          pending.push(p);
+        },
+        passThroughOnException: () => {},
+        props: {},
+      } as unknown as ExecutionContext;
+      const d1Env: Env = { MCP_ENABLED: "true", DB_IDENTITE: idHarness.d1 };
+
+      // 'tous' sur /mcp/oauth
+      const rTous = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${jetonTous}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 10,
+            method: "tools/call",
+            params: { name: "calendrier_holidays", arguments: { year: 2026, regime: "qc_cpc" } },
+          }),
+        }),
+        d1Env,
+        trackingCtx,
+      );
+      expect(rTous.status).toBe(200);
+      await Promise.all(pending);
+      const evt = await idHarness.d1
+        .prepare(
+          "SELECT service, classe, issue FROM evenement_technique WHERE titulaire_id = 'tit_a'",
+        )
+        .first<{ service: string; classe: string; issue: string }>();
+      expect(evt).toEqual({ service: "outils", classe: "local", issue: "ok" });
+
+      // Rétrocompatibilité 'les_deux' sur /mcp/oauth
+      const rLd = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${jetonLesDeux}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 11, method: "tools/list", params: {} }),
+        }),
+        d1Env,
+        trackingCtx,
+      );
+      expect(rLd.status).toBe(200);
+
+      // Portée 'legislation' refusée sur outils
+      const rLeg = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${jetonLegisSeul}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 12, method: "tools/list", params: {} }),
+        }),
+        d1Env,
+        trackingCtx,
+      );
+      expect(rLeg.status).toBe(401);
+
+      // QUOTA_EPUISE au plafond actif (3 000)
+      const aujourd = new Date().toISOString().slice(0, 10);
+      await idHarness.d1
+        .prepare(
+          `INSERT INTO compteur_jour (titulaire_id, jour, classe, appels)
+           VALUES ('tit_a', ?1, 'local', ?2)
+           ON CONFLICT(titulaire_id, jour, classe) DO UPDATE SET appels = excluded.appels`,
+        )
+        .bind(aujourd, QUOTAS_ACTIF_PAR_DEFAUT.local)
+        .run();
+      const rQuota = await worker.fetch(
+        new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${jetonTous}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 13,
+            method: "tools/call",
+            params: { name: "calendrier_holidays", arguments: { year: 2026, regime: "qc_cpc" } },
+          }),
+        }),
+        d1Env,
+        trackingCtx,
+      );
+      const qJson = (await rQuota.json()) as JsonRpcResponseBody;
+      expect(qJson.result?.isError).toBe(true);
+      expect(
+        String((qJson.result?.content as Array<{ text?: string }>)?.[0]?.text ?? ""),
+      ).toContain("QUOTA_EPUISE");
+    } finally {
+      idHarness.close();
+    }
   });
 
-  it("applique la limite de débit (HTTP 429) par CF-Connecting-IP", async () => {
+  it("applique les limites de débit pré-auth (429 /mcp/oauth et 404 /mcp) et par titulaire (RL_TITULAIRE)", async () => {
+    reinitialiserQuarantaineIpPourTests();
     const seenKeys: string[] = [];
-    const env: Env = {
-      RATE_LIMITER: {
+    const envPreAuth: Env = {
+      MCP_ENABLED: "true",
+      RL_PRE_AUTH_IP: {
         limit: async ({ key }) => {
           seenKeys.push(key);
           return { success: false };
         },
       },
     };
-    const res = await worker.fetch(
-      new Request("https://outils.poirierlavoie.ca/mcp", {
+    const res429 = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp/oauth", {
         method: "POST",
         headers: {
           "CF-Connecting-IP": "198.51.100.42",
@@ -327,12 +543,26 @@ describe("Worker HTTP & intégration MCP", () => {
         },
         body: "{}",
       }),
-      env,
+      envPreAuth,
       dummyCtx,
     );
-    expect(res.status).toBe(429);
-    expect(res.headers.get("Retry-After")).toBe("60");
+    expect(res429.status).toBe(429);
+    expect(res429.headers.get("Retry-After")).toBe("60");
     expect(seenKeys).toEqual(["198.51.100.42"]);
+
+    const resStealth = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
+        method: "POST",
+        headers: {
+          "CF-Connecting-IP": "198.51.100.42",
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      }),
+      envPreAuth,
+      dummyCtx,
+    );
+    expect(resStealth.status).toBe(404);
   });
 
   it("expose les 15 outils via tools/list et retourne des résultats conformes aux outputSchema", async () => {
@@ -592,6 +822,7 @@ describe("Worker HTTP & intégration MCP", () => {
 
     try {
       const boundEnv: Env = {
+        MCP_ENABLED: "true",
         DB_TERMINOLOGIE: termHarness.d1,
         DB_REGISTRES: regHarness.d1,
         DB_ADRESSES: adrHarness.d1,
@@ -761,12 +992,13 @@ describe("Worker HTTP & intégration MCP", () => {
       method: "POST",
       headers: {
         Host: "outils.poirierlavoie.ca",
+        Authorization: `Bearer ${TEST_MCP_TOKEN}`,
         "Content-Type": "application/json",
         Accept: "application/json",
       },
       body: payload,
     });
-    const resJson = await worker.fetch(reqJson, {}, dummyCtx);
+    const resJson = await worker.fetch(reqJson, ENV_TEST, dummyCtx);
     expect(resJson.status).toBe(200);
     expect(resJson.headers.get("content-type")).toContain("application/json");
     const bodyJson = (await resJson.json()) as JsonRpcResponseBody;
@@ -778,11 +1010,12 @@ describe("Worker HTTP & intégration MCP", () => {
       method: "POST",
       headers: {
         Host: "outils.poirierlavoie.ca",
+        Authorization: `Bearer ${TEST_MCP_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: payload,
     });
-    const resOmitted = await worker.fetch(reqOmitted, {}, dummyCtx);
+    const resOmitted = await worker.fetch(reqOmitted, ENV_TEST, dummyCtx);
     expect(resOmitted.status).toBe(200);
     expect(resOmitted.headers.get("content-type")).toContain("application/json");
     const bodyOmitted = (await resOmitted.json()) as JsonRpcResponseBody;
@@ -794,12 +1027,13 @@ describe("Worker HTTP & intégration MCP", () => {
       method: "POST",
       headers: {
         Host: "outils.poirierlavoie.ca",
+        Authorization: `Bearer ${TEST_MCP_TOKEN}`,
         "Content-Type": "application/json",
         Accept: "*/*",
       },
       body: payload,
     });
-    const resWildcard = await worker.fetch(reqWildcard, {}, dummyCtx);
+    const resWildcard = await worker.fetch(reqWildcard, ENV_TEST, dummyCtx);
     expect(resWildcard.status).toBe(200);
     expect(resWildcard.headers.get("content-type")).toContain("application/json");
     const bodyWildcard = (await resWildcard.json()) as JsonRpcResponseBody;
@@ -811,12 +1045,13 @@ describe("Worker HTTP & intégration MCP", () => {
       method: "POST",
       headers: {
         Host: "outils.poirierlavoie.ca",
+        Authorization: `Bearer ${TEST_MCP_TOKEN}`,
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
       },
       body: payload,
     });
-    const resSse = await worker.fetch(reqSse, {}, dummyCtx);
+    const resSse = await worker.fetch(reqSse, ENV_TEST, dummyCtx);
     expect(resSse.status).toBe(200);
     expect(resSse.headers.get("content-type")).toContain("application/json");
     const parsedSse = (await resSse.json()) as JsonRpcResponseBody;
@@ -825,7 +1060,7 @@ describe("Worker HTTP & intégration MCP", () => {
     expect(parsedSse.result).toBeDefined();
   });
 
-  it("gère le prévol CORS OPTIONS (204), le plafond 64 Kio (413) et le rejet des lots/id structurés (-32600)", async () => {
+  it("gère le prévol CORS OPTIONS (204), le rejet d'origine tierce (403), le plafond 64 Kio (413) et le rejet des lots/id structurés (-32600)", async () => {
     const preflightOk = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/mcp", {
         method: "OPTIONS",
@@ -835,37 +1070,37 @@ describe("Worker HTTP & intégration MCP", () => {
           "Access-Control-Request-Method": "POST",
         },
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
     expect(preflightOk.status).toBe(204);
-    expect(preflightOk.headers.get("access-control-allow-origin")).toBe("*");
+    expect(preflightOk.headers.get("access-control-allow-origin")).toBe("https://claude.ai");
     expect(preflightOk.headers.get("access-control-allow-methods")).toContain("POST, OPTIONS");
 
-    const preflightBadHost = await worker.fetch(
-      new Request("https://evil.example.com/mcp", {
+    const preflightBadOrigin = await worker.fetch(
+      new Request("https://outils.poirierlavoie.ca/mcp", {
         method: "OPTIONS",
         headers: {
-          Host: "evil.example.com",
-          Origin: "https://claude.ai",
+          Origin: "https://evil.example.com",
         },
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
-    expect(preflightBadHost.status).toBe(403);
+    expect(preflightBadOrigin.status).toBe(403);
 
     const oversized = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/mcp", {
         method: "POST",
         headers: {
           Host: "outils.poirierlavoie.ca",
+          Authorization: `Bearer ${TEST_MCP_TOKEN}`,
           "Content-Type": "application/json",
           Accept: "application/json, text/event-stream",
         },
         body: `{"jsonrpc":"2.0","id":1,"method":"tools/list","padding":"${"A".repeat(70_000)}"}`,
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
     expect(oversized.status).toBe(413);
@@ -875,6 +1110,7 @@ describe("Worker HTTP & intégration MCP", () => {
         method: "POST",
         headers: {
           Host: "outils.poirierlavoie.ca",
+          Authorization: `Bearer ${TEST_MCP_TOKEN}`,
           "Content-Type": "application/json",
           Accept: "application/json, text/event-stream",
         },
@@ -883,7 +1119,7 @@ describe("Worker HTTP & intégration MCP", () => {
           { jsonrpc: "2.0", id: 2, method: "tools/list" },
         ]),
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
     expect(batchReq.status).toBe(400);
@@ -896,12 +1132,13 @@ describe("Worker HTTP & intégration MCP", () => {
           method: "POST",
           headers: {
             Host: "outils.poirierlavoie.ca",
+            Authorization: `Bearer ${TEST_MCP_TOKEN}`,
             "Content-Type": "application/json",
             Accept: "application/json, text/event-stream",
           },
           body: JSON.stringify({ jsonrpc: "2.0", id: badId, method: "initialize" }),
         }),
-        {},
+        ENV_TEST,
         dummyCtx,
       );
       expect(badIdReq.status).toBe(400);
@@ -912,9 +1149,12 @@ describe("Worker HTTP & intégration MCP", () => {
     const deleteMcp = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/mcp", {
         method: "DELETE",
-        headers: { Host: "outils.poirierlavoie.ca" },
+        headers: {
+          Host: "outils.poirierlavoie.ca",
+          Authorization: `Bearer ${TEST_MCP_TOKEN}`,
+        },
       }),
-      {},
+      ENV_TEST,
       dummyCtx,
     );
     expect(deleteMcp.status).toBe(405);
@@ -1097,7 +1337,7 @@ describe("Worker HTTP & intégration MCP", () => {
     });
 
     try {
-      const boundEnv: Env = { DB_ECONOMIE: ecoHarness.d1 };
+      const boundEnv: Env = { MCP_ENABLED: "true", DB_ECONOMIE: ecoHarness.d1 };
 
       const healthRes = await worker.fetch(
         new Request("https://outils.poirierlavoie.ca/health"),

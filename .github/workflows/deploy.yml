@@ -141,12 +141,14 @@ jobs:
           tag="${ATTENDU_LONG:0:7}"
           npx wrangler deploy --var "COMMIT:${tag}" --tag "$tag" --message "Deploy ${tag} (GitHub Actions)"
 
-      - name: Vérification vivante (/health, /mcp/server-card et /mcp initialize)
+      - name: Vérification vivante (/health, /mcp/server-card, métadonnées OAuth et portes fermées)
         if: success()
         env:
           ATTENDU_LONG: ${{ github.sha }}
           SANTE: https://outils.poirierlavoie.ca/health
           CARTE: https://outils.poirierlavoie.ca/mcp/server-card
+          PRM: https://outils.poirierlavoie.ca/.well-known/oauth-protected-resource/mcp/oauth
+          MCP_OAUTH_URL: https://outils.poirierlavoie.ca/mcp/oauth
           MCP_URL: https://outils.poirierlavoie.ca/mcp
         run: |
           set -euo pipefail
@@ -172,18 +174,27 @@ jobs:
             echo "::error title=Fiche /mcp/server-card en échec (HTTP ${code_carte})::${CARTE} a répondu HTTP ${code_carte}."
             exit 1
           fi
-          code_mcp=$(curl -sS --max-time 20 -o /tmp/mcp-init.txt -w '%{http_code}' \
+          code_prm=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$PRM" || echo 000)
+          if [ "$code_prm" != "200" ]; then
+            echo "::error title=Métadonnées RFC 9728 en échec (HTTP ${code_prm})::${PRM} a répondu HTTP ${code_prm}."
+            exit 1
+          fi
+          code_oauth=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' \
+            -X POST "$MCP_OAUTH_URL" \
+            -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' \
+            || echo 000)
+          if [ "$code_oauth" != "401" ]; then
+            echo "::error title=Porte OAuth /mcp/oauth mal protégée (HTTP ${code_oauth})::Attendu 401."
+            exit 1
+          fi
+          code_mcp=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' \
             -X POST "$MCP_URL" \
             -H 'Content-Type: application/json' \
-            -H 'Accept: application/json, text/event-stream' \
-            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"github-actions-smoke","version":"1.0.0"}}}' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' \
             || echo 000)
-          if [ "$code_mcp" != "200" ]; then
-            echo "::error title=Initialisation MCP en échec (HTTP ${code_mcp})::${MCP_URL} a répondu HTTP ${code_mcp}."
+          if [ "$code_mcp" != "404" ]; then
+            echo "::error title=Porte porteur /mcp non muette (HTTP ${code_mcp})::Attendu 404 sans jeton."
             exit 1
           fi
-          if ! grep -q '"serverInfo"' /tmp/mcp-init.txt; then
-            echo "::error title=Réponse MCP inattendue::serverInfo absent dans la réponse d'initialisation."
-            exit 1
-          fi
-          echo "Vérification vivante complète : /health=200, /mcp/server-card=200, POST /mcp initialize=200."
+          echo "Vérification vivante complète : /health=200, /mcp/server-card=200, PRM=200, /mcp/oauth=401, /mcp=404."

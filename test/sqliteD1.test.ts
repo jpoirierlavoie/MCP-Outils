@@ -80,7 +80,7 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
   it("expose l'état booléen des 4 bindings D1 sur GET /health et couvre les nouvelles gardes", async () => {
     const hEmpty = await worker.fetch(
       new Request("https://outils.poirierlavoie.ca/health"),
-      {},
+      { MCP_ENABLED: "true" },
       dummyCtx,
     );
     const jEmpty = (await hEmpty.json()) as { databases: Record<string, boolean> };
@@ -95,7 +95,7 @@ describe("Socle D1 en lecture seule (node:sqlite DatabaseSync)", () => {
     try {
       const hBound = await worker.fetch(
         new Request("https://outils.poirierlavoie.ca/health"),
-        { DB_TERMINOLOGIE: harness.d1 },
+        { MCP_ENABLED: "true", DB_TERMINOLOGIE: harness.d1 },
         dummyCtx,
       );
       const jBound = (await hBound.json()) as { databases: Record<string, boolean> };
