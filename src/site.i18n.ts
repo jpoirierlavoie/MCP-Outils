@@ -330,17 +330,13 @@ export const EN = {
   colGreffeType: "Registry type",
 
   acces: [
-    "Public connector — no Barreau account, login, or API key required.",
-    "If you install the droit-civil-quebecois plugin, this connector is included automatically. You " +
-      "can also add https://outils.poirierlavoie.ca/mcp directly in claude.ai, ChatGPT, or Gemini " +
-      "with « No authentication » selected.",
+    "Free access reserved for active Barreau du Québec members in good standing — no CanLII API key required (this connector does not query CanLII).",
+    "Apply once at acces.poirierlavoie.ca/demande (CanLII key optional), then connect https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 in claude.ai, ChatGPT, Gemini, or Antigravity — or use https://outils.poirierlavoie.ca/mcp with your personal Bearer token from /moi.",
   ],
-  accesTechniqueTitre: "Technical details (MCP discovery, rate limits & open-source licences)",
+  accesTechniqueTitre:
+    "Technical details (OAuth 2.1, MCP discovery, quotas & open-source licences)",
   accesTechnique: [
-    "Public endpoint: https://outils.poirierlavoie.ca/mcp. The MCP Server Card is published at " +
-      "https://outils.poirierlavoie.ca/mcp/server-card, and the repository includes standalone " +
-      "manifests for Google Antigravity and Gemini CLI. Zero-logging health check: " +
-      "https://outils.poirierlavoie.ca/health (rate limit: 240 requests per minute per IP).",
+    "Endpoints: https://outils.poirierlavoie.ca/mcp/oauth (OAuth 2.1 PKCE S256 via acces.poirierlavoie.ca) and https://outils.poirierlavoie.ca/mcp (Bearer token or ?key=). RFC 9728 metadata: https://outils.poirierlavoie.ca/.well-known/oauth-protected-resource/mcp/oauth · MCP Server Card: https://outils.poirierlavoie.ca/mcp/server-card · Health check: https://outils.poirierlavoie.ca/health (shared daily local quota: 3,000 active / 300 limited; per-member rate limits: 300/min active, 20/min limited).",
     "The source code and civil-law glossary are free and open-source under Apache-2.0 (see " +
       "LICENSE), while integrated public datasets remain governed by their publishers' licenses " +
       "documented in NOTICE (including CC BY-NC-SA 4.0 for REQ and OQLF).",

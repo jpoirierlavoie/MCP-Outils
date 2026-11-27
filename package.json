@@ -1,8 +1,8 @@
 {
   "name": "mcp-outils",
-  "version": "2.2.3",
+  "version": "3.0.0",
   "private": true,
-  "description": "Serveur MCP public, sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F., taux préférentiel BDC), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses civiques et lots RQA, terminologie bijuridique, taux Banque du Canada, IPC StatCan et calculateur TAL (RLRQ, c. T-15.01, r. 2).",
+  "description": "Serveur MCP sans journalisation et déterministe pour le litige civil québécois : jours fériés et délais (C.p.c. / L.I.), intérêts légaux et indemnité additionnelle (art. 1619 C.c.Q., art. 28 L.A.F., taux préférentiel BDC), greffes et palais de justice (relevé MJQ), registres d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses civiques et lots RQA, terminologie bijuridique, taux Banque du Canada, IPC StatCan et calculateur TAL (RLRQ, c. T-15.01, r. 2).",
   "license": "Apache-2.0",
   "type": "module",
   "main": "src/index.ts",
@@ -21,7 +21,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.6.8",
     "@cloudflare/workers-types": "^5.20261120.1",
-    "@poirierlavoie/mcp-socle": "github:jpoirierlavoie/MCP-Socle#v0.8.7",
+    "@poirierlavoie/mcp-socle": "github:jpoirierlavoie/MCP-Socle#v0.8.8",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1",
     "wrangler": "^4.165.0",

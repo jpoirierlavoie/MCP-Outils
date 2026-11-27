@@ -335,8 +335,8 @@ ${barreSuite()}
 </div>
 ${biP(
   [
-    "Connecteur public gratuit pour la pratique du litige civil et commercial québécois (aucun " +
-      "compte ni aucune clé requis). Il permet à votre assistant IA de calculer avec exactitude " +
+    "Connecteur gratuit réservé aux membres du Barreau du Québec pour la pratique du litige civil et commercial québécois " +
+      "(aucune clé API CanLII requise). Il permet à votre assistant IA de calculer avec exactitude " +
       "les jours fériés, les délais de procédure, les intérêts (art. 1619 C.c.Q.) et la fixation " +
       "de loyer TAL, et de consulter hors ligne les dossiers de cour, palais de justice, registres " +
       "d'entreprises (REQ, RBQ, OPC, RENA, Corporations Canada, GLEIF), adresses/lots RQA, " +
@@ -360,9 +360,9 @@ ${biP(
 )}
 </div>
 <p class="btns">
-<span class="badge">${bi("Accès public · Aucun compte requis", "Public access · No account required")}</span>
-<code>https://outils.poirierlavoie.ca/mcp</code>
-<a class="btn-sec" href="https://acces.poirierlavoie.ca/#connecteurs">${bi("Connecteurs réservés aux membres →", "Member connectors (Legislation & Case Law) →")}</a>
+<span class="badge">${bi("Barreau du Québec · Sans clé CanLII", "Barreau du Québec · No CanLII key")}</span>
+<code>https://outils.poirierlavoie.ca/mcp/oauth</code>
+<a class="btn-sec" href="https://acces.poirierlavoie.ca/demande">${bi("Demander l'accès (/demande) →", "Apply for access (/demande) →")}</a>
 </p>
 </header>`;
 }
@@ -808,22 +808,22 @@ function acces(): string {
 ${h2("acces")}
 ${biP(
   [
-    "Connecteur public — aucun compte du Barreau, aucune connexion ni clé API requis.",
-    "Si vous installez le greffon droit-civil-quebecois, ce connecteur est inclus automatiquement. " +
-      "Vous pouvez aussi ajouter l'adresse https://outils.poirierlavoie.ca/mcp directement dans " +
-      "claude.ai, ChatGPT ou Gemini en choisissant « Aucune authentification ».",
+    "Accès réservé gratuitement aux membres actifs en règle du Barreau du Québec — aucune clé API CanLII requise (ce connecteur ne dépend pas de CanLII).",
+    "Déposez une demande unique sur acces.poirierlavoie.ca/demande (clé CanLII facultative), puis connectez https://outils.poirierlavoie.ca/mcp/oauth via OAuth 2.1 dans claude.ai, ChatGPT, Gemini ou Antigravity — ou utilisez https://outils.poirierlavoie.ca/mcp avec votre jeton personnel (/moi).",
   ],
   EN.acces,
 )}
 <details>
-<summary>${bi("Détails techniques (découverte MCP, limites d'appels et licences)", EN.accesTechniqueTitre)}</summary>
+<summary>${bi("Détails techniques (OAuth 2.1, découverte MCP, quotas et licences)", EN.accesTechniqueTitre)}</summary>
 ${biP(
   [
-    `Service ${SERVER_NAME} v${SERVER_VERSION} — point d'accès : https://outils.poirierlavoie.ca/mcp. ` +
-      "La fiche publique de découverte MCP est publiée sur " +
-      "https://outils.poirierlavoie.ca/mcp/server-card ; le dépôt inclut aussi les manifestes " +
-      "autonomes pour Google Antigravity et Gemini CLI. Vérification de santé sans journalisation : " +
-      "https://outils.poirierlavoie.ca/health (limite de 240 requêtes par minute et par adresse IP).",
+    `Service ${SERVER_NAME} v${SERVER_VERSION} — points d'accès : https://outils.poirierlavoie.ca/mcp/oauth ` +
+      "(OAuth 2.1 PKCE S256 via acces.poirierlavoie.ca) et https://outils.poirierlavoie.ca/mcp " +
+      "(jeton Bearer ou ?key=). Métadonnées RFC 9728 : " +
+      "https://outils.poirierlavoie.ca/.well-known/oauth-protected-resource/mcp/oauth · Fiche de " +
+      "découverte MCP : https://outils.poirierlavoie.ca/mcp/server-card · Santé sans " +
+      "journalisation : https://outils.poirierlavoie.ca/health (quota quotidien partagé local : " +
+      "3 000 appels/jour actif, 300 limité ; débit par titulaire : 300 req/min actif, 20 limité).",
     "Le code source et le glossaire de droit civil sont libres et gratuits sous licence Apache-2.0 " +
       "(voir LICENSE), tandis que les jeux de données publics intégrés demeurent soumis aux " +
       "licences de leurs éditeurs respectifs décrites dans NOTICE (dont CC BY-NC-SA 4.0 pour " +
@@ -918,7 +918,7 @@ function renderSite(): string {
   const titrePage = "MCP Outils — Délais, intérêts, greffes, registres et économie";
   const titrePageEn = "MCP Tools — Deadlines, Interest, Registries, Terms, Economy";
   const descMeta =
-    "Serveur MCP public sans journalisation : délais C.p.c., intérêts art. 1619 C.c.Q., greffes, registres, adresses RQA, terminologie, taux BdC, IPC et loyer TAL.";
+    "Serveur MCP sans journalisation : délais C.p.c., intérêts art. 1619 C.c.Q., greffes, registres, adresses RQA, terminologie, taux BdC, IPC et loyer TAL.";
 
   return `<!doctype html>
 <html lang="fr" class="l-fr">
@@ -994,13 +994,15 @@ function construireLlmsTxt(): string {
     (d) => `- \`${d.name}\` — ${d.title} / ${OUTILS_EN[d.name]?.titre ?? d.title}`,
   );
   return [
-    `# MCP Outils (\`outils\`, ${SERVER_NAME} v${SERVER_VERSION}) — Public Québec Civil Litigation Tools`,
+    `# MCP Outils (\`outils\`, ${SERVER_NAME} v${SERVER_VERSION}) — Québec Civil Litigation Tools`,
     "",
     `> ${SERVER_DESCRIPTION}`,
     "",
-    "## Public Endpoint (no authentication or secret required)",
+    "## Endpoints (OAuth 2.1 & Bearer token via MCP-Acces)",
     "",
-    `- Streamable HTTP: \`${ORIGINE_SITE}/mcp\``,
+    `- Streamable HTTP (OAuth 2.1 PKCE): \`${ORIGINE_SITE}/mcp/oauth\``,
+    `- Streamable HTTP (Bearer token / \`?key=\`): \`${ORIGINE_SITE}/mcp\``,
+    `- OAuth 2.1 Protected Resource Metadata (RFC 9728): ${ORIGINE_SITE}/.well-known/oauth-protected-resource/mcp/oauth`,
     `- MCP Server Card (SEP-2127): ${ORIGINE_SITE}/mcp/server-card`,
     "",
     "## Tools (15 deterministic read-only MCP tools, derived from live registry)",
@@ -1009,10 +1011,10 @@ function construireLlmsTxt(): string {
     "",
     "## Québec Civil Law MCP Suite (`droit-civil-quebecois`)",
     "",
-    "- [MCP Accès (Admission & OAuth 2.1 Portal)](https://acces.poirierlavoie.ca/): Barreau du Québec admission (`/demande`) and `/moi` self-service portal for authenticated connectors.",
-    "- [MCP Législation (`lois`)](https://legislation.poirierlavoie.ca/): Official Québec & federal statutes, regulations, court directives, and AMF texts.",
+    "- [MCP Accès (Admission & OAuth 2.1 Portal)](https://acces.poirierlavoie.ca/): Barreau du Québec admission (`/demande`, no CanLII key required for `lois` and `outils`) and `/moi` self-service portal for all 3 connectors.",
+    "- [MCP Législation (`lois`)](https://legislation.poirierlavoie.ca/): Official Québec & federal statutes, regulations, court directives, and AMF texts (no CanLII key required).",
     "- [MCP Jurisprudence (`juris`)](https://jurisprudence.poirierlavoie.ca/): Case-law citation verification & CanLII metadata (BYOK CanLII).",
-    `- [MCP Outils (\`outils\` — Public)](${ORIGINE_SITE}/): 15 tools across 6 families — calculators, judicial registries, corporate/GLEIF snapshots, RQA addresses, bijural terminology, Bank of Canada rates, StatCan CPI, and TAL/CMHC rents.`,
+    `- [MCP Outils (\`outils\`)](${ORIGINE_SITE}/): 15 tools across 6 families — calculators, judicial registries, corporate/GLEIF snapshots, RQA addresses, bijural terminology, Bank of Canada rates, StatCan CPI, and TAL/CMHC rents (no CanLII key required).`,
     `- [Umbrella Plugin Repository](${DEPOT_PLUGIN}) · [Connector Repository](${DEPOT})`,
     "",
   ].join("\n");

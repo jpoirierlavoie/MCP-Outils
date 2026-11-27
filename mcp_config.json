@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "outils": {
-      "url": "https://outils.poirierlavoie.ca/mcp"
+      "url": "https://outils.poirierlavoie.ca/mcp/oauth"
     }
   }
 }

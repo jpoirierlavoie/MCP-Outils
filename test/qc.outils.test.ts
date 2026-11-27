@@ -23,6 +23,9 @@ interface CallToolRpcResponse {
   error?: { code: number; message: string };
 }
 
+const TEST_TOKEN = "test-secret-outils-qc-unit-token-2026";
+const ENV_TEST = { MCP_ENABLED: "true", MCP_TOKEN: TEST_TOKEN };
+
 async function callToolRaw(
   name: string,
   args: Record<string, unknown>,
@@ -31,6 +34,7 @@ async function callToolRaw(
     method: "POST",
     headers: {
       Host: "outils.poirierlavoie.ca",
+      Authorization: `Bearer ${TEST_TOKEN}`,
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
     },
@@ -41,7 +45,7 @@ async function callToolRaw(
       params: { name, arguments: args },
     }),
   });
-  const res = await worker.fetch(req, {}, dummyCtx);
+  const res = await worker.fetch(req, ENV_TEST, dummyCtx);
   expect(res.status).toBe(200);
   const ct = res.headers.get("content-type") ?? "";
   const raw = await res.text();
