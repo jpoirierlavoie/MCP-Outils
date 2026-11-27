@@ -19,12 +19,12 @@
     "audit": "node scripts/verifier-audit.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.7",
-    "@cloudflare/workers-types": "^5.20261115.1",
+    "@biomejs/biome": "^2.6.8",
+    "@cloudflare/workers-types": "^5.20261120.1",
     "@poirierlavoie/mcp-socle": "github:jpoirierlavoie/MCP-Socle#v0.8.7",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0",
-    "wrangler": "^4.162.0",
+    "vitest": "^5.1.1",
+    "wrangler": "^4.165.0",
     "zod": "^4.6.7"
   }
 }
