@@ -23,9 +23,9 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
          │  Workers AI +       │ │  BYOK CanLII strict │ │  4 D1 lecture seule, Zod │
          │  hybride_permis     │ │  sans fetched_at    │ │  0 clé CanLII requise    │
          └──────────┬──────────┘ └──────────┬──────────┘ └────────────┬─────────────┘
-                    │                       │                         │ (`#v0.8.8` dev)
+                    │                       │                         │ (`#v0.8.9` dev)
                     ├───────────┬───────────┴────┬────────────────────┘
-                    │           ▼ (`#v0.8.8` dev)▼ (`DB_IDENTITE` `mcp-identite`)
+                    │           ▼ (`#v0.8.9` dev)▼ (`DB_IDENTITE` `mcp-identite`)
                     │  ┌──────────────────┐  ┌──────────────────────────────────────┐
                     │  │    MCP-Socle     │  │              MCP-Acces               │
                     │  │ Transport 2026   │  │     https://acces.poirierlavoie.ca   │
@@ -42,7 +42,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 
 ### Relations inter-dépôts et séparation des responsabilités
 - **Découplage de `MCP-Jurisprudence`** : Depuis `v0.2.0`, les outils `greffe_*` et `palais_*` ainsi que `src/qc/` résident ici afin de séparer l'interrogation distante de CanLII (avec secret Bearer) des outils locaux déterministes.
-- **Intégration de `MCP-Socle` (`#v0.8.8`, `devDependencies`)** : `MCP-Outils` embarque `@poirierlavoie/mcp-socle` (`servirRequeteMcp` avec `sertAvant2025_06_18: true`, `ouvrirPrincipal`, `creerDepotJetonsD1`, `repondreCarteServeur`, `repondreRessourceProtegee`, `verifierDebitPreAuth`, `verifierDebitTitulaire`, `verifierQuotaJour`, `lireCorpsBorne`, `methodeNonPermise`, `./verifier-audit`) et `zod` comme dépendances de développement (`0` dépendance d'exécution dans `package.json`).
+- **Intégration de `MCP-Socle` (`#v0.8.9`, `devDependencies`)** : `MCP-Outils` embarque `@poirierlavoie/mcp-socle` (`servirRequeteMcp` avec `sertAvant2025_06_18: true`, `ouvrirPrincipal`, `creerDepotJetonsD1`, `repondreCarteServeur`, `repondreRessourceProtegee`, `verifierDebitPreAuth`, `verifierDebitTitulaire`, `verifierQuotaJour`, `lireCorpsBorne`, `methodeNonPermise`, `./verifier-audit`) et `zod` comme dépendances de développement (`0` dépendance d'exécution dans `package.json`).
 - **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `MCP-Outils` exécute les calculs arithmétiques et fournit les attestations terminologiques et données économiques précalculées en lecture seule.
 
 ---
