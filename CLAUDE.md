@@ -1,6 +1,6 @@
 # MCP-Outils — Architecture, principes et consignes de travail
 
-Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v3.0.0`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
+Directives de développement, architecture et règles anti-dérive pour le serveur MCP `MCP-Outils` (`mcp-outils` `v3.0.1`, Worker Cloudflare `outils`). Ce document définit les principes de conception, les contrats de données, les garde-fous d'arête HTTP, la topologie D1 et les obligations de synchronisation avec le plugin cadre `droit-civil-quebecois`. Il s'applique de façon identique à Claude (`CLAUDE.md`) et à Gemini / Antigravity (`GEMINI.md`).
 
 ---
 
@@ -12,7 +12,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 
 ```
          ┌────────────────────────────────────────────────────────────────┐
-         │          droit-civil-quebecois (Plugin Cadre v3.4.0)           │
+         │          droit-civil-quebecois (Plugin Cadre v3.5.0)           │
          │  10 compétences · 60 feuilles · 6 personas · 4 scripts stdlib  │
          └──────────┬───────────────────────┬──────────────────┬──────────┘
                     │ /mcp + /mcp/oauth     │ /mcp + /mcp/oauth│ /mcp + /mcp/oauth
@@ -23,9 +23,9 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
          │  Workers AI +       │ │  BYOK CanLII strict │ │  4 D1 lecture seule, Zod │
          │  hybride_permis     │ │  sans fetched_at    │ │  0 clé CanLII requise    │
          └──────────┬──────────┘ └──────────┬──────────┘ └────────────┬─────────────┘
-                    │                       │                         │ (`#v0.8.8` dev)
+                    │                       │                         │ (`#v0.8.9` dev)
                     ├───────────┬───────────┴────┬────────────────────┘
-                    │           ▼ (`#v0.8.8` dev)▼ (`DB_IDENTITE` `mcp-identite`)
+                    │           ▼ (`#v0.8.9` dev)▼ (`DB_IDENTITE` `mcp-identite`)
                     │  ┌──────────────────┐  ┌──────────────────────────────────────┐
                     │  │    MCP-Socle     │  │              MCP-Acces               │
                     │  │ Transport 2026   │  │     https://acces.poirierlavoie.ca   │
@@ -42,7 +42,7 @@ Il constitue l'un des trois serveurs MCP du cadre d'assistance juridique québé
 
 ### Relations inter-dépôts et séparation des responsabilités
 - **Découplage de `MCP-Jurisprudence`** : Depuis `v0.2.0`, les outils `greffe_*` et `palais_*` ainsi que `src/qc/` résident ici afin de séparer l'interrogation distante de CanLII (avec secret Bearer) des outils locaux déterministes.
-- **Intégration de `MCP-Socle` (`#v0.8.8`, `devDependencies`)** : `MCP-Outils` embarque `@poirierlavoie/mcp-socle` (`servirRequeteMcp` avec `sertAvant2025_06_18: true`, `ouvrirPrincipal`, `creerDepotJetonsD1`, `repondreCarteServeur`, `repondreRessourceProtegee`, `verifierDebitPreAuth`, `verifierDebitTitulaire`, `verifierQuotaJour`, `lireCorpsBorne`, `methodeNonPermise`, `./verifier-audit`) et `zod` comme dépendances de développement (`0` dépendance d'exécution dans `package.json`).
+- **Intégration de `MCP-Socle` (`#v0.8.9`, `devDependencies`)** : `MCP-Outils` embarque `@poirierlavoie/mcp-socle` (`servirRequeteMcp` avec `sertAvant2025_06_18: true`, `ouvrirPrincipal`, `creerDepotJetonsD1`, `repondreCarteServeur`, `repondreRessourceProtegee`, `verifierDebitPreAuth`, `verifierDebitTitulaire`, `verifierQuotaJour`, `lireCorpsBorne`, `methodeNonPermise`, `./verifier-audit`) et `zod` comme dépendances de développement (`0` dépendance d'exécution dans `package.json`).
 - **Complémentarité avec `MCP-Legislation`** : `MCP-Legislation` demeure la seule source du texte intégral consolidé des lois et règlements, tandis que `MCP-Outils` exécute les calculs arithmétiques et fournit les attestations terminologiques et données économiques précalculées en lecture seule.
 
 ---
@@ -125,7 +125,7 @@ Tous les outils déclarent les annotations MCP :
 
 1. **Contrôles d'arête (`src/index.ts`)** :
    - `GET` / `HEAD /` & `/robots.txt`, `/sitemap.xml`, `/llms.txt` : Page HTML bilingue dérivée de `listToolDescriptors()` et découverte publique (actifs même si `MCP_ENABLED !== "true"`).
-   - `GET` / `HEAD /health` (alias `/healthz` actif si `MCP_ENABLED === "true"`) : Statut JSON (`service: "mcp-outils"`, `version: "3.0.0"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
+   - `GET` / `HEAD /health` (alias `/healthz` actif si `MCP_ENABLED === "true"`) : Statut JSON (`service: "mcp-outils"`, `version: "3.0.1"`, `commit` injecté au déploiement via `--var COMMIT:<sha7>`, `databases: { terminologie, registres, adresses, economie }`, `laf_table_last_quarter`, `prime_table_last_verified_date`, `tal_table_last_lease_renewal_end_date`, liste des 15 outils ; dérive contrôlée quotidiennement par `.github/workflows/verifier-deploiement.yml`).
    - `GET` / `HEAD` / `OPTIONS /mcp/server-card` & `/.well-known/mcp/server-card.json` : Fiche publique de découverte SEP-2127 (`application/mcp-server-card+json; charset=utf-8`, doubles `remotes` `/mcp/oauth` + `/mcp`, `405` sur autres méthodes).
    - `GET` / `HEAD` / `OPTIONS /.well-known/oauth-protected-resource/mcp/oauth` : Métadonnées RFC 9728 (`scopes_supported: ["outils", "tous"]`) lorsque `MCP_ENABLED === "true"`.
    - `POST` / `OPTIONS /mcp/oauth` & `/mcp` (et `/mcp/<jeton>`) : Fermé par défaut (`MCP_ENABLED === "true"`), CORS `ALLOWED_ORIGINS`, limiteurs pré-auth `1041–1043` + par titulaire `1044–1045`, authentification D1 (`outils`/`tous`/`les_deux`, quota `local` `3 000`/j actif et `300`/j limité) ou secret statique autonome (`MCP_TOKEN`/`MCP_SHARED_SECRET`, `401` sur `/mcp/oauth` et `404` vide sur `/mcp`), plafond `MAX_OCTETS_CORPS_MCP = 65_536` (`413`), rejet des requêtes par lots ou `id` non scalaires (`400` / `-32600`), `servirRequeteMcp` (`sertAvant2025_06_18: true`, normalisation `-32601` -> HTTP `200`, réponses `application/json`). Aucune clé API CanLII requise et aucun blocage `ALLOWED_HOSTNAMES` sur `*.workers.dev`.
@@ -159,7 +159,7 @@ Tous les outils déclarent les annotations MCP :
 4. **Invariant 4 : Intégrité verbatim des gardes MJQ** (`src/qc/format.ts`) et **exclusion des sources terminologiques protégées** (jamais Crépeau/McGill, Juriterm ni Juridictionnaire).
 5. **Invariant 5 : Séparation stricte entre données indicatives et registres officiels** — nomenclature pure sans plumitif (`greffe_parse_number`), instantanés corporatifs sans dirigeants personnes physiques (`registre_*`), existence civique municipale distincte du domicile et du Registre foncier (`adresse_verify`), IPC/SCHL indicatifs et blocage de divergence de base (`indice_ipc`, `loyer_tal`).
 6. **Invariant 6 : La page publique `/` dérive du code** (`listToolDescriptors()`, identité visuelle partagée avec `MCP-Legislation` et `MCP-Jurisprudence`).
-7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v3.0.0`, 15 outils sur 6 familles, plafonds `<= 64` car.).
+7. **Invariant 7 : Synchronisation complète des surfaces locales et de `droit-civil-quebecois`** (`v3.0.1`, 15 outils sur 6 familles, plafonds `<= 64` car.).
 8. **Invariant 8 : Limitation de débit d'arête (`1041`–`1045`), taille maximale (`64 KiB`) et quotas journaliers (`3 000` / `300` `local`)**.
 9. **Invariant 9 : Gouvernance Git (`main-pr-and-ci`)** — Le contournement administrateur du ruleset `main-pr-and-ci` est restreint à `pull_request` : **ne jamais pousser directement sur `main`** ; travailler sur une branche dédiée, ouvrir une Pull Request, attendre le passage des contrôles requis (`verify`, `CodeQL`, `OSV-Scanner`, `Trivy`), puis fusionner par *squash* (`gh pr merge --squash --delete-branch`).
 
